@@ -116,6 +116,28 @@ function App() {
     if (activeTaskId && !ids.includes(activeTaskId)) setActiveTaskId(null);
   }, [pov]);
 
+  // Session tracking — log start/end whenever activeTaskId changes
+  const sessionStartRef = React.useRef(null);
+  const focusTaskIdRef  = React.useRef(focusTaskId);
+  React.useEffect(() => { focusTaskIdRef.current = focusTaskId; }, [focusTaskId]);
+  React.useEffect(() => {
+    if (activeTaskId) {
+      sessionStartRef.current = Date.now();
+    } else if (sessionStartRef.current) {
+      const dur = Math.floor((Date.now() - sessionStartRef.current) / 1000);
+      sessionStartRef.current = null;
+      const tid = focusTaskIdRef.current;
+      if (dur >= 5 && tid) {
+        try {
+          const all = JSON.parse(localStorage.getItem("lifeos_sessions") || "{}");
+          if (!all[tid]) all[tid] = [];
+          all[tid].push({ ts: new Date().toISOString(), dur });
+          localStorage.setItem("lifeos_sessions", JSON.stringify(all));
+        } catch {}
+      }
+    }
+  }, [activeTaskId]);
+
   // Tick the active task across whole app
   React.useEffect(() => {
     if (!activeTaskId) return;

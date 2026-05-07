@@ -170,6 +170,47 @@ function TaskDetail({ task, onBack, taskTimes, setTaskTimes, activeTaskId, setAc
     krTitle: task._krTitle,
   } : null;
 
+  // Est time (editable, minutes)
+  const [est, setEst] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("lifeos_task_est") || "{}")[task.id] || 0; } catch { return 0; }
+  });
+  const saveEst = (val) => {
+    const n = Math.max(0, Math.round(val / 5) * 5);
+    setEst(n);
+    try {
+      const all = JSON.parse(localStorage.getItem("lifeos_task_est") || "{}");
+      all[task.id] = n;
+      localStorage.setItem("lifeos_task_est", JSON.stringify(all));
+    } catch {}
+  };
+
+  // Subtasks
+  const [subtasks, setSubtasks] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("lifeos_subtasks") || "{}")[task.id] || []; } catch { return []; }
+  });
+  const saveSubtasks = (arr) => {
+    setSubtasks(arr);
+    try {
+      const all = JSON.parse(localStorage.getItem("lifeos_subtasks") || "{}");
+      all[task.id] = arr;
+      localStorage.setItem("lifeos_subtasks", JSON.stringify(all));
+    } catch {}
+  };
+  const addSubtask = () => {
+    const next = [...subtasks, { id: `st_${Date.now()}`, text: "", done: false }];
+    saveSubtasks(next);
+  };
+  const doneCount = subtasks.filter(s => s.done).length;
+
+  // Work sessions (read-only, written by app.jsx)
+  const [sessions, setSessions] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("lifeos_sessions") || "{}")[task.id] || []; } catch { return []; }
+  });
+  // Refresh sessions when task becomes active/inactive
+  React.useEffect(() => {
+    try { setSessions(JSON.parse(localStorage.getItem("lifeos_sessions") || "{}")[task.id] || []); } catch {}
+  }, [task.id]);
+
   const [assignment, setAssignment] = React.useState(() => {
     try { return JSON.parse(localStorage.getItem("lifeos_task_assignments") || "{}")[task.id] || null; } catch { return null; }
   });
@@ -252,6 +293,118 @@ function TaskDetail({ task, onBack, taskTimes, setTaskTimes, activeTaskId, setAc
             <button onClick={() => setTaskTimes(prev => ({ ...prev, [task.id]: 0 }))}
               style={{ background: "none", border: "none", color: "var(--text-faint)", fontSize: 9.5, letterSpacing: "0.14em", cursor: "pointer", padding: 0 }}>RESET</button>
           )}
+        </div>
+      </div>
+
+      {/* ── Stats row ─────────────────────────────────────────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 16 }}>
+
+        {/* Est Zeit */}
+        <div style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "16px 18px" }}>
+          <div className="uppercase-label" style={{ marginBottom: 10 }}>Geschätzte Zeit</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input type="number" min={0} step={5} value={est || ""}
+              onChange={e => saveEst(Number(e.target.value))}
+              onBlur={e => !e.target.value && saveEst(0)}
+              placeholder="—"
+              style={{
+                width: 64, background: "var(--panel-2)", border: "1px solid var(--line)",
+                color: "var(--text)", padding: "6px 8px", fontSize: 20,
+                fontFamily: "'JetBrains Mono',monospace", outline: "none",
+                textAlign: "right", MozAppearance: "textfield",
+              }} />
+            <span style={{ fontSize: 12, color: "var(--text-faint)" }}>min</span>
+          </div>
+          {est > 0 && elapsed > 0 && (
+            <div style={{ marginTop: 8 }}>
+              <div style={{ height: 3, background: "var(--line-soft)", marginBottom: 4 }}>
+                <div style={{ height: "100%", background: elapsed/60 > est ? "var(--danger)" : "var(--accent)", width: `${Math.min(100, (elapsed/60)/est*100)}%`, transition: "width .4s" }} />
+              </div>
+              <div style={{ fontSize: 9.5, color: elapsed/60 > est ? "var(--danger)" : "var(--text-faint)", letterSpacing: "0.08em" }}>
+                {Math.round(elapsed/60)}/{est} min
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Total tracked */}
+        <div style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "16px 18px" }}>
+          <div className="uppercase-label" style={{ marginBottom: 10 }}>Getracked</div>
+          <div className="mono" style={{ fontSize: 22, color: elapsed > 0 ? "var(--accent)" : "var(--text-faint)" }}>
+            {fmtTime(elapsed)}
+          </div>
+          {sessions.length > 0 && (
+            <div style={{ fontSize: 9.5, color: "var(--text-faint)", marginTop: 6, letterSpacing: "0.08em" }}>
+              {sessions.length} Session{sessions.length !== 1 ? "s" : ""}
+            </div>
+          )}
+        </div>
+
+        {/* Subtask progress */}
+        <div style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "16px 18px" }}>
+          <div className="uppercase-label" style={{ marginBottom: 10 }}>Subtasks</div>
+          <div className="mono" style={{ fontSize: 22, color: subtasks.length === 0 ? "var(--text-faint)" : doneCount === subtasks.length && subtasks.length > 0 ? "var(--good)" : "var(--text-dim)" }}>
+            {subtasks.length === 0 ? "—" : `${doneCount}/${subtasks.length}`}
+          </div>
+          {subtasks.length > 0 && (
+            <div style={{ height: 3, background: "var(--line-soft)", marginTop: 8 }}>
+              <div style={{ height: "100%", background: doneCount === subtasks.length ? "var(--good)" : "var(--accent)", width: `${subtasks.length > 0 ? doneCount/subtasks.length*100 : 0}%`, transition: "width .3s" }} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Subtasks ──────────────────────────────────────────────────────── */}
+      <div style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "18px 22px", marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: subtasks.length > 0 ? 14 : 0 }}>
+          <div className="uppercase-label">
+            Subtasks
+            {subtasks.length > 0 && (
+              <span style={{ marginLeft: 8, color: doneCount === subtasks.length ? "var(--good)" : "var(--accent)", fontWeight: 700 }}>
+                {doneCount}/{subtasks.length}
+              </span>
+            )}
+          </div>
+          <button onClick={addSubtask} style={{
+            background: "none", border: "1px dashed var(--line)", color: "var(--accent)",
+            padding: "3px 12px", fontSize: 9.5, letterSpacing: "0.12em", fontWeight: 700, cursor: "pointer",
+          }}>+ SUBTASK</button>
+        </div>
+        {subtasks.length === 0 && (
+          <div style={{ fontSize: 11.5, color: "var(--text-faint)", fontStyle: "italic" }}>
+            Task in Zwischenschritte aufteilen — + SUBTASK klicken.
+          </div>
+        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {subtasks.map((st, i) => (
+            <div key={st.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button onClick={() => {
+                const next = [...subtasks]; next[i] = { ...next[i], done: !next[i].done }; saveSubtasks(next);
+              }} style={{
+                width: 18, height: 18, borderRadius: 3, cursor: "pointer", flexShrink: 0,
+                background: st.done ? "var(--accent)" : "transparent",
+                border: `2px solid ${st.done ? "var(--accent)" : "var(--line)"}`,
+                color: st.done ? "#0a0a0c" : "transparent",
+                fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
+                transition: "all .15s",
+              }}>{st.done ? "✓" : ""}</button>
+              <input
+                autoFocus={st.text === ""}
+                value={st.text}
+                onChange={e => { const n = [...subtasks]; n[i] = { ...n[i], text: e.target.value }; saveSubtasks(n); }}
+                onKeyDown={e => { if (e.key === "Enter") addSubtask(); if (e.key === "Backspace" && !st.text) saveSubtasks(subtasks.filter((_, j) => j !== i)); }}
+                placeholder="Zwischenschritt…"
+                style={{
+                  flex: 1, background: "transparent", border: "none",
+                  borderBottom: "1px solid var(--line-soft)",
+                  color: st.done ? "var(--text-faint)" : "var(--text)",
+                  textDecoration: st.done ? "line-through" : "none",
+                  fontSize: 13, padding: "4px 0", outline: "none", fontFamily: "inherit",
+                }} />
+              <button onClick={() => saveSubtasks(subtasks.filter((_, j) => j !== i))}
+                style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 14, padding: "0 4px", opacity: 0.5, lineHeight: 1 }}>×</button>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -402,6 +555,33 @@ function TaskDetail({ task, onBack, taskTimes, setTaskTimes, activeTaskId, setAc
           )}
         </div>
       </div>
+
+      {/* ── Work Log ──────────────────────────────────────────────────────── */}
+      {sessions.length > 0 && (
+        <div style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "18px 22px", marginTop: 16 }}>
+          <div className="uppercase-label" style={{ marginBottom: 14 }}>Arbeitsvorgänge</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {[...sessions].reverse().map((s, i) => {
+              const d = new Date(s.ts);
+              const DE_DAYS = ["So","Mo","Di","Mi","Do","Fr","Sa"];
+              const dateStr = `${DE_DAYS[d.getDay()]}, ${d.getDate()}.${d.getMonth()+1}. · ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")} Uhr`;
+              return (
+                <div key={i} style={{
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  padding: "9px 14px", background: "var(--panel-2)",
+                  borderLeft: `2px solid ${i === 0 ? "var(--accent)" : "var(--line)"}`,
+                }}>
+                  <span style={{ fontSize: 11.5, color: "var(--text-faint)", fontFamily: "'JetBrains Mono',monospace" }}>{dateStr}</span>
+                  <span className="mono" style={{ fontSize: 13, color: i === 0 ? "var(--accent)" : "var(--text-dim)", fontWeight: 600 }}>{fmtTime(s.dur)}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ marginTop: 10, fontSize: 9.5, color: "var(--text-faint)", letterSpacing: "0.08em" }}>
+            Gesamt: <span style={{ color: "var(--text-dim)", fontFamily: "'JetBrains Mono',monospace" }}>{fmtTime(sessions.reduce((a, s) => a + s.dur, 0))}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
