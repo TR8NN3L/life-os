@@ -110,6 +110,8 @@ function Insights({ taskTimes, pov }) {
   // ── Alle Tasks aller POVs zusammensammeln ──────────────────────────────────
   const allTasks = React.useMemo(() => {
     const result = [];
+    let krOverrides = {};
+    try { krOverrides = JSON.parse(localStorage.getItem("lifeos_task_kr_overrides") || "{}"); } catch {}
     for (const povId of Object.keys(POV_DATA)) {
       const data = POV_DATA[povId];
       const povColor = POVS.find(p => p.id === povId)?.color || "var(--accent)";
@@ -119,11 +121,12 @@ function Insights({ taskTimes, pov }) {
         try { return new Set(JSON.parse(localStorage.getItem(`lifeos_done_${povId}`) || "[]")); } catch { return new Set(); }
       })();
       for (const t of [...data.tasksToday, ...custom]) {
-        const kr = data.objective.keyResults.find(k => k.id === t.kr);
+        const effectiveKrId = t.kr || krOverrides[t.id];
+        const kr = data.objective.keyResults.find(k => k.id === effectiveKrId);
         result.push({
           ...t,
           povId, povColor,
-          krLabel: kr?.label || (t.kr ? t.kr : null),
+          krLabel: kr?.label || (effectiveKrId ? effectiveKrId : null),
           elapsed: times[t.id] ?? t.elapsed ?? 0,
           done: doneSet.has(t.id),
         });

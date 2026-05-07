@@ -211,6 +211,24 @@ function TaskDetail({ task, onBack, taskTimes, setTaskTimes, activeTaskId, setAc
     try { setSessions(JSON.parse(localStorage.getItem("lifeos_sessions") || "{}")[task.id] || []); } catch {}
   }, [task.id]);
 
+  // KR override for side quests
+  const [krOverride, setKrOverride] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("lifeos_task_kr_overrides") || "{}")[task.id] || null; } catch { return null; }
+  });
+  const [assigningKR, setAssigningKR] = React.useState(false);
+  const [selOvrKR, setSelOvrKR] = React.useState("");
+  const povKRs = (POV_DATA[povId]?.objective?.keyResults || []).filter(k => k.status !== "locked");
+  const saveKrOverride = (krId) => {
+    setKrOverride(krId || null);
+    try {
+      const all = JSON.parse(localStorage.getItem("lifeos_task_kr_overrides") || "{}");
+      if (krId) all[task.id] = krId; else delete all[task.id];
+      localStorage.setItem("lifeos_task_kr_overrides", JSON.stringify(all));
+    } catch {}
+  };
+  const effectiveKrId = task.kr || krOverride;
+  const effectiveKrDef = effectiveKrId ? povKRs.find(k => k.id === effectiveKrId) : null;
+
   const [assignment, setAssignment] = React.useState(() => {
     try { return JSON.parse(localStorage.getItem("lifeos_task_assignments") || "{}")[task.id] || null; } catch { return null; }
   });
@@ -269,10 +287,37 @@ function TaskDetail({ task, onBack, taskTimes, setTaskTimes, activeTaskId, setAc
           </h1>
           {task.sub && <div style={{ fontSize: 13, color: "var(--text-faint)", marginTop: 6 }}>{task.sub}</div>}
           <div style={{ marginTop: 12 }}>
-            {task.kr ? (
-              <span style={{ padding: "3px 12px", color: povColor, border: `1px solid ${povColor}`, fontSize: 10, letterSpacing: "0.12em", fontWeight: 700 }}>→ {task.kr}</span>
+            {effectiveKrId ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ padding: "3px 12px", color: povColor, border: `1px solid ${povColor}`, fontSize: 10, letterSpacing: "0.12em", fontWeight: 700 }}>
+                  → {effectiveKrDef?.label || effectiveKrId}
+                </span>
+                {krOverride && !task.kr && (
+                  <button onClick={() => saveKrOverride(null)} style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 9.5, letterSpacing: "0.1em", padding: 0 }}>× zurücksetzen</button>
+                )}
+              </div>
+            ) : assigningKR ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <select value={selOvrKR} onChange={e => setSelOvrKR(e.target.value)}
+                  style={{ background: "var(--panel-2)", border: "1px solid var(--accent-line)", color: selOvrKR ? "var(--text)" : "var(--text-faint)", padding: "5px 10px", fontSize: 11, fontFamily: "inherit", outline: "none" }}>
+                  <option value="">KR wählen…</option>
+                  {povKRs.map(kr => <option key={kr.id} value={kr.id}>{kr.label}</option>)}
+                </select>
+                <button disabled={!selOvrKR} onClick={() => { saveKrOverride(selOvrKR); setAssigningKR(false); }}
+                  style={{ padding: "5px 12px", background: selOvrKR ? "var(--accent)" : "var(--panel-2)", color: selOvrKR ? "#0a0a0c" : "var(--text-faint)", border: "none", fontWeight: 700, fontSize: 10, cursor: selOvrKR ? "pointer" : "default" }}>✓</button>
+                <button onClick={() => { setAssigningKR(false); setSelOvrKR(""); }}
+                  style={{ padding: "5px 10px", background: "transparent", border: "1px solid var(--line)", color: "var(--text-faint)", fontSize: 10, cursor: "pointer" }}>✕</button>
+              </div>
             ) : (
-              <span style={{ padding: "3px 12px", color: "var(--warn)", border: "1px solid rgba(212,162,60,.4)", background: "var(--warn-soft)", fontSize: 10, fontWeight: 700, letterSpacing: "0.12em" }}>⚠ SIDE QUEST — Kein KR</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ padding: "3px 12px", color: "var(--warn)", border: "1px solid rgba(212,162,60,.4)", background: "var(--warn-soft)", fontSize: 10, fontWeight: 700, letterSpacing: "0.12em" }}>⚠ SIDE QUEST — Kein KR</span>
+                {povKRs.length > 0 && (
+                  <button onClick={() => setAssigningKR(true)} style={{
+                    padding: "3px 12px", background: "transparent", border: "1px solid var(--line)",
+                    color: "var(--text-faint)", fontSize: 9.5, letterSpacing: "0.12em", fontWeight: 700, cursor: "pointer",
+                  }}>→ KR ZUWEISEN</button>
+                )}
+              </div>
             )}
           </div>
         </div>

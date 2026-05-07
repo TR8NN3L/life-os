@@ -87,6 +87,7 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
 
   const active = tasksToday.find(t => t.id === activeTaskId);
   const elapsedFor = (t) => taskTimes[t.id] ?? t.elapsed;
+  const krOverrides = (() => { try { return JSON.parse(localStorage.getItem("lifeos_task_kr_overrides") || "{}"); } catch { return {}; } })();
 
   // Strategic Anchor column — KRs are now clickable filters
   const Anchor = () => (
@@ -244,7 +245,7 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
         <div style={{ padding: "0 28px" }}>
           {filteredTasks.map((t, i) => {
             const isActive = activeTaskId === t.id;
-            const isSideQuest = t.kr === null || t.kr === undefined;
+            const isSideQuest = !t.kr && !krOverrides[t.id];
             const noteEntry = getNoteEntry(t.id);
             const hasNote = !!noteEntry.text;
             const isDone = doneTasks.has(t.id);
@@ -293,6 +294,14 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
                         background: "var(--warn-soft)", padding: "2px 7px",
                       }}>⚠ SIDE QUEST</span>
                     )}
+                    {!t.kr && krOverrides[t.id] && (() => {
+                      const oKr = objective.keyResults.find(k => k.id === krOverrides[t.id]);
+                      return oKr ? (
+                        <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", color: "var(--accent)", border: "1px solid var(--accent-line)", padding: "2px 7px" }}>
+                          → {oKr.label}
+                        </span>
+                      ) : null;
+                    })()}
                     {hasNote && (
                       <span title="Hat Notiz" style={{ fontSize: 9.5, color: "var(--accent)", opacity: 0.7 }}>✎</span>
                     )}
@@ -303,10 +312,14 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
                     </div>
                   ) : (
                     <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 2 }}>
-                      {isSideQuest
-                        ? <span style={{ color: "var(--warn)", fontStyle: "italic" }}>Warum machst du das? → Kein KR-Bezug.</span>
-                        : t.sub
-                      }
+                      {(() => {
+                        if (isSideQuest) return <span style={{ color: "var(--warn)", fontStyle: "italic" }}>Warum machst du das? → Kein KR-Bezug.</span>;
+                        if (!t.kr && krOverrides[t.id]) {
+                          const oKr = objective.keyResults.find(k => k.id === krOverrides[t.id]);
+                          if (oKr) return <span style={{ color: "var(--accent)" }}>✓ Konvertiert → {oKr.label}</span>;
+                        }
+                        return t.sub;
+                      })()}
                     </div>
                   )}
                 </div>
