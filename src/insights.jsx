@@ -1,5 +1,109 @@
 // Insights — echte Daten aus localStorage: Zeit pro KR, Promised vs. Delivered, Debt.
 
+// ── Grafana-inspired SVG Time Series Chart ─────────────────────────────────
+function TruthLoopChart({ days, plan, reality }) {
+  const W = 560, H = 160;
+  const PAD = { top: 12, right: 12, bottom: 28, left: 38 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
+  const maxY = Math.max(...plan, ...reality, 1) * 1.3;
+  const n = days.length;
+  const xStep = cW / (n - 1);
+  const toX = i => PAD.left + i * xStep;
+  const toY = v => PAD.top + cH * (1 - v / maxY);
+
+  const polyline = arr => arr.map((v, i) => `${toX(i)},${toY(v)}`).join(' ');
+  const area = arr => {
+    const pts = arr.map((v, i) => `${toX(i)},${toY(v)}`).join(' L ');
+    return `M ${toX(0)},${toY(0)} L ${pts} L ${toX(n-1)},${toY(0)} Z`;
+  };
+
+  const step = maxY <= 4 ? 1 : maxY <= 8 ? 2 : 4;
+  const yTicks = [];
+  for (let v = 0; v <= maxY; v += step) yTicks.push(v);
+
+  return (
+    <svg width={W} height={H} style={{ width:'100%', height:'auto', overflow:'visible', display:'block' }}>
+      <defs>
+        <linearGradient id="tlAreaGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.3" />
+          <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.02" />
+        </linearGradient>
+      </defs>
+
+      {/* horizontal grid lines */}
+      {yTicks.map(v => (
+        <g key={v}>
+          <line x1={PAD.left} y1={toY(v)} x2={W - PAD.right} y2={toY(v)}
+            stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
+          <text x={PAD.left - 5} y={toY(v) + 3.5} textAnchor="end"
+            fill="var(--text-faint)" fontSize={8.5} fontFamily="'JetBrains Mono',monospace">
+            {v}h
+          </text>
+        </g>
+      ))}
+
+      {/* reality area fill */}
+      <path d={area(reality)} fill="url(#tlAreaGrad)" />
+
+      {/* plan — dashed */}
+      <polyline points={polyline(plan)} fill="none"
+        stroke="var(--text-dim)" strokeWidth={1.5} strokeDasharray="5 4" opacity={0.6} />
+
+      {/* reality — solid */}
+      <polyline points={polyline(reality)} fill="none"
+        stroke="var(--accent)" strokeWidth={2} strokeLinejoin="round" />
+
+      {/* dots + delta connectors + labels */}
+      {days.map((day, i) => {
+        const x = toX(i);
+        const yr = toY(reality[i]);
+        const yp = toY(plan[i]);
+        const delta = reality[i] - plan[i];
+        const dc = delta >= 0 ? 'var(--good)' : 'var(--danger)';
+        return (
+          <g key={day}>
+            <line x1={x} y1={yr} x2={x} y2={yp} stroke={dc} strokeWidth={1} opacity={0.55} />
+            <circle cx={x} cy={yr} r={3.5} fill={dc} />
+            <circle cx={x} cy={yp} r={2.5} fill="var(--text-faint)" opacity={0.7} />
+            <text x={x} y={H - 5} textAnchor="middle"
+              fill="var(--text-faint)" fontSize={9} fontFamily="inherit">{day}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// ── Grafana-inspired Gauge Ring ─────────────────────────────────────────────
+function GaugeRing({ pct, color, label, size = 96 }) {
+  const r = (size - 14) / 2;
+  const cx = size / 2, cy = size / 2;
+  const circ = 2 * Math.PI * r;
+  const dash = circ * Math.min(Math.max(pct, 0), 1);
+  return (
+    <svg width={size} height={size} style={{ overflow:'visible' }}>
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--line-soft)" strokeWidth={8} />
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth={8}
+        strokeDasharray={`${dash} ${circ}`} strokeLinecap="butt"
+        transform={`rotate(-90 ${cx} ${cy})`}
+        style={{ transition:'stroke-dasharray .6s ease' }}
+      />
+      <text x={cx} y={cy + 5} textAnchor="middle"
+        fill={color} fontSize={14} fontWeight={700}
+        fontFamily="'JetBrains Mono',monospace">
+        {pct !== null ? `${Math.round(pct * 100)}%` : '—'}
+      </text>
+      {label && (
+        <text x={cx} y={cy + 17} textAnchor="middle"
+          fill="var(--text-faint)" fontSize={7.5} fontFamily="inherit" letterSpacing="0.12em">
+          {label}
+        </text>
+      )}
+    </svg>
+  );
+}
+
 function Insights({ taskTimes, pov }) {
   const times = taskTimes || {};
 
@@ -96,69 +200,46 @@ function Insights({ taskTimes, pov }) {
         <StatCard label="TASKS ERLEDIGT" value={`${allTasks.filter(t => t.done).length} / ${allTasks.length}`} color="var(--good)" sub="gesamt" />
       </div>
 
-      {/* ── Efficiency Score ───────────────────────────────────── */}
+      {/* ── Efficiency Score (Gauge) ───────────────────────────── */}
       <div style={{ background: "var(--panel)", border: "1px solid var(--line-soft)", padding: "20px 24px", marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
+          <GaugeRing pct={effScore !== null ? effScore / 100 : null} color={effColor} size={100} />
+          <div style={{ flex: 1 }}>
             <div className="uppercase-label" style={{ marginBottom: 4 }}>Efficiency Score</div>
-            <div style={{ fontSize: 11, color: "var(--text-faint)" }}>Deep Work % vs. Busy Work — aus echten Timer-Daten</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: effColor, marginBottom: 4 }}>{effLabel}</div>
+            <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 14 }}>Deep Work % vs. Busy Work — aus echten Timer-Daten</div>
+            {totalTrackedSec > 0 ? (
+              <>
+                {/* Stacked bar */}
+                <div style={{ height: 6, display: "flex", overflow: "hidden", background: "var(--line-soft)", marginBottom: 8 }}>
+                  {deepWorkSec > 0 && <div style={{ width: `${(deepWorkSec / totalTrackedSec) * 100}%`, background: effColor, transition: "width .5s ease" }} />}
+                  {busyWorkSec > 0 && <div style={{ flex: 1, background: "var(--warn)" }} />}
+                </div>
+                <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, color: "var(--text-dim)" }}>
+                    <span style={{ width: 8, height: 8, background: effColor, display: "inline-block" }} />
+                    Deep Work — {secToH(deepWorkSec)}
+                  </span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, color: "var(--text-dim)" }}>
+                    <span style={{ width: 8, height: 8, background: "var(--warn)", display: "inline-block" }} />
+                    Busy Work — {secToH(busyWorkSec)}
+                  </span>
+                  <span style={{ fontSize: 10.5, color: "var(--text-faint)" }}>Gesamt {secToH(totalTrackedSec)}</span>
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: 11, color: "var(--text-faint)" }}>Noch keine Timer-Daten. Starte Tasks im Dashboard.</div>
+            )}
           </div>
-          <div style={{ textAlign: "right" }}>
-            <div className="mono" style={{ fontSize: 42, fontWeight: 700, color: effColor, lineHeight: 1 }}>
-              {effScore !== null ? `${effScore}%` : "—"}
+          {/* POV gauge rings */}
+          {totalTrackedSec > 0 && (
+            <div style={{ display: "flex", gap: 16 }}>
+              {povStats.filter(s => s.total > 0).map(({ pov: p, pct }) => (
+                <GaugeRing key={p.id} pct={pct} color={p.color} label={p.label.toUpperCase()} size={72} />
+              ))}
             </div>
-            <div style={{ fontSize: 11, color: effColor, letterSpacing: "0.1em", fontWeight: 700, marginTop: 4 }}>{effLabel}</div>
-          </div>
+          )}
         </div>
-
-        {totalTrackedSec > 0 ? (
-          <>
-            {/* Split bar */}
-            <div style={{ height: 24, display: "flex", overflow: "hidden", marginBottom: 10, background: "var(--line-soft)" }}>
-              {deepWorkSec > 0 && (
-                <div style={{
-                  width: `${(deepWorkSec / totalTrackedSec) * 100}%`,
-                  background: effColor, display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 9.5, fontWeight: 700, letterSpacing: "0.1em", color: "#0a0a0c",
-                  transition: "width .5s ease", minWidth: 32,
-                }}>
-                  {Math.round((deepWorkSec / totalTrackedSec) * 100)}%
-                </div>
-              )}
-              {busyWorkSec > 0 && (
-                <div style={{
-                  flex: 1, background: "var(--warn)", display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 9.5, fontWeight: 700, letterSpacing: "0.1em", color: "#0a0a0c",
-                }}>
-                  {Math.round((busyWorkSec / totalTrackedSec) * 100)}%
-                </div>
-              )}
-            </div>
-            {/* Legend */}
-            <div style={{ display: "flex", gap: 24 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ width: 12, height: 12, background: effColor }} />
-                <span style={{ fontSize: 11, color: "var(--text-dim)" }}>
-                  Deep Work — {secToH(deepWorkSec)} ({Math.round((deepWorkSec / totalTrackedSec) * 100)}%)
-                </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ width: 12, height: 12, background: "var(--warn)" }} />
-                <span style={{ fontSize: 11, color: "var(--text-dim)" }}>
-                  Busy Work / Side Quests — {secToH(busyWorkSec)} ({Math.round((busyWorkSec / totalTrackedSec) * 100)}%)
-                </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ width: 12, height: 12, background: "var(--line-soft)", border: "1px solid var(--line)" }} />
-                <span style={{ fontSize: 11, color: "var(--text-dim)" }}>Gesamt — {secToH(totalTrackedSec)}</span>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div style={{ padding: "20px 0", textAlign: "center", color: "var(--text-faint)", fontSize: 12 }}>
-            Noch keine Timer-Daten. Starte Tasks im Dashboard und komm zurück.
-          </div>
-        )}
       </div>
 
       {/* ── Two-column grid ─────────────────────────────────────── */}
@@ -277,33 +358,55 @@ function Insights({ taskTimes, pov }) {
         </div>
       )}
 
-      {/* ── Wochen-Delta (Truth Loop static) ───────────────────── */}
-      <div className="uppercase-label" style={{ marginBottom: 10 }}>Wochen-Delta (Truth Loop)</div>
-      <div style={{ background: "var(--panel)", border: "1px solid var(--line-soft)", marginBottom: 20 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 80px 80px 100px", padding: "10px 18px", borderBottom: "1px solid var(--line-soft)" }}>
-          {["TAG", "PLAN VS REALITÄT", "PLAN", "REAL", "DELTA"].map(h => (
-            <span key={h} className="uppercase-label" style={{ textAlign: h === "TAG" ? "left" : "right" }}>{h}</span>
-          ))}
+      {/* ── Wochen-Delta (Truth Loop — Time Series Chart) ──────── */}
+      <div style={{ background: "var(--panel)", border: "1px solid var(--line-soft)", padding: "20px 24px", marginBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+          <div>
+            <div className="uppercase-label" style={{ marginBottom: 4 }}>Wochen-Delta — Truth Loop</div>
+            <div style={{ fontSize: 11, color: "var(--text-faint)" }}>Plan vs. Realität pro Tag dieser Woche</div>
+          </div>
+          {/* Chart legend */}
+          <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10 }}>
+              <svg width={20} height={8}><line x1={0} y1={4} x2={20} y2={4} stroke="var(--text-dim)" strokeWidth={1.5} strokeDasharray="5 4" opacity={0.6} /></svg>
+              <span style={{ color: "var(--text-faint)", letterSpacing: "0.1em" }}>PLAN</span>
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10 }}>
+              <svg width={20} height={8}><line x1={0} y1={4} x2={20} y2={4} stroke="var(--accent)" strokeWidth={2} /></svg>
+              <span style={{ color: "var(--text-faint)", letterSpacing: "0.1em" }}>REALITÄT</span>
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10 }}>
+              <svg width={8} height={8}><circle cx={4} cy={4} r={3.5} fill="var(--good)" /></svg>
+              <span style={{ color: "var(--text-faint)", letterSpacing: "0.1em" }}>ÜBER PLAN</span>
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10 }}>
+              <svg width={8} height={8}><circle cx={4} cy={4} r={3.5} fill="var(--danger)" /></svg>
+              <span style={{ color: "var(--text-faint)", letterSpacing: "0.1em" }}>UNTER PLAN</span>
+            </span>
+          </div>
         </div>
-        {TRUTH_LOOP.days.map((day, i) => {
-          const plan = TRUTH_LOOP.plan[i];
-          const real = TRUTH_LOOP.reality[i];
-          const delta = real - plan;
-          const maxV = Math.max(...TRUTH_LOOP.plan);
-          return (
-            <div key={day} style={{ display: "grid", gridTemplateColumns: "80px 1fr 80px 80px 100px", alignItems: "center", padding: "12px 18px", borderBottom: "1px solid var(--line-soft)" }}>
-              <span className="mono" style={{ fontSize: 12, fontWeight: 600 }}>{day}</span>
-              <div style={{ position: "relative", height: 20, margin: "0 8px" }}>
-                <div style={{ position: "absolute", inset: "8px 0", background: "var(--line-soft)" }} />
-                <div style={{ position: "absolute", top: 4, left: 0, height: 5, width: `${(plan / maxV) * 100}%`, background: "var(--text-faint)" }} />
-                <div style={{ position: "absolute", bottom: 4, left: 0, height: 5, width: `${(real / maxV) * 100}%`, background: delta < 0 ? "rgba(214,50,74,0.7)" : "var(--good)" }} />
+
+        <TruthLoopChart days={TRUTH_LOOP.days} plan={TRUTH_LOOP.plan} reality={TRUTH_LOOP.reality} />
+
+        {/* Compact delta row below chart */}
+        <div style={{ display: "flex", gap: 0, marginTop: 12, borderTop: "1px solid var(--line-soft)", paddingTop: 12 }}>
+          {TRUTH_LOOP.days.map((day, i) => {
+            const delta = TRUTH_LOOP.reality[i] - TRUTH_LOOP.plan[i];
+            const c = delta >= 0 ? "var(--good)" : "var(--danger)";
+            return (
+              <div key={day} style={{ flex: 1, textAlign: "center" }}>
+                <div className="mono" style={{ fontSize: 10.5, fontWeight: 700, color: c }}>{fmtH(delta)}</div>
+                <div style={{ fontSize: 8.5, color: "var(--text-faint)", marginTop: 2, letterSpacing: "0.1em" }}>{day}</div>
               </div>
-              <span className="mono" style={{ textAlign: "right", color: "var(--text-dim)", fontSize: 12 }}>{plan}h</span>
-              <span className="mono" style={{ textAlign: "right", fontSize: 12 }}>{real}h</span>
-              <span className="mono" style={{ textAlign: "right", fontWeight: 700, fontSize: 12, color: delta < 0 ? "var(--danger)" : "var(--good)" }}>{fmtH(delta)}</span>
+            );
+          })}
+          <div style={{ flex: 1, textAlign: "center", borderLeft: "1px solid var(--line-soft)", paddingLeft: 8 }}>
+            <div className="mono" style={{ fontSize: 10.5, fontWeight: 700, color: debt >= 0 ? "var(--good)" : "var(--danger)" }}>
+              {fmtH(-debt)}
             </div>
-          );
-        })}
+            <div style={{ fontSize: 8.5, color: "var(--text-faint)", marginTop: 2, letterSpacing: "0.1em" }}>GESAMT</div>
+          </div>
+        </div>
       </div>
     </div>
   );
