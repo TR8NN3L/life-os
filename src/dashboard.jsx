@@ -16,10 +16,14 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
   };
   const [editingKR, setEditingKR] = React.useState(null);
 
-  // Task notes helpers
-  const getNote = (id) => (taskNotes || {})[id] || "";
-  const setNote = (id, text) => setTaskNotes(prev => ({ ...prev, [id]: text }));
-  const [openNote, setOpenNote] = React.useState(null);
+  // Task notes helpers — storage: {text, updatedAt} or legacy string
+  const getNoteEntry = (id) => {
+    const v = (taskNotes || {})[id];
+    if (!v) return { text: "", updatedAt: null };
+    if (typeof v === "string") return { text: v, updatedAt: null };
+    return v;
+  };
+  const getNoteText = (id) => getNoteEntry(id).text;
 
   // Custom tasks — persisted per POV
   const storageKey = `lifeos_tasks_${pov}`;
@@ -241,8 +245,8 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
           {filteredTasks.map((t, i) => {
             const isActive = activeTaskId === t.id;
             const isSideQuest = t.kr === null || t.kr === undefined;
-            const hasNote = !!getNote(t.id);
-            const noteOpen = openNote === t.id;
+            const noteEntry = getNoteEntry(t.id);
+            const hasNote = !!noteEntry.text;
             const isDone = doneTasks.has(t.id);
             return (
               <div key={t.id} style={{
@@ -289,19 +293,22 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
                         background: "var(--warn-soft)", padding: "2px 7px",
                       }}>⚠ SIDE QUEST</span>
                     )}
-                    <button onClick={() => setOpenNote(noteOpen ? null : t.id)}
-                      title="Notiz"
-                      style={{ background: "none", border: "none", cursor: "pointer", padding: "0 2px", fontSize: 12, lineHeight: 1,
-                        color: hasNote ? "var(--accent)" : "var(--text-faint)", opacity: noteOpen ? 1 : 0.6 }}>
-                      {hasNote ? "✎●" : "✎"}
-                    </button>
+                    {hasNote && (
+                      <span title="Hat Notiz" style={{ fontSize: 9.5, color: "var(--accent)", opacity: 0.7 }}>✎</span>
+                    )}
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 2 }}>
-                    {isSideQuest
-                      ? <span style={{ color: "var(--warn)", fontStyle: "italic" }}>Warum machst du das? → Kein KR-Bezug.</span>
-                      : t.sub
-                    }
-                  </div>
+                  {hasNote ? (
+                    <div style={{ fontSize: 11.5, color: "var(--text-faint)", marginTop: 3, fontStyle: "italic", lineHeight: 1.4 }}>
+                      {noteEntry.text.length > 80 ? noteEntry.text.slice(0, 80) + "…" : noteEntry.text}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 2 }}>
+                      {isSideQuest
+                        ? <span style={{ color: "var(--warn)", fontStyle: "italic" }}>Warum machst du das? → Kein KR-Bezug.</span>
+                        : t.sub
+                      }
+                    </div>
+                  )}
                 </div>
                 <span className="mono" style={{
                   fontSize: 22, fontWeight: 500,
@@ -334,23 +341,6 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
                     style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 14, padding: "0 4px", lineHeight: 1 }}>×</button>
                 )}
               </div>
-              {noteOpen && (
-                <div style={{ padding: "0 0 12px 50px" }}>
-                  <textarea
-                    autoFocus
-                    value={getNote(t.id)}
-                    onChange={e => setNote(t.id, e.target.value)}
-                    placeholder="Notiz zu diesem Task…"
-                    rows={3}
-                    style={{
-                      width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)",
-                      borderLeft: "2px solid var(--accent)", color: "var(--text)", padding: "10px 14px",
-                      fontSize: 12.5, fontFamily: "inherit", resize: "vertical", outline: "none",
-                      boxSizing: "border-box",
-                    }}
-                  />
-                </div>
-              )}
               </div>
             );
           })}

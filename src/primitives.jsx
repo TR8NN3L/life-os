@@ -129,14 +129,26 @@ function TaskDetail({ task, onBack, taskTimes, setTaskTimes, activeTaskId, setAc
   const elapsed = (taskTimes || {})[task.id] ?? task.elapsed ?? 0;
   const povColor = POVS.find(x => x.id === povId)?.color || "var(--accent)";
 
-  const [note, setNote] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("lifeos_task_notes") || "{}")[task.id] || ""; } catch { return ""; }
+  const [noteText, setNoteText] = React.useState(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem("lifeos_task_notes") || "{}")[task.id];
+      if (!v) return "";
+      return typeof v === "string" ? v : (v.text || "");
+    } catch { return ""; }
+  });
+  const [noteTs, setNoteTs] = React.useState(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem("lifeos_task_notes") || "{}")[task.id];
+      return (v && typeof v === "object" && v.updatedAt) ? v.updatedAt : null;
+    } catch { return null; }
   });
   const saveNote = (text) => {
-    setNote(text);
+    const updatedAt = new Date().toISOString();
+    setNoteText(text);
+    setNoteTs(updatedAt);
     try {
       const all = JSON.parse(localStorage.getItem("lifeos_task_notes") || "{}");
-      all[task.id] = text;
+      all[task.id] = { text, updatedAt };
       localStorage.setItem("lifeos_task_notes", JSON.stringify(all));
     } catch {}
   };
@@ -246,9 +258,22 @@ function TaskDetail({ task, onBack, taskTimes, setTaskTimes, activeTaskId, setAc
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
         {/* Notes */}
         <div style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "20px 24px" }}>
-          <div className="uppercase-label" style={{ marginBottom: 14 }}>Notizen</div>
-          <textarea value={note} onChange={e => saveNote(e.target.value)}
-            placeholder="Notizen zu dieser Aufgabe… (wird automatisch gespeichert)"
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
+            <div className="uppercase-label">Notizen</div>
+            {noteTs && (
+              <span style={{ fontSize: 9.5, color: "var(--text-faint)", letterSpacing: "0.08em" }}>
+                {(() => {
+                  const diff = Math.floor((Date.now() - new Date(noteTs).getTime()) / 1000);
+                  if (diff < 60) return "gerade eben";
+                  if (diff < 3600) return `vor ${Math.floor(diff/60)} Min.`;
+                  if (diff < 86400) return `vor ${Math.floor(diff/3600)} Std.`;
+                  return `vor ${Math.floor(diff/86400)} Tagen`;
+                })()}
+              </span>
+            )}
+          </div>
+          <textarea value={noteText} onChange={e => saveNote(e.target.value)}
+            placeholder="Notizen, Kontext, nächste Schritte…"
             rows={10}
             style={{
               width: "100%", background: "var(--panel-2)",
@@ -257,7 +282,7 @@ function TaskDetail({ task, onBack, taskTimes, setTaskTimes, activeTaskId, setAc
               fontSize: 13, fontFamily: "inherit", resize: "vertical", outline: "none",
               boxSizing: "border-box", lineHeight: 1.6,
             }} />
-          {note && <div style={{ marginTop: 8, fontSize: 9.5, color: "var(--accent)", letterSpacing: "0.1em" }}>● GESPEICHERT</div>}
+          {noteText && <div style={{ marginTop: 8, fontSize: 9.5, color: "var(--accent)", letterSpacing: "0.1em" }}>● GESPEICHERT</div>}
         </div>
 
         {/* Project assignment */}
