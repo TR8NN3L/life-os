@@ -96,7 +96,7 @@ function Planner() {
     e.stopPropagation();
     if (!gridRef.current) return;
     const rect = gridRef.current.getBoundingClientRect();
-    const clickY = e.clientY - rect.top + gridRef.current.closest("[data-grid-scroll]").scrollTop;
+    const clickY = e.clientY - rect.top;
     const startMins = minsFromStr(block.start);
     const endMins   = minsFromStr(block.end);
     dragRef.current = {
@@ -113,9 +113,8 @@ function Planner() {
     const onMouseMove = e => {
       const dr = dragRef.current;
       if (!dr || !gridRef.current) return;
-      const scrollEl = gridRef.current.closest("[data-grid-scroll]");
       const rect = gridRef.current.getBoundingClientRect();
-      const y = e.clientY - rect.top + (scrollEl ? scrollEl.scrollTop : 0);
+      const y = e.clientY - rect.top;
       if (Math.abs(e.clientY - dr.startClientY) > 3) dr.moved = true;
 
       if (dr.type === "move") {
@@ -359,9 +358,8 @@ function Planner() {
             <div ref={gridRef} style={{ position:"relative", height:GRID_H, userSelect:"none" }}
               onDoubleClick={e=>{
                 if (!gridRef.current) return;
-                const scrollEl = gridRef.current.closest("[data-grid-scroll]");
                 const rect = gridRef.current.getBoundingClientRect();
-                const y = e.clientY - rect.top + (scrollEl?scrollEl.scrollTop:0);
+                const y = e.clientY - rect.top;
                 openAdd(yToMins(y - LABEL_W/2));
               }}
             >
