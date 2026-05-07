@@ -23,7 +23,7 @@ function TruthLoopChart({ days, plan, reality }) {
   for (let v = 0; v <= maxY; v += step) yTicks.push(v);
 
   return (
-    <svg width={W} height={H} style={{ width:'100%', height:'auto', overflow:'visible', display:'block' }}>
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width:'100%', height:'auto', overflow:'visible', display:'block' }}>
       <defs>
         <linearGradient id="tlAreaGrad" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.3" />
