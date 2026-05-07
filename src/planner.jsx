@@ -1,4 +1,4 @@
-// Planner — Visual time grid with drag-to-move and drag-to-resize blocks.
+// Planner — Visual time grid with week navigation + recurring blocks.
 
 const BLOCK_TYPES = [
   { id: "deep-work", label: "DEEP WORK",   color: "var(--accent)",   glyph: "✦", desc: "Flow-State · Konzentration · ≥60 min" },
@@ -10,7 +10,7 @@ const DAY_KEYS = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"];
 
 const GRID_START_H = 6;
 const GRID_END_H   = 23;
-const HOUR_H       = 64; // px per hour
+const HOUR_H       = 64;
 
 const minsFromStr = s => { const [h,m] = (s||"00:00").split(":").map(Number); return h*60+m; };
 const strFromMins = t => { const h=Math.floor(t/60); const m=t%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; };
@@ -21,25 +21,117 @@ const yToMins     = y => y / HOUR_H * 60 + GRID_START_H*60;
 const GRID_H      = (GRID_END_H - GRID_START_H) * HOUR_H;
 const LABEL_W     = 48;
 
+// ── Week helpers ────────────────────────────────────────────────────────────
+const DE_MONTHS      = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+const DE_MONTHS_S    = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
+
+function computeWeekInfo(monday) {
+  const thu    = new Date(monday); thu.setDate(monday.getDate() + 3);
+  const yr     = thu.getFullYear();
+  const jan4   = new Date(yr, 0, 4);
+  const jan4Mo = new Date(jan4);
+  jan4Mo.setDate(jan4.getDate() - ((jan4.getDay() || 7) - 1));
+  const kw     = Math.round((monday - jan4Mo) / 604800000) + 1;
+  const sun    = new Date(monday); sun.setDate(monday.getDate() + 6);
+  const range  = `${monday.getDate()}.–${sun.getDate()}. ${DE_MONTHS[sun.getMonth()]} ${sun.getFullYear()}`;
+  const days   = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday); d.setDate(monday.getDate() + i);
+    return {
+      k: DAY_KEYS[i],
+      n: String(d.getDate()).padStart(2, "0"),
+      dateStr: d.toISOString().slice(0, 10),
+      monthShort: DE_MONTHS_S[d.getMonth()],
+    };
+  });
+  return { kw, range, days };
+}
+
+function getWeekKey(monday) {
+  const thu    = new Date(monday); thu.setDate(monday.getDate() + 3);
+  const yr     = thu.getFullYear();
+  const jan4   = new Date(yr, 0, 4);
+  const jan4Mo = new Date(jan4);
+  jan4Mo.setDate(jan4.getDate() - ((jan4.getDay() || 7) - 1));
+  const kw     = Math.round((monday - jan4Mo) / 604800000) + 1;
+  return `${yr}-W${String(kw).padStart(2, "0")}`;
+}
+
+// ── Planner component ────────────────────────────────────────────────────────
 function Planner() {
   const todayRaw = new Date().getDay();
   const todayIdx = todayRaw === 0 ? 6 : todayRaw - 1;
 
   const [selDay,     setSelDay]     = React.useState(todayIdx);
   const [selBlockId, setSelBlockId] = React.useState(null);
+  const [weekOffset, setWeekOffset] = React.useState(0);
 
-  const [blocks, setBlocks] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("lifeos_timeblocks") || "{}"); } catch { return {}; }
+  // Display week
+  const displayMonday = React.useMemo(() => {
+    const m = new Date(WEEK.mon);
+    m.setDate(WEEK.mon.getDate() + weekOffset * 7);
+    return m;
+  }, [weekOffset]);
+  const dispWeek    = React.useMemo(() => computeWeekInfo(displayMonday), [displayMonday]);
+  const dispWeekKey = React.useMemo(() => getWeekKey(displayMonday), [displayMonday]);
+  const isCurrentWk = weekOffset === 0;
+
+  // ── Block storage: allBlocks[weekKey][dayIdx] = [...] ──────────────────────
+  const [allBlocks, setAllBlocks] = React.useState(() => {
+    try {
+      const v2 = localStorage.getItem("lifeos_timeblocks_v2");
+      if (v2) return JSON.parse(v2);
+      // Migrate v1 (day-index keyed) → v2 (weekKey keyed)
+      const v1  = JSON.parse(localStorage.getItem("lifeos_timeblocks") || "{}");
+      const wk  = getWeekKey(WEEK.mon);
+      return { [wk]: v1 };
+    } catch { return {}; }
   });
-  React.useEffect(() => { localStorage.setItem("lifeos_timeblocks", JSON.stringify(blocks)); }, [blocks]);
+  React.useEffect(() => { localStorage.setItem("lifeos_timeblocks_v2", JSON.stringify(allBlocks)); }, [allBlocks]);
 
-  const dayBlocks = [...(blocks[selDay] || [])].sort((a,b) => a.start.localeCompare(b.start));
-  const selBlock  = dayBlocks.find(b => b.id === selBlockId) || null;
+  // Proxy: read/write the current display week's blocks transparently
+  const weekBlocks = allBlocks[dispWeekKey] || {};
+  const setWeekBlocks = React.useCallback(updater => {
+    setAllBlocks(prev => {
+      const cur  = prev[dispWeekKey] || {};
+      const next = typeof updater === "function" ? updater(cur) : updater;
+      return { ...prev, [dispWeekKey]: next };
+    });
+  }, [dispWeekKey]);
 
-  // ── Modal state ──
+  // ── Recurring blocks ───────────────────────────────────────────────────────
+  const [recurring, setRecurring] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("lifeos_recurring_blocks") || "[]"); }
+    catch { return []; }
+  });
+  React.useEffect(() => { localStorage.setItem("lifeos_recurring_blocks", JSON.stringify(recurring)); }, [recurring]);
+
+  // Merge recurring + week-specific for selDay
+  const recurringForDay = React.useMemo(() => {
+    const dateStr = dispWeek.days[selDay]?.dateStr;
+    if (!dateStr) return [];
+    const deleted = new Set(weekBlocks[`del_${selDay}`] || []);
+    return recurring.filter(rb => {
+      if (deleted.has(rb.id)) return false;
+      if (rb.startDateStr && rb.startDateStr > dateStr) return false;
+      if (rb.recurrence === "daily")    return true;
+      if (rb.recurrence === "weekdays") return selDay <= 4;
+      if (rb.recurrence === "weekly")   return rb.dayIndex === selDay;
+      return false;
+    }).map(rb => ({ ...rb, _recurring: true }));
+  }, [recurring, selDay, dispWeek, weekBlocks]);
+
+  const specificForDay = weekBlocks[selDay] || [];
+  const dayBlocks = [...recurringForDay, ...specificForDay]
+    .sort((a, b) => a.start.localeCompare(b.start));
+  const selBlock = dayBlocks.find(b => b.id === selBlockId) || null;
+
+  // ── Modal ──────────────────────────────────────────────────────────────────
   const [showModal, setShowModal] = React.useState(false);
   const [editId,    setEditId]    = React.useState(null);
-  const [draft, setDraft] = React.useState({ name:"", start:"09:00", end:"11:00", type:"deep-work", bucket:"alle", days:[0] });
+  const [draft, setDraft] = React.useState({
+    name:"", start:"09:00", end:"11:00", type:"deep-work", bucket:"alle",
+    days:[0], recurrence:"none",
+  });
 
   const toggleDraftDay = i => setDraft(d => {
     const next = d.days.includes(i) ? d.days.filter(x=>x!==i) : [...d.days,i];
@@ -50,43 +142,74 @@ function Planner() {
     setEditId(null);
     const s = startMins !== null ? strFromMins(clamp(snap15(startMins), GRID_START_H*60, GRID_END_H*60-60)) : "09:00";
     const e = startMins !== null ? strFromMins(clamp(snap15(startMins)+60, GRID_START_H*60+60, GRID_END_H*60)) : "11:00";
-    setDraft({ name:"", start:s, end:e, type:"deep-work", bucket:"alle", days:[selDay] });
+    setDraft({ name:"", start:s, end:e, type:"deep-work", bucket:"alle", days:[selDay], recurrence:"none" });
     setShowModal(true);
   };
+
   const openEdit = block => {
     setEditId(block.id);
-    setDraft({ name:block.name, start:block.start, end:block.end, type:block.type, bucket:block.bucket, days:[selDay] });
+    const isRec = !!block._recurring;
+    setDraft({
+      name: block.name, start: block.start, end: block.end,
+      type: block.type, bucket: block.bucket,
+      days: [selDay],
+      recurrence: isRec ? (block.recurrence || "none") : "none",
+    });
     setShowModal(true);
   };
 
   const saveBlock = () => {
-    if (!draft.name.trim() || draft.start >= draft.end || draft.days.length===0) return;
-    const { days, ...blockData } = draft;
-    setBlocks(prev => {
-      const next = {...prev};
-      if (editId) {
-        const arr = [...(next[selDay]||[])];
-        const idx = arr.findIndex(b=>b.id===editId);
-        if (idx!==-1) arr[idx] = { ...arr[idx], ...blockData, name:blockData.name.trim() };
-        next[selDay] = arr;
-      } else {
-        days.forEach(dayIdx => {
-          const arr = [...(next[dayIdx]||[])];
-          arr.push({ id:`tb_${Date.now()}_${dayIdx}`, ...blockData, name:blockData.name.trim() });
-          next[dayIdx] = arr;
-        });
-      }
-      return next;
-    });
+    if (!draft.name.trim() || draft.start >= draft.end) return;
+    const { days, recurrence, ...blockData } = draft;
+    const base = { ...blockData, name: blockData.name.trim() };
+
+    if (recurrence !== "none") {
+      const rb = {
+        id: editId && recurring.find(r=>r.id===editId) ? editId : `rb_${Date.now()}`,
+        ...base, recurrence, dayIndex: selDay,
+        startDateStr: dispWeek.days[selDay]?.dateStr || "",
+      };
+      setRecurring(prev =>
+        prev.find(r=>r.id===rb.id)
+          ? prev.map(r => r.id===rb.id ? rb : r)
+          : [...prev, rb]
+      );
+    } else {
+      setWeekBlocks(prev => {
+        const next = { ...prev };
+        if (editId) {
+          // Could be editing a specific block OR converting recurring→specific
+          const arr = [...(next[selDay]||[])];
+          const idx = arr.findIndex(b=>b.id===editId);
+          if (idx!==-1) {
+            arr[idx] = { ...arr[idx], ...base };
+            next[selDay] = arr;
+          } else {
+            // Was recurring, now specific for this day only
+            next[selDay] = [...arr, { id:`tb_${Date.now()}_${selDay}`, ...base }];
+          }
+        } else {
+          days.forEach(d => {
+            next[d] = [...(next[d]||[]), { id:`tb_${Date.now()}_${d}`, ...base }];
+          });
+        }
+        return next;
+      });
+    }
     setShowModal(false);
   };
 
   const deleteBlock = id => {
-    setBlocks(prev => ({ ...prev, [selDay]:(prev[selDay]||[]).filter(b=>b.id!==id) }));
+    const isRec = recurring.some(rb => rb.id === id);
+    if (isRec) {
+      setRecurring(prev => prev.filter(rb => rb.id !== id));
+    } else {
+      setWeekBlocks(prev => ({ ...prev, [selDay]:(prev[selDay]||[]).filter(b=>b.id!==id) }));
+    }
     if (selBlockId===id) setSelBlockId(null);
   };
 
-  // ── Drag state ──
+  // ── Drag ──────────────────────────────────────────────────────────────────
   const gridRef    = React.useRef(null);
   const dragRef    = React.useRef(null);
   const [, forceRender] = React.useReducer(x=>x+1, 0);
@@ -100,21 +223,17 @@ function Planner() {
   };
 
   const onBlockMouseDown = (e, block, type) => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     const startMins = minsFromStr(block.start);
     const endMins   = minsFromStr(block.end);
     const rect = gridRef.current.getBoundingClientRect();
     const yInGrid = e.clientY - rect.top;
-    const clickMins = yToMins(yInGrid);
-    const mouseOffsetMins = clamp(clickMins - startMins, 0, endMins - startMins);
+    const mouseOffsetMins = clamp(yToMins(yInGrid) - startMins, 0, endMins - startMins);
     dragRef.current = {
-      type, blockId: block.id,
-      startClientY: e.clientY,
-      mouseOffsetMins,
+      type, blockId: block.id, isRecurring: !!block._recurring,
+      startClientY: e.clientY, mouseOffsetMins,
       origStartMins: startMins, origEndMins: endMins,
-      liveStartMins: startMins, liveEndMins: endMins,
-      moved: false,
+      liveStartMins: startMins, liveEndMins: endMins, moved: false,
     };
     forceRender();
   };
@@ -126,47 +245,55 @@ function Planner() {
       if (Math.abs(e.clientY - dr.startClientY) > 3) dr.moved = true;
       if (!gridRef.current) return;
       const rect = gridRef.current.getBoundingClientRect();
-      const currentMins = yToMins(e.clientY - rect.top);
-
+      const cur  = yToMins(e.clientY - rect.top);
       if (dr.type === "move") {
-        const duration = dr.origEndMins - dr.origStartMins;
-        const newStart = clamp(snap15(currentMins - dr.mouseOffsetMins), GRID_START_H*60, GRID_END_H*60 - duration);
-        dr.liveStartMins = newStart;
-        dr.liveEndMins   = newStart + duration;
+        const dur = dr.origEndMins - dr.origStartMins;
+        const ns  = clamp(snap15(cur - dr.mouseOffsetMins), GRID_START_H*60, GRID_END_H*60 - dur);
+        dr.liveStartMins = ns; dr.liveEndMins = ns + dur;
       } else {
-        const newEnd = clamp(snap15(currentMins), dr.origStartMins + 15, GRID_END_H*60);
-        dr.liveEndMins = newEnd;
+        dr.liveEndMins = clamp(snap15(cur), dr.origStartMins + 15, GRID_END_H*60);
       }
       forceRender();
     };
-
     const onMouseUp = () => {
       const dr = dragRef.current;
       if (!dr) return;
       if (!dr.moved) {
         setSelBlockId(id => id===dr.blockId ? null : dr.blockId);
       } else {
-        const { blockId, liveStartMins, liveEndMins } = dr;
-        setBlocks(prev => ({
-          ...prev,
-          [selDay]: (prev[selDay]||[]).map(b =>
-            b.id===blockId ? { ...b, start:strFromMins(liveStartMins), end:strFromMins(liveEndMins) } : b
-          )
-        }));
+        const { blockId, liveStartMins, liveEndMins, isRecurring } = dr;
+        const newStart = strFromMins(liveStartMins);
+        const newEnd   = strFromMins(liveEndMins);
+        if (isRecurring) {
+          // Drag on recurring → create day-specific override
+          const rb = recurring.find(r => r.id === blockId);
+          if (rb) {
+            const override = { ...rb, id:`tb_${Date.now()}_${selDay}`, start:newStart, end:newEnd, _recurring:false };
+            delete override._recurring;
+            // Mark recurring as deleted for this day
+            setWeekBlocks(prev => ({
+              ...prev,
+              [`del_${selDay}`]: [...(prev[`del_${selDay}`]||[]), blockId],
+              [selDay]: [...(prev[selDay]||[]), override],
+            }));
+          }
+        } else {
+          setWeekBlocks(prev => ({
+            ...prev,
+            [selDay]: (prev[selDay]||[]).map(b =>
+              b.id===blockId ? { ...b, start:newStart, end:newEnd } : b
+            )
+          }));
+        }
       }
-      dragRef.current = null;
-      forceRender();
+      dragRef.current = null; forceRender();
     };
-
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-    };
-  }, [selDay]);
+    return () => { window.removeEventListener("mousemove", onMouseMove); window.removeEventListener("mouseup", onMouseUp); };
+  }, [selDay, recurring]);
 
-  // ── Suggestions / task selection ──
+  // ── Suggestions / task selection ──────────────────────────────────────────
   const getSuggestions = block => {
     if (!block) return [];
     const allTasks = [];
@@ -180,15 +307,12 @@ function Planner() {
         (kr.tasks||[]).forEach(t => allTasks.push({...t,_pov:proj.pov,_source:proj.title,_kr:kr.label}));
       });
     }
-    const filtered = allTasks.filter(t => {
+    return allTasks.filter(t => {
       const est=t.est||30, flow=(t.flow||"QUICK").toUpperCase();
       if (block.type==="deep-work") return flow==="FLOW"||est>=60;
       if (block.type==="basic")     return flow==="QUICK"||flow==="EASY"||est<=30;
       return true;
-    });
-    if (block.type==="deep-work") filtered.sort((a,b)=>(b.est||30)-(a.est||30));
-    else if (block.type==="basic") filtered.sort((a,b)=>(a.est||20)-(b.est||20));
-    return filtered;
+    }).sort((a,b) => block.type==="deep-work" ? (b.est||30)-(a.est||30) : (a.est||20)-(b.est||20));
   };
 
   const [blockSelections, setBlockSelections] = React.useState(() => {
@@ -211,26 +335,28 @@ function Planner() {
   const selSuggs     = suggestions.filter(t => selTaskKeys.includes(`${t.id}_${t._pov}`));
   const selectedEst  = selSuggs.reduce((s,t)=>s+(t.est||30),0);
 
-  const tc       = type => BLOCK_TYPES.find(b=>b.id===type)||BLOCK_TYPES[0];
-  const canSave  = draft.name.trim() && draft.start < draft.end;
+  const tc      = type => BLOCK_TYPES.find(b=>b.id===type)||BLOCK_TYPES[0];
+  const canSave = draft.name.trim() && draft.start < draft.end;
 
-  // current time position
-  const nowMins = (() => { const n=new Date(); return n.getHours()*60+n.getMinutes(); })();
-  const showNow = selDay===todayIdx && nowMins>=GRID_START_H*60 && nowMins<=GRID_END_H*60;
+  const nowMins  = (() => { const n=new Date(); return n.getHours()*60+n.getMinutes(); })();
+  const showNow  = isCurrentWk && selDay===todayIdx && nowMins>=GRID_START_H*60 && nowMins<=GRID_END_H*60;
+
+  const recurrenceLabels = { none:"Einmalig", daily:"Täglich", weekdays:"Werktags (Mo–Fr)", weekly:"Wöchentlich" };
 
   return (
     <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
 
-      {/* ── Modal ── */}
+      {/* ── Modal ─────────────────────────────────────────────────────────── */}
       {showModal && (
         <div style={{ position:"fixed", inset:0, zIndex:100, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center" }}
           onClick={e=>e.target===e.currentTarget&&setShowModal(false)}>
-          <div style={{ background:"var(--panel)", border:"1px solid var(--line)", padding:32, width:440, boxShadow:"0 0 60px rgba(0,0,0,0.6)" }}>
+          <div style={{ background:"var(--panel)", border:"1px solid var(--line)", padding:32, width:460, boxShadow:"0 0 60px rgba(0,0,0,0.6)" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
               <div className="uppercase-label">{editId?"Block bearbeiten":"Neuer Zeitblock"}</div>
               <button onClick={()=>setShowModal(false)} style={{ background:"none", border:"none", color:"var(--text-faint)", cursor:"pointer", fontSize:18, padding:0 }}>×</button>
             </div>
 
+            {/* Name */}
             <div style={{ marginBottom:16 }}>
               <div style={{ fontSize:9.5, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>NAME</div>
               <input autoFocus value={draft.name} onChange={e=>setDraft(d=>({...d,name:e.target.value}))}
@@ -239,41 +365,57 @@ function Planner() {
                 style={{ width:"100%", background:"var(--panel-2)", border:"1px solid var(--line)", color:"var(--text)", padding:"10px 14px", fontSize:14, outline:"none", fontFamily:"inherit", boxSizing:"border-box" }} />
             </div>
 
+            {/* Wiederkehrend */}
             <div style={{ marginBottom:16 }}>
-              <div style={{ fontSize:9.5, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>
-                {editId?"TAG":"WOCHENTAG(E)"}
-                {!editId&&draft.days.length>1&&<span style={{ marginLeft:8, fontWeight:400, letterSpacing:0, color:"var(--accent)" }}>{draft.days.length} Tage gewählt</span>}
-              </div>
-              <div style={{ display:"flex", gap:5 }}>
-                {DAY_KEYS.map((key,i)=>{
-                  const isSel=draft.days.includes(i), isToday=i===todayIdx;
-                  return <button key={key} onClick={()=>!editId&&toggleDraftDay(i)} style={{
-                    flex:1, padding:"8px 4px", cursor:editId?"default":"pointer",
-                    background:isSel?"var(--accent-soft)":"var(--panel-2)",
-                    border:`1px solid ${isSel?"var(--accent)":"var(--line)"}`,
-                    color:isSel?"var(--accent)":isToday?"var(--text-dim)":"var(--text-faint)",
-                    fontSize:10, fontWeight:isSel?700:600, letterSpacing:"0.1em", transition:"all .1s",
-                  }}>{key}</button>;
-                })}
+              <div style={{ fontSize:9.5, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>WIEDERHOLUNG</div>
+              <div style={{ display:"flex", gap:6 }}>
+                {Object.entries(recurrenceLabels).map(([val, lbl]) => (
+                  <button key={val} onClick={()=>setDraft(d=>({...d,recurrence:val}))} style={{
+                    flex:1, padding:"7px 4px", cursor:"pointer", fontSize:9, fontWeight:700, letterSpacing:"0.08em",
+                    background:draft.recurrence===val?"var(--accent-soft)":"var(--panel-2)",
+                    border:`1px solid ${draft.recurrence===val?"var(--accent)":"var(--line)"}`,
+                    color:draft.recurrence===val?"var(--accent)":"var(--text-faint)",
+                  }}>{lbl}</button>
+                ))}
               </div>
             </div>
 
+            {/* Day selector (only for Einmalig) */}
+            {draft.recurrence === "none" && !editId && (
+              <div style={{ marginBottom:16 }}>
+                <div style={{ fontSize:9.5, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>
+                  TAG{draft.days.length>1&&<span style={{ marginLeft:8, fontWeight:400, letterSpacing:0, color:"var(--accent)" }}>{draft.days.length} Tage</span>}
+                </div>
+                <div style={{ display:"flex", gap:5 }}>
+                  {DAY_KEYS.map((key,i)=>{
+                    const isSel=draft.days.includes(i), isToday=isCurrentWk&&i===todayIdx;
+                    return <button key={key} onClick={()=>toggleDraftDay(i)} style={{
+                      flex:1, padding:"8px 4px", cursor:"pointer",
+                      background:isSel?"var(--accent-soft)":"var(--panel-2)",
+                      border:`1px solid ${isSel?"var(--accent)":"var(--line)"}`,
+                      color:isSel?"var(--accent)":isToday?"var(--text-dim)":"var(--text-faint)",
+                      fontSize:10, fontWeight:isSel?700:600, letterSpacing:"0.1em", transition:"all .1s",
+                    }}>{key}</button>;
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Time */}
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:16 }}>
-              <div>
-                <div style={{ fontSize:9.5, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>VON</div>
-                <input type="time" value={draft.start} onChange={e=>setDraft(d=>({...d,start:e.target.value}))}
-                  style={{ width:"100%", background:"var(--panel-2)", border:"1px solid var(--line)", color:"var(--text)", padding:"10px 14px", fontSize:14, outline:"none", fontFamily:"inherit", boxSizing:"border-box" }} />
-              </div>
-              <div>
-                <div style={{ fontSize:9.5, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>BIS</div>
-                <input type="time" value={draft.end} onChange={e=>setDraft(d=>({...d,end:e.target.value}))}
-                  style={{ width:"100%", background:"var(--panel-2)", border:"1px solid var(--line)", color:"var(--text)", padding:"10px 14px", fontSize:14, outline:"none", fontFamily:"inherit", boxSizing:"border-box" }} />
-              </div>
+              {[["VON","start"],["BIS","end"]].map(([lbl,key])=>(
+                <div key={key}>
+                  <div style={{ fontSize:9.5, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>{lbl}</div>
+                  <input type="time" value={draft[key]} onChange={e=>setDraft(d=>({...d,[key]:e.target.value}))}
+                    style={{ width:"100%", background:"var(--panel-2)", border:"1px solid var(--line)", color:"var(--text)", padding:"10px 14px", fontSize:14, outline:"none", fontFamily:"inherit", boxSizing:"border-box" }} />
+                </div>
+              ))}
             </div>
             {draft.start>=draft.end&&draft.start&&draft.end&&(
               <div style={{ fontSize:9.5, color:"var(--danger)", marginBottom:10, letterSpacing:"0.1em" }}>⚠ Endzeit muss nach Startzeit liegen</div>
             )}
 
+            {/* Type */}
             <div style={{ marginBottom:16 }}>
               <div style={{ fontSize:9.5, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>TYP</div>
               <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
@@ -294,8 +436,9 @@ function Planner() {
               </div>
             </div>
 
+            {/* Bucket */}
             <div style={{ marginBottom:24 }}>
-              <div style={{ fontSize:9.5, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>BUCKET-FILTER (optional)</div>
+              <div style={{ fontSize:9.5, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>BUCKET-FILTER</div>
               <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
                 {[{id:"alle",label:"Alle",color:"var(--text-dim)"},...POVS].map(p=>(
                   <button key={p.id} onClick={()=>setDraft(d=>({...d,bucket:p.id}))} style={{
@@ -323,20 +466,43 @@ function Planner() {
         </div>
       )}
 
-      {/* ── Header ── */}
-      <div style={{ padding:"20px 28px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", borderBottom:"1px solid var(--line-soft)", flexShrink:0 }}>
-        <div>
-          <div className="uppercase-label" style={{ marginBottom:6 }}>Planner</div>
-          <h2 style={{ margin:0, fontSize:18, fontWeight:700 }}>KW {WEEK.kw} · {WEEK.range}</h2>
+      {/* ── Header ────────────────────────────────────────────────────────── */}
+      <div style={{ padding:"16px 28px 14px", display:"flex", alignItems:"center", justifyContent:"space-between", borderBottom:"1px solid var(--line-soft)", flexShrink:0 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:16 }}>
+          {/* Week nav */}
+          <button onClick={()=>setWeekOffset(w=>w-1)} style={{ background:"none", border:"1px solid var(--line)", color:"var(--text-faint)", cursor:"pointer", padding:"4px 10px", fontSize:14, lineHeight:1 }}>‹</button>
+          <div>
+            <div className="uppercase-label" style={{ marginBottom:3 }}>
+              Planner
+              {weekOffset!==0&&<span style={{ marginLeft:8, color:"var(--accent)" }}>
+                {weekOffset===1?"Nächste Woche":weekOffset===-1?"Letzte Woche":`${weekOffset>0?"+":""}${weekOffset} Wochen`}
+              </span>}
+            </div>
+            <h2 style={{ margin:0, fontSize:17, fontWeight:700 }}>KW {dispWeek.kw} · {dispWeek.range}</h2>
+          </div>
+          <button onClick={()=>setWeekOffset(w=>w+1)} style={{ background:"none", border:"1px solid var(--line)", color:"var(--text-faint)", cursor:"pointer", padding:"4px 10px", fontSize:14, lineHeight:1 }}>›</button>
+          {weekOffset!==0&&(
+            <button onClick={()=>setWeekOffset(0)} style={{ background:"var(--accent-soft)", border:"1px solid var(--accent-line)", color:"var(--accent)", cursor:"pointer", padding:"4px 12px", fontSize:9.5, letterSpacing:"0.12em", fontWeight:700 }}>HEUTE</button>
+          )}
         </div>
         <button onClick={()=>openAdd()} style={{ padding:"9px 20px", background:"var(--accent)", color:"#0a0a0c", border:"none", fontSize:10.5, fontWeight:700, letterSpacing:"0.16em", cursor:"pointer" }}>+ BLOCK</button>
       </div>
 
-      {/* ── Day tabs ── */}
+      {/* ── Day tabs ──────────────────────────────────────────────────────── */}
       <div style={{ display:"flex", borderBottom:"1px solid var(--line)", background:"var(--panel)", flexShrink:0 }}>
         {DAY_KEYS.map((key,i)=>{
-          const isToday=i===todayIdx, isSel=i===selDay, count=(blocks[i]||[]).length;
-          const dayInfo = WEEK.days[i];
+          const isToday=isCurrentWk&&i===todayIdx, isSel=i===selDay;
+          const dayInfo=dispWeek.days[i];
+          const specific=(weekBlocks[i]||[]).length;
+          const rec=recurring.filter(rb=>{
+            const del=new Set(weekBlocks[`del_${i}`]||[]);
+            if(del.has(rb.id)) return false;
+            if(rb.recurrence==="daily") return true;
+            if(rb.recurrence==="weekdays") return i<=4;
+            if(rb.recurrence==="weekly") return rb.dayIndex===i;
+            return false;
+          }).length;
+          const total=specific+rec;
           return (
             <button key={key} onClick={()=>{setSelDay(i);setSelBlockId(null);}} style={{
               flex:1, padding:"10px 8px 9px", background:"transparent",
@@ -346,24 +512,26 @@ function Planner() {
             }}>
               {key}
               <span style={{ display:"block", fontSize:9, letterSpacing:0, marginTop:2, fontWeight:isToday?700:400, color:isToday?(isSel?"var(--accent)":"var(--warn)"):"var(--text-faint)", fontFamily:"'JetBrains Mono',monospace" }}>
-                {dayInfo ? dayInfo.n : ""}
+                {dayInfo?.n||""}
               </span>
-              {count>0&&<span style={{ display:"block", fontSize:7.5, letterSpacing:0, marginTop:1, color:isSel?"var(--accent)":"var(--text-faint)" }}>{count}✦</span>}
+              {total>0&&<span style={{ display:"block", fontSize:7.5, letterSpacing:0, marginTop:1, color:isSel?"var(--accent)":"var(--text-faint)" }}>
+                {rec>0&&<span title="Wiederkehrend">↻{rec} </span>}{specific>0&&`✦${specific}`}
+              </span>}
             </button>
           );
         })}
       </div>
 
-      {/* ── Main area ── */}
+      {/* ── Main area ─────────────────────────────────────────────────────── */}
       <div style={{ flex:1, display:"grid", gridTemplateColumns:"360px 1fr", overflow:"hidden" }}>
 
-        {/* ── Left: Time grid ── */}
+        {/* ── Left: Time grid ─────────────────────────────────────────────── */}
         <div data-grid-scroll="" style={{ borderRight:"1px solid var(--line)", overflowY:"auto", overflowX:"hidden", position:"relative" }}>
 
           {/* Sticky header */}
-          <div style={{ position:"sticky", top:0, zIndex:20, background:"var(--panel)", borderBottom:"1px solid var(--line-soft)", padding:"10px 14px 10px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <div style={{ position:"sticky", top:0, zIndex:20, background:"var(--panel)", borderBottom:"1px solid var(--line-soft)", padding:"10px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
             <span style={{ fontSize:9, letterSpacing:"0.18em", fontWeight:700, color:"var(--text-faint)" }}>
-              ZEITGRID · {DAY_KEYS[selDay]} {WEEK.days[selDay]?.n}. {WEEK.days[selDay]?.monthShort}
+              ZEITGRID · {DAY_KEYS[selDay]} {dispWeek.days[selDay]?.n}. {dispWeek.days[selDay]?.monthShort}
             </span>
             <button onClick={()=>openAdd()} style={{ background:"transparent", border:"1px dashed var(--line)", color:"var(--accent)", padding:"4px 12px", fontSize:9, letterSpacing:"0.14em", fontWeight:700, cursor:"pointer" }}>+ BLOCK</button>
           </div>
@@ -384,7 +552,7 @@ function Planner() {
                 openAdd(yToMins(y));
               }}
             >
-              {/* Hour lines + labels */}
+              {/* Hour lines */}
               {Array.from({length: GRID_END_H - GRID_START_H + 1}, (_,i) => (
                 <div key={i} style={{ position:"absolute", top:i*HOUR_H, left:0, right:0, display:"flex", alignItems:"flex-start", pointerEvents:"none" }}>
                   <span className="mono" style={{ width:LABEL_W, fontSize:9, color:i===0?"transparent":"var(--text-faint)", textAlign:"right", paddingRight:10, lineHeight:1, flexShrink:0, marginTop:-5 }}>
@@ -393,21 +561,18 @@ function Planner() {
                   <div style={{ flex:1, borderTop:`1px solid ${i%2===0?"var(--line-soft)":"rgba(255,255,255,0.03)"}` }} />
                 </div>
               ))}
-
-              {/* Half-hour faint lines */}
+              {/* Half-hour lines */}
               {Array.from({length: GRID_END_H - GRID_START_H}, (_,i) => (
                 <div key={`h${i}`} style={{ position:"absolute", top:i*HOUR_H+HOUR_H/2, left:LABEL_W, right:0, borderTop:"1px dashed rgba(255,255,255,0.04)", pointerEvents:"none" }} />
               ))}
-
-              {/* Current time line */}
+              {/* Now line */}
               {showNow && (
                 <div style={{ position:"absolute", top:minsToY(nowMins), left:LABEL_W, right:0, zIndex:8, pointerEvents:"none" }}>
                   <div style={{ position:"absolute", left:-5, top:-4, width:8, height:8, borderRadius:"50%", background:"var(--danger)" }} />
                   <div style={{ borderTop:"2px solid var(--danger)", marginLeft:3 }} />
                 </div>
               )}
-
-              {/* Hover time indicator */}
+              {/* Hover indicator */}
               {hoverMins !== null && !dragRef.current && (
                 <div style={{ position:"absolute", top:minsToY(hoverMins), left:0, right:0, zIndex:15, pointerEvents:"none" }}>
                   <span className="mono" style={{ position:"absolute", left:0, width:LABEL_W-2, textAlign:"right", fontSize:9, color:"rgba(139,92,246,0.8)", paddingRight:4, transform:"translateY(-50%)", lineHeight:1.2, background:"var(--panel)" }}>
@@ -429,49 +594,44 @@ function Planner() {
                 const t      = tc(block.type);
                 const bPov   = POVS.find(p=>p.id===block.bucket);
                 const isDragging = isLive && dr.moved;
+                const isRec  = !!block._recurring;
 
                 return (
                   <div key={block.id}
                     onMouseDown={e=>onBlockMouseDown(e,block,"move")}
                     style={{
-                      position:"absolute",
-                      top, left:LABEL_W, right:4,
-                      height,
+                      position:"absolute", top, left:LABEL_W, right:4, height,
                       background: isSel ? "rgba(139,92,246,0.15)" : "var(--panel-2)",
                       border:`1px solid ${isSel?"var(--accent)":t.color}`,
                       borderLeft:`3px solid ${t.color}`,
                       cursor: isDragging ? "grabbing" : "grab",
                       zIndex: isDragging ? 20 : isSel ? 5 : 2,
-                      overflow:"hidden",
-                      boxSizing:"border-box",
+                      overflow:"hidden", boxSizing:"border-box",
                       boxShadow: isDragging ? "0 8px 32px rgba(0,0,0,0.5)" : "none",
                       transition: isDragging ? "none" : "box-shadow .15s",
+                      opacity: isRec ? 0.85 : 1,
                     }}
                   >
                     <div style={{ padding:"4px 8px 2px", pointerEvents:"none" }}>
                       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                         <div style={{ minWidth:0, flex:1 }}>
-                          <div style={{ fontSize:8, color:t.color, fontWeight:700, letterSpacing:"0.14em", marginBottom:2 }}>{t.glyph} {t.label}</div>
+                          <div style={{ fontSize:8, color:t.color, fontWeight:700, letterSpacing:"0.14em", marginBottom:2 }}>
+                            {isRec&&<span style={{ marginRight:4, opacity:0.7 }}>↻</span>}{t.glyph} {t.label}
+                          </div>
                           <div style={{ fontSize:11, fontWeight:700, color:isSel?"var(--accent)":"var(--text)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{block.name}</div>
                           {height>40&&<div className="mono" style={{ fontSize:9, color:"var(--text-faint)", marginTop:2 }}>{strFromMins(startMins)} – {strFromMins(endMins)}</div>}
                         </div>
                         {bPov&&<span style={{ fontSize:7.5, color:bPov.color, fontWeight:700, letterSpacing:"0.1em", marginLeft:4, flexShrink:0 }}>{bPov.label.toUpperCase()}</span>}
                       </div>
                     </div>
-                    {/* Edit button */}
                     <button
                       onMouseDown={e=>e.stopPropagation()}
                       onClick={e=>{e.stopPropagation();openEdit(block);}}
                       style={{ position:"absolute", top:3, right:4, background:"none", border:"none", color:"var(--text-faint)", cursor:"pointer", fontSize:11, padding:"0 2px", opacity:0.6, lineHeight:1 }}
                     >✎</button>
-                    {/* Resize handle */}
                     <div
                       onMouseDown={e=>{e.stopPropagation();onBlockMouseDown(e,block,"resize");}}
-                      style={{
-                        position:"absolute", bottom:0, left:0, right:0, height:10,
-                        cursor:"ns-resize", display:"flex", alignItems:"center", justifyContent:"center",
-                        background:"linear-gradient(transparent, rgba(0,0,0,0.2))",
-                      }}
+                      style={{ position:"absolute", bottom:0, left:0, right:0, height:10, cursor:"ns-resize", display:"flex", alignItems:"center", justifyContent:"center", background:"linear-gradient(transparent, rgba(0,0,0,0.2))" }}
                     >
                       <div style={{ width:20, height:2, background:t.color, opacity:0.5, borderRadius:1 }} />
                     </div>
@@ -479,7 +639,7 @@ function Planner() {
                 );
               })}
 
-              {/* Empty state hint */}
+              {/* Empty state */}
               {dayBlocks.length===0&&(
                 <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", pointerEvents:"none" }}>
                   <div style={{ color:"var(--text-faint)", fontSize:11, marginBottom:6 }}>Noch keine Blöcke.</div>
@@ -490,7 +650,7 @@ function Planner() {
           </div>
         </div>
 
-        {/* ── Right: Task suggestions / checkboxes ── */}
+        {/* ── Right: Task suggestions ──────────────────────────────────────── */}
         <div style={{ overflow:"auto", padding:"20px 24px" }}>
           {!selBlock ? (
             <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100%", color:"var(--text-faint)", textAlign:"center" }}>
@@ -504,7 +664,10 @@ function Planner() {
                 <div>
                   <div style={{ fontSize:9.5, letterSpacing:"0.18em", fontWeight:700, color:"var(--text-faint)", marginBottom:4 }}>TASK-ZUTEILUNG</div>
                   <div style={{ fontSize:17, fontWeight:700 }}>{selBlock.name}</div>
-                  <div style={{ fontSize:11, color:"var(--text-faint)", marginTop:3 }}>{selBlock.start} – {selBlock.end} · {budget} min Budget</div>
+                  <div style={{ fontSize:11, color:"var(--text-faint)", marginTop:3 }}>
+                    {selBlock.start} – {selBlock.end} · {budget} min Budget
+                    {selBlock._recurring&&<span style={{ marginLeft:8, color:"var(--warn)", fontSize:9.5 }}>↻ Wiederkehrend</span>}
+                  </div>
                 </div>
                 <div style={{ textAlign:"right" }}>
                   <div className="mono" style={{ fontSize:26, fontWeight:800, color:selectedEst>budget?"var(--danger)":selTaskKeys.length>0?"var(--good)":"var(--text-dim)", lineHeight:1 }}>
@@ -521,24 +684,22 @@ function Planner() {
                   <ProgressBar value={Math.min(1,selectedEst/budget)} color={selectedEst>budget?"var(--danger)":"var(--good)"} height={3} />
                   <div style={{ display:"flex", justifyContent:"space-between", marginTop:5 }}>
                     <span style={{ fontSize:9, color:"var(--text-faint)" }}>{selTaskKeys.length} von {suggestions.length} Aufgaben gewählt</span>
-                    <span style={{ fontSize:9, color:"var(--text-faint)" }}>{Math.round(Math.min(100,selectedEst/budget*100))}% des Budgets verplant</span>
+                    <span style={{ fontSize:9, color:"var(--text-faint)" }}>{Math.round(Math.min(100,selectedEst/budget*100))}% des Budgets</span>
                   </div>
                 </div>
               )}
 
               {suggestions.length===0&&(
                 <div style={{ padding:"48px 0", textAlign:"center", color:"var(--text-faint)" }}>
-                  <div style={{ fontSize:12, marginBottom:6 }}>Keine passenden Aufgaben gefunden.</div>
-                  <div style={{ fontSize:10.5 }}>Ändere den Block-Typ oder füge Tasks in Mission Control hinzu.</div>
+                  <div style={{ fontSize:12, marginBottom:6 }}>Keine passenden Aufgaben.</div>
+                  <div style={{ fontSize:10.5 }}>Ändere Typ oder füge Tasks in Mission Control hinzu.</div>
                 </div>
               )}
-
               {suggestions.length>0&&(
                 <div style={{ fontSize:9, letterSpacing:"0.14em", color:"var(--text-faint)", marginBottom:12, fontWeight:600 }}>
                   {suggestions.length} VORSCHLÄGE — ANHAKEN ZUM ZUTEILEN
                 </div>
               )}
-
               {suggestions.map((t,i) => {
                 const taskKey = `${t.id}_${t._pov}`;
                 const isSel   = isTaskSel(selBlock.id, taskKey);
@@ -553,12 +714,7 @@ function Planner() {
                     borderLeft:`3px solid ${isSel?"var(--accent)":povColor}`,
                     cursor:"pointer", transition:"all .12s",
                   }}>
-                    <div style={{
-                      width:16, height:16, borderRadius:3, flexShrink:0,
-                      border:`2px solid ${isSel?"var(--accent)":"var(--line)"}`,
-                      background:isSel?"var(--accent)":"transparent",
-                      display:"flex", alignItems:"center", justifyContent:"center", transition:"all .12s",
-                    }}>
+                    <div style={{ width:16, height:16, borderRadius:3, flexShrink:0, border:`2px solid ${isSel?"var(--accent)":"var(--line)"}`, background:isSel?"var(--accent)":"transparent", display:"flex", alignItems:"center", justifyContent:"center", transition:"all .12s" }}>
                       {isSel&&<span style={{ color:"#0a0a0c", fontSize:10, fontWeight:900, lineHeight:1 }}>✓</span>}
                     </div>
                     <div style={{ flex:1, minWidth:0 }}>
