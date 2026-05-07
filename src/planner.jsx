@@ -94,17 +94,14 @@ function Planner() {
   const onBlockMouseDown = (e, block, type) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!gridRef.current) return;
-    const rect = gridRef.current.getBoundingClientRect();
-    const clickY = e.clientY - rect.top;
     const startMins = minsFromStr(block.start);
     const endMins   = minsFromStr(block.end);
     dragRef.current = {
       type, blockId: block.id,
-      clickOffsetY: type==="move" ? clickY - minsToY(startMins) : 0,
+      startClientY: e.clientY,
       origStartMins: startMins, origEndMins: endMins,
       liveStartMins: startMins, liveEndMins: endMins,
-      startClientY: e.clientY, moved: false,
+      moved: false,
     };
     forceRender();
   };
@@ -112,20 +109,18 @@ function Planner() {
   React.useEffect(() => {
     const onMouseMove = e => {
       const dr = dragRef.current;
-      if (!dr || !gridRef.current) return;
-      const rect = gridRef.current.getBoundingClientRect();
-      const y = e.clientY - rect.top;
+      if (!dr) return;
       if (Math.abs(e.clientY - dr.startClientY) > 3) dr.moved = true;
+      const deltaMins = (e.clientY - dr.startClientY) / HOUR_H * 60;
 
       if (dr.type === "move") {
         const duration = dr.origEndMins - dr.origStartMins;
-        const rawStart = snap15(yToMins(y - dr.clickOffsetY));
-        const newStart = clamp(rawStart, GRID_START_H*60, GRID_END_H*60 - duration);
+        const newStart = clamp(snap15(dr.origStartMins + deltaMins), GRID_START_H*60, GRID_END_H*60 - duration);
         dr.liveStartMins = newStart;
         dr.liveEndMins   = newStart + duration;
       } else {
-        const rawEnd = snap15(yToMins(y));
-        dr.liveEndMins = clamp(rawEnd, dr.origStartMins + 15, GRID_END_H*60);
+        const newEnd = clamp(snap15(dr.origEndMins + deltaMins), dr.origStartMins + 15, GRID_END_H*60);
+        dr.liveEndMins = newEnd;
       }
       forceRender();
     };
@@ -357,10 +352,8 @@ function Planner() {
           <div style={{ padding:"8px 12px 24px", position:"relative" }}>
             <div ref={gridRef} style={{ position:"relative", height:GRID_H, userSelect:"none" }}
               onDoubleClick={e=>{
-                if (!gridRef.current) return;
-                const rect = gridRef.current.getBoundingClientRect();
-                const y = e.clientY - rect.top;
-                openAdd(yToMins(y - LABEL_W/2));
+                if (e.target !== gridRef.current) return;
+                openAdd(yToMins(e.nativeEvent.offsetY));
               }}
             >
               {/* Hour lines + labels */}
