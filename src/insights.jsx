@@ -183,8 +183,26 @@ function Insights({ taskTimes, pov }) {
                      : effScore >= 40    ? "Zu viel Drift"
                      :                    "Kritisch — mehr Deep Work";
 
+  // ── Truth Loop — editierbar, localStorage-persistent ───────────────────────
+  const [tlPlan, setTlPlan] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("lifeos_tl_plan") || "null") || TRUTH_LOOP.plan; }
+    catch { return TRUTH_LOOP.plan; }
+  });
+  const [tlReality, setTlReality] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("lifeos_tl_reality") || "null") || TRUTH_LOOP.reality; }
+    catch { return TRUTH_LOOP.reality; }
+  });
+  React.useEffect(() => { localStorage.setItem("lifeos_tl_plan", JSON.stringify(tlPlan)); }, [tlPlan]);
+  React.useEffect(() => { localStorage.setItem("lifeos_tl_reality", JSON.stringify(tlReality)); }, [tlReality]);
+
+  const updateTl = (which, i, raw) => {
+    const v = Math.max(0, Math.min(24, parseFloat(raw) || 0));
+    if (which === "plan")    setTlPlan(arr    => arr.map((x, j) => j === i ? v : x));
+    else                     setTlReality(arr => arr.map((x, j) => j === i ? v : x));
+  };
+
   // ── Ignorance Debt (Truth Loop) ─────────────────────────────────────────────
-  const debt = (TRUTH_LOOP.plan.reduce((a, b) => a + b, 0) - TRUTH_LOOP.reality.reduce((a, b) => a + b, 0));
+  const debt = (tlPlan.reduce((a, b) => a + b, 0) - tlReality.reduce((a, b) => a + b, 0));
 
   const secToH = (s) => (s / 3600).toFixed(1) + "h";
 
@@ -386,25 +404,65 @@ function Insights({ taskTimes, pov }) {
           </div>
         </div>
 
-        <TruthLoopChart days={TRUTH_LOOP.days} plan={TRUTH_LOOP.plan} reality={TRUTH_LOOP.reality} />
+        <TruthLoopChart days={TRUTH_LOOP.days} plan={tlPlan} reality={tlReality} />
 
-        {/* Compact delta row below chart */}
-        <div style={{ display: "flex", gap: 0, marginTop: 12, borderTop: "1px solid var(--line-soft)", paddingTop: 12 }}>
-          {TRUTH_LOOP.days.map((day, i) => {
-            const delta = TRUTH_LOOP.reality[i] - TRUTH_LOOP.plan[i];
-            const c = delta >= 0 ? "var(--good)" : "var(--danger)";
-            return (
-              <div key={day} style={{ flex: 1, textAlign: "center" }}>
-                <div className="mono" style={{ fontSize: 10.5, fontWeight: 700, color: c }}>{fmtH(delta)}</div>
-                <div style={{ fontSize: 8.5, color: "var(--text-faint)", marginTop: 2, letterSpacing: "0.1em" }}>{day}</div>
+        {/* Editable input grid */}
+        <div style={{ marginTop: 16, borderTop: "1px solid var(--line-soft)", paddingTop: 14 }}>
+          {[
+            { label: "PLAN", arr: tlPlan,    which: "plan",    color: "var(--text-dim)" },
+            { label: "REAL", arr: tlReality, which: "reality", color: "var(--accent)" },
+          ].map(({ label, arr, which, color }) => (
+            <div key={which} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+              <span className="mono" style={{ width: 36, fontSize: 8.5, fontWeight: 700, color: "var(--text-faint)", letterSpacing: "0.14em", flexShrink: 0 }}>
+                {label}
+              </span>
+              {TRUTH_LOOP.days.map((day, i) => (
+                <div key={day} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                  <input
+                    type="number" min="0" max="24" step="0.5"
+                    value={arr[i]}
+                    onChange={e => updateTl(which, i, e.target.value)}
+                    style={{
+                      width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)",
+                      color, padding: "5px 0", fontSize: 11, fontFamily: "'JetBrains Mono',monospace",
+                      fontWeight: 700, textAlign: "center", outline: "none", boxSizing: "border-box",
+                      appearance: "textfield", MozAppearance: "textfield",
+                    }}
+                  />
+                  {which === "plan" && (
+                    <span style={{ fontSize: 8, color: "var(--text-faint)", letterSpacing: "0.1em" }}>{day}</span>
+                  )}
+                </div>
+              ))}
+              <div style={{ width: 64, textAlign: "right", paddingLeft: 8, borderLeft: "1px solid var(--line-soft)", flexShrink: 0 }}>
+                <div className="mono" style={{ fontSize: 11, fontWeight: 700, color }}>
+                  {arr.reduce((s, v) => s + v, 0).toFixed(1)}h
+                </div>
+                <div style={{ fontSize: 8, color: "var(--text-faint)", letterSpacing: "0.1em" }}>TOTAL</div>
               </div>
-            );
-          })}
-          <div style={{ flex: 1, textAlign: "center", borderLeft: "1px solid var(--line-soft)", paddingLeft: 8 }}>
-            <div className="mono" style={{ fontSize: 10.5, fontWeight: 700, color: debt >= 0 ? "var(--good)" : "var(--danger)" }}>
-              {fmtH(-debt)}
             </div>
-            <div style={{ fontSize: 8.5, color: "var(--text-faint)", marginTop: 2, letterSpacing: "0.1em" }}>GESAMT</div>
+          ))}
+
+          {/* Delta summary */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
+            <span className="mono" style={{ width: 36, fontSize: 8.5, fontWeight: 700, color: "var(--text-faint)", letterSpacing: "0.14em", flexShrink: 0 }}>
+              DELTA
+            </span>
+            {TRUTH_LOOP.days.map((day, i) => {
+              const d = tlReality[i] - tlPlan[i];
+              const c = d >= 0 ? "var(--good)" : "var(--danger)";
+              return (
+                <div key={day} style={{ flex: 1, textAlign: "center" }}>
+                  <span className="mono" style={{ fontSize: 10, fontWeight: 700, color: c }}>{fmtH(d)}</span>
+                </div>
+              );
+            })}
+            <div style={{ width: 64, textAlign: "right", paddingLeft: 8, borderLeft: "1px solid var(--line-soft)", flexShrink: 0 }}>
+              <div className="mono" style={{ fontSize: 11, fontWeight: 700, color: debt <= 0 ? "var(--good)" : "var(--danger)" }}>
+                {fmtH(-debt)}
+              </div>
+              <div style={{ fontSize: 8, color: "var(--text-faint)", letterSpacing: "0.1em" }}>GESAMT</div>
+            </div>
           </div>
         </div>
       </div>
