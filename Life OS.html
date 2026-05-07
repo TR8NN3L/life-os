@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Life OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0a0c;
+    --panel: #141418;
+    --panel-2: #1a1a20;
+    --line: #26262d;
+    --line-soft: #1f1f25;
+    --text: #e8e8ec;
+    --text-dim: #8a8a95;
+    --text-faint: #54545d;
+    --accent: #8b5cf6;
+    --accent-soft: rgba(139, 92, 246, 0.12);
+    --accent-line: rgba(139, 92, 246, 0.35);
+    --danger: #d6324a;
+    --danger-soft: rgba(214, 50, 74, 0.14);
+    --warn: #d4a23c;
+    --warn-soft: rgba(212, 162, 60, 0.12);
+    --good: #3aab5b;
+    --good-soft: rgba(58, 171, 91, 0.12);
+    --personal: #8b5cf6;
+    --founder: #2f8bff;
+    --student: #d6324a;
+    --athlete: #10b981;
+    --row-h: 56px;
+    --radius: 4px;
+  }
+  * { box-sizing: border-box; }
+  html, body, #root { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+  button { font-family: inherit; }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .uppercase-label {
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    font-weight: 600;
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2a2a32; border-radius: 5px; border: 2px solid var(--bg); }
+  ::-webkit-scrollbar-thumb:hover { background: #3a3a44; }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="tweaks-panel.jsx?v=1778134500"></script>
+  <script type="text/babel" src="src/data.jsx?v=1778134500"></script>
+  <script type="text/babel" src="src/primitives.jsx?v=1778134500"></script>
+  <script type="text/babel" src="src/sidebar.jsx?v=1778134500"></script>
+  <script type="text/babel" src="src/dashboard.jsx?v=1778134500"></script>
+  <script type="text/babel" src="src/focus.jsx?v=1778134500"></script>
+  <script type="text/babel" src="src/mission-control.jsx?v=1778134500"></script>
+  <script type="text/babel" src="src/planner.jsx?v=1778134500"></script>
+  <script type="text/babel" src="src/insights.jsx?v=1778134500"></script>
+  <script type="text/babel" src="src/app.jsx?v=1778134500"></script>
+</body>
+</html>

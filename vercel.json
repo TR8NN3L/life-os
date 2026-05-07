@@ -1,0 +1,8 @@
+{
+  "headers": [
+    {
+      "source": "/(.*\\.jsx)",
+      "headers": [{ "key": "Content-Type", "value": "text/javascript" }]
+    }
+  ]
+}
