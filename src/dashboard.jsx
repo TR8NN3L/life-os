@@ -82,12 +82,47 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
   // Inbox section open/collapsed
   const [inboxOpen, setInboxOpen] = React.useState(true);
 
+  // Task order — drag & drop reordering, persisted per POV
+  const orderKey = `lifeos_task_order_${pov}`;
+  const [taskOrder, setTaskOrder] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(`lifeos_task_order_${pov}`) || "null"); } catch { return null; }
+  });
+  React.useEffect(() => {
+    if (taskOrder !== null) localStorage.setItem(orderKey, JSON.stringify(taskOrder));
+  }, [taskOrder, orderKey]);
+  React.useEffect(() => {
+    try { setTaskOrder(JSON.parse(localStorage.getItem(`lifeos_task_order_${pov}`) || "null")); } catch { setTaskOrder(null); }
+  }, [pov]);
+
+  const orderedTasksToday = React.useMemo(() => {
+    if (!taskOrder || taskOrder.length === 0) return tasksToday;
+    const orderMap = {};
+    taskOrder.forEach((id, i) => { orderMap[id] = i; });
+    return [...tasksToday].sort((a, b) => (orderMap[a.id] ?? 9999) - (orderMap[b.id] ?? 9999));
+  }, [tasksToday, taskOrder]);
+
+  // Drag state
+  const [dragIdx, setDragIdx] = React.useState(null);
+  const [dragOverIdx, setDragOverIdx] = React.useState(null);
+
+  const handleTaskDrop = (fromIdx, toIdx) => {
+    if (fromIdx === null || fromIdx === toIdx) return;
+    const cur = [...filteredTasks];
+    const [moved] = cur.splice(fromIdx, 1);
+    cur.splice(toIdx, 0, moved);
+    // Merge back into full ordered list
+    const filteredIds = new Set(filteredTasks.map(t => t.id));
+    let fi = 0;
+    const newFull = orderedTasksToday.map(t => filteredIds.has(t.id) ? cur[fi++] : t);
+    setTaskOrder(newFull.map(t => t.id));
+  };
+
   // Reset KR filter when POV changes
   React.useEffect(() => { setActiveKR(null); }, [pov]);
 
   const filteredTasks = activeKR
-    ? tasksToday.filter(t => t.kr === activeKR)
-    : tasksToday;
+    ? orderedTasksToday.filter(t => t.kr === activeKR)
+    : orderedTasksToday;
 
   const active = tasksToday.find(t => t.id === activeTaskId);
   const elapsedFor = (t) => taskTimes[t.id] ?? t.elapsed;
@@ -254,12 +289,21 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
             const hasNote = !!noteEntry.text;
             const isDone = doneTasks.has(t.id);
             return (
-              <div key={t.id} style={{
-                borderTop: i === 0 ? "1px solid var(--line-soft)" : "none",
-                borderBottom: "1px solid var(--line-soft)",
-                opacity: isDone ? 0.35 : isSideQuest ? 0.6 : 1,
-                transition: "opacity .2s",
-              }}>
+              <div key={t.id}
+                draggable
+                onDragStart={() => setDragIdx(i)}
+                onDragOver={(e) => { e.preventDefault(); setDragOverIdx(i); }}
+                onDrop={() => { handleTaskDrop(dragIdx, dragOverIdx); setDragIdx(null); setDragOverIdx(null); }}
+                onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
+                style={{
+                  borderTop: dragOverIdx === i && dragIdx !== i
+                    ? "2px solid var(--accent)"
+                    : i === 0 ? "1px solid var(--line-soft)" : "none",
+                  borderBottom: "1px solid var(--line-soft)",
+                  opacity: isDone ? 0.35 : isSideQuest ? 0.6 : dragIdx === i ? 0.4 : 1,
+                  transition: "opacity .15s",
+                  cursor: "grab",
+                }}>
               <div style={{
                 display: "grid",
                 gridTemplateColumns: "32px 1fr auto auto auto",

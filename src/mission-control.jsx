@@ -80,7 +80,7 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
   };
 
   // Free tasks (dashboard tasks not in any project)
-  const freeTasks = React.useMemo(() => {
+  const rawFreeTasks = React.useMemo(() => {
     const povIds = mcFilter === "alle" ? POVS.map(p => p.id) : [mcFilter];
     const result = [];
     for (const povId of povIds) {
@@ -92,6 +92,32 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
     }
     return result;
   }, [mcFilter]);
+
+  // Free task order — drag & drop reordering
+  const [freeTaskOrder, setFreeTaskOrder] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("lifeos_free_task_order") || "null"); } catch { return null; }
+  });
+  React.useEffect(() => {
+    if (freeTaskOrder !== null) localStorage.setItem("lifeos_free_task_order", JSON.stringify(freeTaskOrder));
+  }, [freeTaskOrder]);
+
+  const freeTasks = React.useMemo(() => {
+    if (!freeTaskOrder || freeTaskOrder.length === 0) return rawFreeTasks;
+    const orderMap = {};
+    freeTaskOrder.forEach((id, i) => { orderMap[id] = i; });
+    return [...rawFreeTasks].sort((a, b) => (orderMap[a.id] ?? 9999) - (orderMap[b.id] ?? 9999));
+  }, [rawFreeTasks, freeTaskOrder]);
+
+  const [freeDragIdx, setFreeDragIdx] = React.useState(null);
+  const [freeDragOverIdx, setFreeDragOverIdx] = React.useState(null);
+
+  const handleFreeDrop = (fromIdx, toIdx) => {
+    if (fromIdx === null || fromIdx === toIdx) return;
+    const cur = [...freeTasks];
+    const [moved] = cur.splice(fromIdx, 1);
+    cur.splice(toIdx, 0, moved);
+    setFreeTaskOrder(cur.map(t => t.id));
+  };
 
   const [doneVer, setDoneVer] = React.useState(0);
   const isDoneTask = (taskId, povId) => {
@@ -251,12 +277,21 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
                     const isDone = isDoneTask(t.id, t._pov);
                     const povColor = POVS.find(x => x.id === t._pov)?.color || "var(--accent)";
                     return (
-                      <div key={`${t._pov}_${t.id}_${_fi}`} style={{
-                        display: "grid", gridTemplateColumns: "28px 120px 1fr 160px 110px 130px",
-                        gap: 16, padding: "13px 16px", borderBottom: "1px solid var(--line-soft)",
-                        background: isActive ? "rgba(255,255,255,0.03)" : "transparent",
-                        opacity: isDone ? 0.4 : 1,
-                      }}>
+                      <div key={`${t._pov}_${t.id}_${_fi}`}
+                        draggable
+                        onDragStart={() => setFreeDragIdx(_fi)}
+                        onDragOver={(e) => { e.preventDefault(); setFreeDragOverIdx(_fi); }}
+                        onDrop={() => { handleFreeDrop(freeDragIdx, freeDragOverIdx); setFreeDragIdx(null); setFreeDragOverIdx(null); }}
+                        onDragEnd={() => { setFreeDragIdx(null); setFreeDragOverIdx(null); }}
+                        style={{
+                          display: "grid", gridTemplateColumns: "28px 120px 1fr 160px 110px 130px",
+                          gap: 16, padding: "13px 16px",
+                          borderTop: freeDragOverIdx === _fi && freeDragIdx !== _fi ? "2px solid var(--accent)" : "none",
+                          borderBottom: "1px solid var(--line-soft)",
+                          background: isActive ? "rgba(255,255,255,0.03)" : "transparent",
+                          opacity: isDone ? 0.4 : freeDragIdx === _fi ? 0.4 : 1,
+                          cursor: "grab",
+                        }}>
                         <button onClick={() => toggleFreeTaskDone(t.id, t._pov)} style={{
                           width: 16, height: 16, borderRadius: 3, cursor: "pointer",
                           background: isDone ? "var(--accent)" : "transparent",
