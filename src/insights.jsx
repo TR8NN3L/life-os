@@ -376,6 +376,9 @@ function Insights({ taskTimes, pov }) {
         </div>
       )}
 
+      {/* ── Behavior Change Tracker ─────────────────────────────── */}
+      <BehaviorTracker />
+
       {/* ── Wochen-Delta (Truth Loop — Time Series Chart) ──────── */}
       <div style={{ background: "var(--panel)", border: "1px solid var(--line-soft)", padding: "20px 24px", marginBottom: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
@@ -466,6 +469,143 @@ function Insights({ taskTimes, pov }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function BehaviorTracker() {
+  const [habits, setHabits] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("lifeos_habits") || "[]"); } catch { return []; }
+  });
+  const saveHabits = (arr) => {
+    setHabits(arr);
+    try { localStorage.setItem("lifeos_habits", JSON.stringify(arr)); } catch {}
+  };
+  const [adding, setAdding] = React.useState(false);
+  const [newName, setNewName] = React.useState("");
+
+  const COLORS = ["var(--accent)", "var(--good)", "var(--warn)", "#06b6d4", "#ec4899", "var(--danger)"];
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const last7 = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (6 - i));
+    return d.toISOString().slice(0, 10);
+  });
+  const DE_DAYS_S = ["So","Mo","Di","Mi","Do","Fr","Sa"];
+
+  const getStreak = (log) => {
+    let streak = 0;
+    const d = new Date();
+    while (true) {
+      const iso = d.toISOString().slice(0, 10);
+      if (!log[iso]) break;
+      streak++;
+      d.setDate(d.getDate() - 1);
+    }
+    return streak;
+  };
+
+  const toggleDay = (habitId, iso) => {
+    saveHabits(habits.map(h => {
+      if (h.id !== habitId) return h;
+      const log = { ...h.log };
+      log[iso] ? delete log[iso] : (log[iso] = true);
+      return { ...h, log };
+    }));
+  };
+
+  const addHabit = () => {
+    if (!newName.trim()) return;
+    saveHabits([...habits, {
+      id: `h_${Date.now()}`, name: newName.trim(),
+      color: COLORS[habits.length % COLORS.length], log: {},
+    }]);
+    setNewName(""); setAdding(false);
+  };
+
+  return (
+    <div style={{ background: "var(--panel)", border: "1px solid var(--line-soft)", padding: "20px 24px", marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: habits.length > 0 ? 16 : 0 }}>
+        <div>
+          <div className="uppercase-label" style={{ marginBottom: 3 }}>Behavior Change Tracker</div>
+          <div style={{ fontSize: 11, color: "var(--text-faint)" }}>Täglich einchecken · Streaks aufbauen · Drift sichtbar machen</div>
+        </div>
+        <button onClick={() => setAdding(v => !v)} style={{
+          background: "var(--accent-soft)", border: "1px solid var(--accent-line)", color: "var(--accent)",
+          padding: "7px 16px", fontSize: 9.5, letterSpacing: "0.14em", fontWeight: 700, cursor: "pointer",
+        }}>+ GEWOHNHEIT</button>
+      </div>
+
+      {habits.length === 0 && !adding && (
+        <div style={{ padding: "24px 0", textAlign: "center", color: "var(--text-faint)", fontSize: 12, fontStyle: "italic" }}>
+          Noch keine Gewohnheiten — füge eine hinzu.
+        </div>
+      )}
+
+      {habits.length > 0 && (
+        <>
+          {/* Column headers */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr repeat(7, 30px) 56px 28px", gap: 6, alignItems: "center", marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid var(--line-soft)" }}>
+            <span style={{ fontSize: 8.5, letterSpacing: "0.14em", color: "var(--text-faint)" }}>GEWOHNHEIT</span>
+            {last7.map(iso => {
+              const d = new Date(iso + "T12:00:00");
+              const isToday = iso === todayISO;
+              return (
+                <span key={iso} style={{ textAlign: "center", fontSize: 8.5, color: isToday ? "var(--accent)" : "var(--text-faint)", fontWeight: isToday ? 700 : 400, letterSpacing: "0.06em" }}>
+                  {DE_DAYS_S[d.getDay()]}
+                </span>
+              );
+            })}
+            <span style={{ fontSize: 8.5, color: "var(--text-faint)", textAlign: "center", letterSpacing: "0.1em" }}>STREAK</span>
+            <span />
+          </div>
+
+          {/* Habit rows */}
+          {habits.map(h => {
+            const streak = getStreak(h.log);
+            const streakColor = streak >= 14 ? "var(--good)" : streak >= 7 ? "var(--accent)" : streak >= 3 ? "var(--warn)" : "var(--text-faint)";
+            return (
+              <div key={h.id} style={{ display: "grid", gridTemplateColumns: "1fr repeat(7, 30px) 56px 28px", gap: 6, alignItems: "center", padding: "10px 0", borderBottom: "1px solid var(--line-soft)" }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: h.color }}>{h.name}</span>
+                {last7.map(iso => {
+                  const done = !!h.log[iso];
+                  const isToday = iso === todayISO;
+                  return (
+                    <button key={iso} onClick={() => toggleDay(h.id, iso)} style={{
+                      width: 24, height: 24, borderRadius: isToday ? 4 : "50%",
+                      border: `2px solid ${done ? h.color : isToday ? "var(--line)" : "rgba(255,255,255,0.08)"}`,
+                      background: done ? h.color : "transparent",
+                      cursor: "pointer", margin: "0 auto", display: "flex",
+                      alignItems: "center", justifyContent: "center",
+                      fontSize: 10, color: "#0a0a0c",
+                      opacity: !done && !isToday ? 0.4 : 1,
+                      transition: "all .15s", padding: 0, flexShrink: 0,
+                    }}>{done ? "✓" : ""}</button>
+                  );
+                })}
+                <div style={{ textAlign: "center" }}>
+                  <span className="mono" style={{ fontSize: 15, fontWeight: 700, color: streakColor }}>
+                    {streak > 0 ? streak : "—"}
+                  </span>
+                  {streak >= 3 && <span style={{ fontSize: 11, marginLeft: 2 }}>🔥</span>}
+                </div>
+                <button onClick={() => saveHabits(habits.filter(x => x.id !== h.id))}
+                  style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 15, padding: 0, opacity: 0.45, lineHeight: 1 }}>×</button>
+              </div>
+            );
+          })}
+        </>
+      )}
+
+      {adding && (
+        <div style={{ display: "flex", gap: 10, marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--line-soft)", alignItems: "center" }}>
+          <input autoFocus value={newName} onChange={e => setNewName(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") addHabit(); if (e.key === "Escape") { setAdding(false); setNewName(""); } }}
+            placeholder="z.B. 1h Lernen · Kein Zucker · 10.000 Schritte · Kein Social Media…"
+            style={{ flex: 1, background: "var(--panel-2)", border: "1px solid var(--accent-line)", color: "var(--text)", padding: "9px 14px", fontSize: 13, fontFamily: "inherit", outline: "none" }} />
+          <button onClick={addHabit} style={{ padding: "9px 18px", background: "var(--accent)", color: "#0a0a0c", border: "none", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", cursor: "pointer" }}>HINZUFÜGEN ✓</button>
+          <button onClick={() => { setAdding(false); setNewName(""); }} style={{ padding: "9px 14px", background: "transparent", border: "1px solid var(--line)", color: "var(--text-faint)", fontSize: 11, cursor: "pointer" }}>ABBRECHEN</button>
+        </div>
+      )}
     </div>
   );
 }
