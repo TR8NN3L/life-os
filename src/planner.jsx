@@ -90,15 +90,28 @@ function Planner() {
   const gridRef    = React.useRef(null);
   const dragRef    = React.useRef(null);
   const [, forceRender] = React.useReducer(x=>x+1, 0);
+  const [hoverMins, setHoverMins] = React.useState(null);
+
+  const getGridY = clientY => {
+    if (!gridRef.current) return null;
+    const rect = gridRef.current.getBoundingClientRect();
+    const y = clientY - rect.top;
+    return (y >= 0 && y <= GRID_H) ? y : null;
+  };
 
   const onBlockMouseDown = (e, block, type) => {
     e.preventDefault();
     e.stopPropagation();
     const startMins = minsFromStr(block.start);
     const endMins   = minsFromStr(block.end);
+    const rect = gridRef.current.getBoundingClientRect();
+    const yInGrid = e.clientY - rect.top;
+    const clickMins = yToMins(yInGrid);
+    const mouseOffsetMins = clamp(clickMins - startMins, 0, endMins - startMins);
     dragRef.current = {
       type, blockId: block.id,
       startClientY: e.clientY,
+      mouseOffsetMins,
       origStartMins: startMins, origEndMins: endMins,
       liveStartMins: startMins, liveEndMins: endMins,
       moved: false,
@@ -111,15 +124,17 @@ function Planner() {
       const dr = dragRef.current;
       if (!dr) return;
       if (Math.abs(e.clientY - dr.startClientY) > 3) dr.moved = true;
-      const deltaMins = (e.clientY - dr.startClientY) / HOUR_H * 60;
+      if (!gridRef.current) return;
+      const rect = gridRef.current.getBoundingClientRect();
+      const currentMins = yToMins(e.clientY - rect.top);
 
       if (dr.type === "move") {
         const duration = dr.origEndMins - dr.origStartMins;
-        const newStart = clamp(snap15(dr.origStartMins + deltaMins), GRID_START_H*60, GRID_END_H*60 - duration);
+        const newStart = clamp(snap15(currentMins - dr.mouseOffsetMins), GRID_START_H*60, GRID_END_H*60 - duration);
         dr.liveStartMins = newStart;
         dr.liveEndMins   = newStart + duration;
       } else {
-        const newEnd = clamp(snap15(dr.origEndMins + deltaMins), dr.origStartMins + 15, GRID_END_H*60);
+        const newEnd = clamp(snap15(currentMins), dr.origStartMins + 15, GRID_END_H*60);
         dr.liveEndMins = newEnd;
       }
       forceRender();
@@ -351,9 +366,17 @@ function Planner() {
           {/* Grid */}
           <div style={{ padding:"8px 12px 24px", position:"relative" }}>
             <div ref={gridRef} style={{ position:"relative", height:GRID_H, userSelect:"none" }}
+              onMouseMove={e=>{
+                if (dragRef.current) return;
+                const y = getGridY(e.clientY);
+                setHoverMins(y !== null ? snap15(yToMins(y)) : null);
+              }}
+              onMouseLeave={()=>setHoverMins(null)}
               onDoubleClick={e=>{
                 if (e.target !== gridRef.current) return;
-                openAdd(yToMins(e.nativeEvent.offsetY));
+                const y = getGridY(e.clientY);
+                if (y === null) return;
+                openAdd(yToMins(y));
               }}
             >
               {/* Hour lines + labels */}
@@ -376,6 +399,16 @@ function Planner() {
                 <div style={{ position:"absolute", top:minsToY(nowMins), left:LABEL_W, right:0, zIndex:8, pointerEvents:"none" }}>
                   <div style={{ position:"absolute", left:-5, top:-4, width:8, height:8, borderRadius:"50%", background:"var(--danger)" }} />
                   <div style={{ borderTop:"2px solid var(--danger)", marginLeft:3 }} />
+                </div>
+              )}
+
+              {/* Hover time indicator */}
+              {hoverMins !== null && !dragRef.current && (
+                <div style={{ position:"absolute", top:minsToY(hoverMins), left:0, right:0, zIndex:15, pointerEvents:"none" }}>
+                  <span className="mono" style={{ position:"absolute", left:0, width:LABEL_W-2, textAlign:"right", fontSize:9, color:"rgba(139,92,246,0.8)", paddingRight:4, transform:"translateY(-50%)", lineHeight:1.2, background:"var(--panel)" }}>
+                    {strFromMins(hoverMins)}
+                  </span>
+                  <div style={{ position:"absolute", left:LABEL_W, right:0, borderTop:"1px solid rgba(139,92,246,0.3)" }} />
                 </div>
               )}
 
