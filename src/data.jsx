@@ -264,16 +264,40 @@ const PROJECTS = [
   },
 ];
 
-// Planner: week of 5–11 May 2026 (KW 19) — swimlanes replaced by dynamic timeblocks in Planner UI.
-const WEEK = {
-  kw: 19,
-  range: "5.–11. Mai 2026",
-  days: [
-    { k: "MO", n: "05" }, { k: "DI", n: "06" }, { k: "MI", n: "07" },
-    { k: "DO", n: "08" }, { k: "FR", n: "09" }, { k: "SA", n: "10" }, { k: "SO", n: "11" },
-  ],
-  swimlanes: [],
-};
+// Planner: dynamisch berechnet — immer aktuelle Woche
+const WEEK = (() => {
+  const now   = new Date();
+  const dow   = now.getDay();                        // 0=So, 1=Mo...
+  const diff  = dow === 0 ? -6 : 1 - dow;           // Abstand zu Montag
+  const mon   = new Date(now);
+  mon.setDate(now.getDate() + diff);
+  mon.setHours(0, 0, 0, 0);
+
+  // ISO-Kalenderwoche
+  const thu   = new Date(mon); thu.setDate(mon.getDate() + 3);
+  const jan4  = new Date(thu.getFullYear(), 0, 4);
+  const jan4Mo = new Date(jan4);
+  jan4Mo.setDate(jan4.getDate() - ((jan4.getDay() || 7) - 1));
+  const kw    = Math.round((mon - jan4Mo) / 604800000) + 1;
+
+  const sun   = new Date(mon); sun.setDate(mon.getDate() + 6);
+  const DE_MONTHS = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+  const DE_MONTHS_SHORT = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
+  const range = `${mon.getDate()}.–${sun.getDate()}. ${DE_MONTHS[sun.getMonth()]} ${sun.getFullYear()}`;
+
+  const DAY_LABELS = ["MO","DI","MI","DO","FR","SA","SO"];
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(mon); d.setDate(mon.getDate() + i);
+    return {
+      k:    DAY_LABELS[i],
+      n:    String(d.getDate()).padStart(2, "0"),
+      date: d,
+      monthShort: DE_MONTHS_SHORT[d.getMonth()],
+    };
+  });
+
+  return { kw, range, days, mon, sun, swimlanes: [] };
+})();
 
 // expose
 Object.assign(window, {

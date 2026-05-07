@@ -229,7 +229,12 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
               </span>
             )}
           </div>
-          <div className="uppercase-label" style={{ color: "var(--text-dim)" }}>Mo, 5. Mai 2026</div>
+          <div className="uppercase-label" style={{ color: "var(--text-dim)" }}>{(() => {
+            const n = new Date();
+            const DE_DAYS = ["So","Mo","Di","Mi","Do","Fr","Sa"];
+            const DE_MONTHS = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
+            return `${DE_DAYS[n.getDay()]}, ${n.getDate()}. ${DE_MONTHS[n.getMonth()]} ${n.getFullYear()}`;
+          })()}</div>
         </div>
 
         <div style={{ padding: "0 28px" }}>

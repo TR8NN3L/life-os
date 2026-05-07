@@ -336,16 +336,19 @@ function Planner() {
       <div style={{ display:"flex", borderBottom:"1px solid var(--line)", background:"var(--panel)", flexShrink:0 }}>
         {DAY_KEYS.map((key,i)=>{
           const isToday=i===todayIdx, isSel=i===selDay, count=(blocks[i]||[]).length;
+          const dayInfo = WEEK.days[i];
           return (
             <button key={key} onClick={()=>{setSelDay(i);setSelBlockId(null);}} style={{
-              flex:1, padding:"13px 8px 11px", background:"transparent",
+              flex:1, padding:"10px 8px 9px", background:"transparent",
               border:"none", borderBottom:`3px solid ${isSel?"var(--accent)":"transparent"}`,
               color:isSel?"var(--accent)":isToday?"var(--text)":"var(--text-faint)",
               fontWeight:isSel||isToday?700:600, fontSize:10.5, letterSpacing:"0.14em", cursor:"pointer",
             }}>
               {key}
-              {count>0&&<span style={{ display:"block", fontSize:8, letterSpacing:0, marginTop:3, color:isSel?"var(--accent)":"var(--text-faint)" }}>{count}</span>}
-              {count===0&&isToday&&<span style={{ display:"block", width:4, height:4, borderRadius:"50%", background:"var(--accent)", margin:"3px auto 0" }} />}
+              <span style={{ display:"block", fontSize:9, letterSpacing:0, marginTop:2, fontWeight:isToday?700:400, color:isToday?(isSel?"var(--accent)":"var(--warn)"):"var(--text-faint)", fontFamily:"'JetBrains Mono',monospace" }}>
+                {dayInfo ? dayInfo.n : ""}
+              </span>
+              {count>0&&<span style={{ display:"block", fontSize:7.5, letterSpacing:0, marginTop:1, color:isSel?"var(--accent)":"var(--text-faint)" }}>{count}✦</span>}
             </button>
           );
         })}
@@ -359,7 +362,9 @@ function Planner() {
 
           {/* Sticky header */}
           <div style={{ position:"sticky", top:0, zIndex:20, background:"var(--panel)", borderBottom:"1px solid var(--line-soft)", padding:"10px 14px 10px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-            <span style={{ fontSize:9, letterSpacing:"0.18em", fontWeight:700, color:"var(--text-faint)" }}>ZEITGRID · {DAY_KEYS[selDay]}</span>
+            <span style={{ fontSize:9, letterSpacing:"0.18em", fontWeight:700, color:"var(--text-faint)" }}>
+              ZEITGRID · {DAY_KEYS[selDay]} {WEEK.days[selDay]?.n}. {WEEK.days[selDay]?.monthShort}
+            </span>
             <button onClick={()=>openAdd()} style={{ background:"transparent", border:"1px dashed var(--line)", color:"var(--accent)", padding:"4px 12px", fontSize:9, letterSpacing:"0.14em", fontWeight:700, cursor:"pointer" }}>+ BLOCK</button>
           </div>
 
