@@ -453,152 +453,33 @@ function TaskDetail({ task, onBack, taskTimes, setTaskTimes, activeTaskId, setAc
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-        {/* Notes */}
-        <div style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "20px 24px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
-            <div className="uppercase-label">Notizen</div>
-            {noteTs && (
-              <span style={{ fontSize: 9.5, color: "var(--text-faint)", letterSpacing: "0.08em" }}>
-                {(() => {
-                  const diff = Math.floor((Date.now() - new Date(noteTs).getTime()) / 1000);
-                  if (diff < 60) return "gerade eben";
-                  if (diff < 3600) return `vor ${Math.floor(diff/60)} Min.`;
-                  if (diff < 86400) return `vor ${Math.floor(diff/3600)} Std.`;
-                  return `vor ${Math.floor(diff/86400)} Tagen`;
-                })()}
-              </span>
-            )}
-          </div>
-          <textarea value={noteText} onChange={e => saveNote(e.target.value)}
-            placeholder="Notizen, Kontext, nächste Schritte…"
-            rows={10}
-            style={{
-              width: "100%", background: "var(--panel-2)",
-              border: "1px solid var(--line)", borderLeft: "2px solid var(--accent)",
-              color: "var(--text)", padding: "12px 16px",
-              fontSize: 13, fontFamily: "inherit", resize: "vertical", outline: "none",
-              boxSizing: "border-box", lineHeight: 1.6,
-            }} />
-          {noteText && <div style={{ marginTop: 8, fontSize: 9.5, color: "var(--accent)", letterSpacing: "0.1em" }}>● GESPEICHERT</div>}
-        </div>
-
-        {/* Project assignment */}
-        <div style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "20px 24px" }}>
-          <div className="uppercase-label" style={{ marginBottom: 14 }}>Projekt</div>
-
-          {/* Embedded context — task is structurally part of a project */}
-          {embeddedContext ? (
-            <div style={{ padding: "14px 16px", background: "var(--accent-soft)", border: "1px solid var(--accent-line)" }}>
-              <div style={{ fontSize: 9.5, color: "var(--accent)", letterSpacing: "0.14em", fontWeight: 700, marginBottom: 8 }}>IM PROJEKT</div>
-              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{embeddedContext.projectTitle}</div>
-              <div style={{ fontSize: 12, color: "var(--text-dim)" }}>
-                {embeddedContext.krLabel && <span style={{ fontWeight: 600 }}>{embeddedContext.krLabel}:</span>} {embeddedContext.krTitle}
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* OKR context badge */}
-              {okrContext && task.kr && (
-                <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(47,139,255,0.06)", border: "1px solid var(--line)", fontSize: 11, color: "var(--text-dim)" }}>
-                  <span style={{ fontSize: 9.5, letterSpacing: "0.14em", fontWeight: 700, color: "var(--accent)", marginRight: 8 }}>QUARTERLY OKR</span>
-                  {okrContext.krLabel && <span style={{ fontWeight: 600, color: "var(--text)" }}>{okrContext.krLabel}</span>}
-                  {okrContext.krTitle && <span> — {okrContext.krTitle}</span>}
-                </div>
-              )}
-
-              {/* Assignment badge — shown when assigned and not editing */}
-              {assignment && !editingAssignment ? (
-                <div style={{ padding: "10px 14px", background: "var(--accent-soft)", border: "1px solid var(--accent-line)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontSize: 9.5, color: "var(--accent)", letterSpacing: "0.14em", fontWeight: 700, marginBottom: 3 }}>✓ ZUGEWIESEN</div>
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>{assignment.projectTitle}</div>
-                    <div style={{ fontSize: 11, color: "var(--text-dim)", marginTop: 2 }}>→ {assignment.krTitle}</div>
-                  </div>
-                  <button onClick={() => { setSelProject(assignment.projectId); setSelKR(assignment.krId); setEditingAssignment(true); }}
-                    title="Zuweisung bearbeiten"
-                    style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 15, padding: "4px 8px", lineHeight: 1 }}>✎</button>
-                </div>
-              ) : !assignment && !editingAssignment ? (
-                /* No assignment — show form (pre-filled if context available) */
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {!selProject && (
-                    <div style={{ padding: "10px 14px", border: "1px dashed var(--line)", color: "var(--text-faint)", fontSize: 11 }}>
-                      Kein Projekt — erscheint als "Frei" in Mission Control.
-                    </div>
-                  )}
-                  <div>
-                    <div style={{ fontSize: 9.5, letterSpacing: "0.14em", color: "var(--text-faint)", marginBottom: 6 }}>PROJEKT</div>
-                    <select value={selProject} onChange={e => { setSelProject(e.target.value); setSelKR(""); }}
-                      style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: selProject ? "var(--text)" : "var(--text-faint)", padding: "10px 14px", fontSize: 12.5, fontFamily: "inherit", cursor: "pointer", outline: "none" }}>
-                      <option value="">— Projekt wählen —</option>
-                      {(typeof PROJECTS !== "undefined" ? PROJECTS : []).map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-                    </select>
-                  </div>
-                  {selProject && (
-                    <div>
-                      <div style={{ fontSize: 9.5, letterSpacing: "0.14em", color: "var(--text-faint)", marginBottom: 6 }}>KEY RESULT</div>
-                      <select value={selKR} onChange={e => setSelKR(e.target.value)}
-                        style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: selKR ? "var(--text)" : "var(--text-faint)", padding: "10px 14px", fontSize: 12.5, fontFamily: "inherit", cursor: "pointer", outline: "none" }}>
-                        <option value="">— Key Result wählen —</option>
-                        {(selProj ? (selProj.objectives || [{ krs: selProj.krs || [] }]).flatMap(o => o.krs) : []).filter(k => k.status !== "locked").map(kr => (
-                          <option key={kr.id} value={kr.id}>{kr.label}: {kr.title}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  {selProject && selKR && (
-                    <button onClick={saveAssignment} style={{ padding: "10px 0", background: "var(--accent)", color: "#0a0a0c", border: "none", fontWeight: 700, fontSize: 11, letterSpacing: "0.16em", cursor: "pointer" }}>
-                      ZUWEISEN ✓
-                    </button>
-                  )}
-                </div>
-              ) : (
-                /* Edit mode */
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <div>
-                    <div style={{ fontSize: 9.5, letterSpacing: "0.14em", color: "var(--text-faint)", marginBottom: 6 }}>PROJEKT ÄNDERN</div>
-                    <select value={selProject} onChange={e => { setSelProject(e.target.value); setSelKR(""); }}
-                      style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--accent-line)", color: "var(--text)", padding: "10px 14px", fontSize: 12.5, fontFamily: "inherit", cursor: "pointer", outline: "none" }}>
-                      <option value="">— Projekt wählen —</option>
-                      {(typeof PROJECTS !== "undefined" ? PROJECTS : []).map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-                    </select>
-                  </div>
-                  {selProject && (
-                    <div>
-                      <div style={{ fontSize: 9.5, letterSpacing: "0.14em", color: "var(--text-faint)", marginBottom: 6 }}>KEY RESULT</div>
-                      <select value={selKR} onChange={e => setSelKR(e.target.value)}
-                        style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--accent-line)", color: "var(--text)", padding: "10px 14px", fontSize: 12.5, fontFamily: "inherit", cursor: "pointer", outline: "none" }}>
-                        <option value="">— Key Result wählen —</option>
-                        {(selProj ? (selProj.objectives || [{ krs: selProj.krs || [] }]).flatMap(o => o.krs) : []).filter(k => k.status !== "locked").map(kr => (
-                          <option key={kr.id} value={kr.id}>{kr.label}: {kr.title}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  <div style={{ display: "flex", gap: 8 }}>
-                    {selProject && selKR && (
-                      <button onClick={() => { saveAssignment(); setEditingAssignment(false); }}
-                        style={{ flex: 1, padding: "10px 0", background: "var(--accent)", color: "#0a0a0c", border: "none", fontWeight: 700, fontSize: 11, letterSpacing: "0.16em", cursor: "pointer" }}>
-                        SPEICHERN ✓
-                      </button>
-                    )}
-                    <button onClick={() => { setEditingAssignment(false); }}
-                      style={{ padding: "10px 14px", background: "transparent", border: "1px solid var(--line)", color: "var(--text-faint)", fontSize: 10.5, cursor: "pointer" }}>
-                      ABBRECHEN
-                    </button>
-                    {assignment && (
-                      <button onClick={() => { removeAssignment(); setEditingAssignment(false); }}
-                        style={{ padding: "10px 14px", background: "transparent", border: "1px solid var(--line)", color: "var(--text-faint)", fontSize: 10.5, cursor: "pointer" }}>
-                        ENTFERNEN
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </>
+      {/* Notes — full width */}
+      <div style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "20px 24px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
+          <div className="uppercase-label">Notizen</div>
+          {noteTs && (
+            <span style={{ fontSize: 9.5, color: "var(--text-faint)", letterSpacing: "0.08em" }}>
+              {(() => {
+                const diff = Math.floor((Date.now() - new Date(noteTs).getTime()) / 1000);
+                if (diff < 60) return "gerade eben";
+                if (diff < 3600) return `vor ${Math.floor(diff/60)} Min.`;
+                if (diff < 86400) return `vor ${Math.floor(diff/3600)} Std.`;
+                return `vor ${Math.floor(diff/86400)} Tagen`;
+              })()}
+            </span>
           )}
         </div>
+        <textarea value={noteText} onChange={e => saveNote(e.target.value)}
+          placeholder="Notizen, Kontext, nächste Schritte…"
+          rows={8}
+          style={{
+            width: "100%", background: "var(--panel-2)",
+            border: "1px solid var(--line)", borderLeft: "2px solid var(--accent)",
+            color: "var(--text)", padding: "12px 16px",
+            fontSize: 13, fontFamily: "inherit", resize: "vertical", outline: "none",
+            boxSizing: "border-box", lineHeight: 1.6,
+          }} />
+        {noteText && <div style={{ marginTop: 8, fontSize: 9.5, color: "var(--accent)", letterSpacing: "0.1em" }}>● GESPEICHERT</div>}
       </div>
 
       {/* ── Work Log ──────────────────────────────────────────────────────── */}

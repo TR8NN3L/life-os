@@ -160,6 +160,20 @@ function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [route, focusTaskId]);
 
+  // Inbox — quick capture, zero-friction
+  const [inbox, setInbox] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("lifeos_inbox") || "[]"); } catch { return []; }
+  });
+  React.useEffect(() => { localStorage.setItem("lifeos_inbox", JSON.stringify(inbox)); }, [inbox]);
+  const [captureOpen, setCaptureOpen] = React.useState(false);
+  const [captureText, setCaptureText] = React.useState("");
+  const saveCapture = () => {
+    const t = captureText.trim();
+    if (!t) return;
+    setInbox(prev => [...prev, { id: `inbox_${Date.now()}`, text: t, ts: new Date().toISOString(), pov }]);
+    setCaptureText(""); setCaptureOpen(false);
+  };
+
   // Global task detail — modal overlay, works from any screen
   const [globalTask, setGlobalTask] = React.useState(null);
 
@@ -189,6 +203,7 @@ function App() {
             krProgress={krProgress} setKrProgress={setKrProgress}
             taskNotes={taskNotes} setTaskNotes={setTaskNotes}
             truthPlan={truthPlan} setTruthPlan={setTruthPlan}
+            inbox={inbox} setInbox={setInbox}
             onOpenTask={setGlobalTask} />
         )}
         {route === "focus" && (
@@ -230,6 +245,72 @@ function App() {
               taskTimes={taskTimes} setTaskTimes={setTaskTimes}
               activeTaskId={activeTaskId} setActiveTaskId={setActiveTaskId}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Quick Capture — floating button + overlay */}
+      {!captureOpen && (
+        <button
+          onClick={() => setCaptureOpen(true)}
+          title="Quick Capture (Idee festhalten)"
+          style={{
+            position: "fixed", bottom: 28, right: 28, zIndex: 200,
+            width: 48, height: 48, borderRadius: "50%",
+            background: "var(--accent)", color: "#0a0a0c",
+            border: "none", fontSize: 26, fontWeight: 300, lineHeight: 1,
+            cursor: "pointer", boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >+</button>
+      )}
+      {captureOpen && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) { setCaptureText(""); setCaptureOpen(false); } }}
+          style={{
+            position: "fixed", inset: 0, zIndex: 250,
+            display: "flex", alignItems: "flex-end", justifyContent: "flex-end",
+            padding: 28,
+          }}
+        >
+          <div style={{
+            background: "var(--panel)", border: "1px solid var(--accent-line)",
+            padding: "20px 20px 16px", width: 380,
+            boxShadow: "0 8px 40px rgba(0,0,0,0.6)",
+          }}>
+            <div style={{ fontSize: 9.5, letterSpacing: "0.18em", fontWeight: 700, color: "var(--accent)", marginBottom: 12 }}>
+              QUICK CAPTURE — EINFACH EINTIPPEN
+            </div>
+            <input
+              autoFocus
+              value={captureText}
+              onChange={e => setCaptureText(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter") saveCapture();
+                if (e.key === "Escape") { setCaptureText(""); setCaptureOpen(false); }
+              }}
+              placeholder="Gedanke, Idee, Task…"
+              style={{
+                width: "100%", background: "var(--panel-2)",
+                border: "1px solid var(--accent-line)", color: "var(--text)",
+                padding: "10px 14px", fontSize: 14, outline: "none",
+                fontFamily: "inherit", marginBottom: 12,
+              }}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 10, color: "var(--text-faint)" }}>Enter zum Speichern · Esc abbrechen</span>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => { setCaptureText(""); setCaptureOpen(false); }} style={{
+                  background: "transparent", border: "1px solid var(--line)", color: "var(--text-faint)",
+                  padding: "6px 14px", fontSize: 11, cursor: "pointer", fontFamily: "inherit",
+                }}>✕</button>
+                <button onClick={saveCapture} style={{
+                  background: "var(--accent)", border: "none", color: "#0a0a0c",
+                  padding: "6px 18px", fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
+                  cursor: "pointer", fontFamily: "inherit",
+                }}>SPEICHERN</button>
+              </div>
+            </div>
           </div>
         </div>
       )}

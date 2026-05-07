@@ -1,7 +1,8 @@
 // Dashboard — three-pane: Strategic Anchor (KRs) | Quick Start + Today's Tasks + Truth Loop
 
 function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes, tickActive, setRoute,
-                      krProgress, setKrProgress, taskNotes, setTaskNotes, truthPlan, setTruthPlan, onOpenTask }) {
+                      krProgress, setKrProgress, taskNotes, setTaskNotes, truthPlan, setTruthPlan,
+                      inbox, setInbox, onOpenTask }) {
   const data = POV_DATA[pov] || POV_DATA.founder;
   const objective = data.objective;
 
@@ -77,6 +78,9 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
 
   // KR filter: null = alle, "kr1" etc = nur Tasks dieses KR
   const [activeKR, setActiveKR] = React.useState(null);
+
+  // Inbox section open/collapsed
+  const [inboxOpen, setInboxOpen] = React.useState(true);
 
   // Reset KR filter when POV changes
   React.useEffect(() => { setActiveKR(null); }, [pov]);
@@ -413,6 +417,62 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
             </div>
           )}
         </div>
+
+        {/* Inbox — quick capture items */}
+        {inbox && inbox.length > 0 && (
+          <div style={{ margin: "8px 28px 0", border: "1px solid var(--line-soft)" }}>
+            <button
+              onClick={() => setInboxOpen(o => !o)}
+              style={{
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "10px 16px", background: "transparent", border: "none",
+                color: "var(--text-faint)", cursor: "pointer", fontFamily: "inherit",
+              }}
+            >
+              <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.18em" }}>
+                INBOX <span style={{ color: "var(--warn)", marginLeft: 6 }}>{inbox.length}</span>
+              </span>
+              <span style={{ fontSize: 10 }}>{inboxOpen ? "▲" : "▼"}</span>
+            </button>
+            {inboxOpen && inbox.map(item => {
+              const ts = new Date(item.ts);
+              const timeStr = ts.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+              const dayStr = ts.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
+              return (
+                <div key={item.id} style={{
+                  display: "flex", alignItems: "center", gap: 12, padding: "10px 16px",
+                  borderTop: "1px solid var(--line-soft)",
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13.5, color: "var(--text)", fontWeight: 500 }}>{item.text}</div>
+                    <div style={{ fontSize: 9.5, color: "var(--text-faint)", marginTop: 2, letterSpacing: "0.04em" }}>
+                      {dayStr} {timeStr} · {item.pov}
+                    </div>
+                  </div>
+                  <button onClick={() => {
+                    const task = {
+                      id: `custom_${Date.now()}`,
+                      n: tasksToday.length + 1,
+                      title: item.text,
+                      sub: "", kr: null, elapsed: 0, pov, custom: true,
+                    };
+                    setCustomTasks(prev => [...prev, task]);
+                    setInbox(prev => prev.filter(i => i.id !== item.id));
+                  }} style={{
+                    background: "var(--accent-soft)", border: "1px solid var(--accent-line)",
+                    color: "var(--accent)", padding: "5px 12px", fontSize: 9.5,
+                    fontWeight: 700, letterSpacing: "0.14em", cursor: "pointer", fontFamily: "inherit",
+                    flexShrink: 0,
+                  }}>→ TASK</button>
+                  <button onClick={() => setInbox(prev => prev.filter(i => i.id !== item.id))} style={{
+                    background: "none", border: "none", color: "var(--text-faint)",
+                    fontSize: 16, cursor: "pointer", padding: "0 4px", lineHeight: 1, flexShrink: 0,
+                  }}>×</button>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         </div>{/* end scrollable tasks */}
 
