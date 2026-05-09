@@ -61,6 +61,12 @@ function Planner() {
   const todayRaw = new Date().getDay();
   const todayIdx = todayRaw === 0 ? 6 : todayRaw - 1;
 
+  // Merge hardcoded + user-created POVs
+  const [userPovs] = React.useState(() => {
+    try { return JSON.parse(LS.getItem("lifeos_user_povs") || "[]"); } catch { return []; }
+  });
+  const allPovs = [...POVS, ...userPovs];
+
   const [selDay,     setSelDay]     = React.useState(todayIdx);
   const [selBlockId, setSelBlockId] = React.useState(null);
   const [weekOffset, setWeekOffset] = React.useState(0);
@@ -299,7 +305,7 @@ function Planner() {
     const allTasks = [];
     let customProjs = [];
     try { customProjs = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]"); } catch {}
-    for (const { id:povId } of POVS) {
+    for (const { id:povId } of allPovs) {
       if (block.bucket!=="alle" && block.bucket!==povId) continue;
       (POV_DATA[povId]?.tasksToday||[]).forEach(t => allTasks.push({...t,_pov:povId,_source:"daily"}));
     }
@@ -442,7 +448,7 @@ function Planner() {
             <div style={{ marginBottom:24 }}>
               <div style={{ fontSize:9.5, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>BUCKET-FILTER</div>
               <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                {[{id:"alle",label:"Alle",color:"var(--text-dim)"},...POVS].map(p=>(
+                {[{id:"alle",label:"Alle",color:"var(--text-dim)"},...allPovs].map(p=>(
                   <button key={p.id} onClick={()=>setDraft(d=>({...d,bucket:p.id}))} style={{
                     padding:"6px 14px", borderRadius:999, cursor:"pointer",
                     border:`1px solid ${draft.bucket===p.id?p.color:"var(--line)"}`,
@@ -594,7 +600,7 @@ function Planner() {
                 const height = Math.max(minsToY(endMins) - top, 24);
                 const isSel  = selBlockId===block.id;
                 const t      = tc(block.type);
-                const bPov   = POVS.find(p=>p.id===block.bucket);
+                const bPov   = allPovs.find(p=>p.id===block.bucket);
                 const isDragging = isLive && dr.moved;
                 const isRec  = !!block._recurring;
 
@@ -716,7 +722,7 @@ function Planner() {
                 const TaskRow = ({t, i}) => {
                   const taskKey = `${t.id}_${t._pov}`;
                   const isSel   = isTaskSel(selBlock.id, taskKey);
-                  const povColor = POVS.find(p=>p.id===(t._pov||t.pov))?.color||"var(--accent)";
+                  const povColor = allPovs.find(p=>p.id===(t._pov||t.pov))?.color||"var(--accent)";
                   const flow = (t.flow||"QUICK").toUpperCase();
                   const est  = t.est||30;
                   return (
