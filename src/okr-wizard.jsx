@@ -71,10 +71,17 @@ function OKRWizard({ onClose, onSave, defaultPov, customProjects }) {
     ZIEL: "#10b981", OPTIONEN: "#ec4899",
   };
 
+  const allPovs = React.useMemo(() => {
+    try {
+      const custom = JSON.parse(LS.getItem("lifeos_user_povs") || "[]");
+      return [...(POVS || []), ...custom];
+    } catch { return POVS || []; }
+  }, []);
+
   const [step, setStep] = React.useState(0);
   const [d, setD] = React.useState({
     mode: null, existingProjectId: null,
-    pov: defaultPov || (POVS && POVS[0] ? POVS[0].id : "personal"),
+    pov: defaultPov || (allPovs[0] ? allPovs[0].id : "personal"),
     projectName: "", bigGoal: "", why1: "", why2: "",
     motivationTypes: [], deadlineWeeks: null, hoursPerWeek: 8,
     successDefinition: "", obstacles: [], obstacleCustom: "",
@@ -380,7 +387,7 @@ function WizardStep({ step, d, upd, toggleArr, phaseColor, totalHours, customPro
           <div style={{ marginBottom: 20 }}>
             <div className="uppercase-label" style={{ marginBottom: 8 }}>POV</div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {(POVS || []).map(p => (
+              {allPovs.map(p => (
                 <button key={p.id} onClick={() => upd("pov", p.id)} style={{
                   padding: "8px 18px", borderRadius: 999, cursor: "pointer", fontFamily: "inherit",
                   border: `1px solid ${d.pov === p.id ? p.color : "var(--line)"}`,
