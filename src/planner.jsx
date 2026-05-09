@@ -641,19 +641,21 @@ function Planner() {
                           <div style={{ fontSize:11, fontWeight:700, color:isSel?"var(--accent)":"var(--text)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{block.name}</div>
                           {height>40&&<div className="mono" style={{ fontSize:9, color:"var(--text-faint)", marginTop:2 }}>{strFromMins(startMins)} – {strFromMins(endMins)}</div>}
                         </div>
-                        {bPov&&<span style={{ fontSize:7.5, color:bPov.color, fontWeight:700, letterSpacing:"0.1em", marginLeft:4, flexShrink:0 }}>{bPov.label.toUpperCase()}</span>}
+                        <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0, pointerEvents:"auto", marginLeft:4 }}>
+                          <button
+                            onMouseDown={e=>e.stopPropagation()}
+                            onClick={e=>{e.stopPropagation();deleteBlock(block.id);}}
+                            style={{ background:"none", border:"none", color:"var(--text)", cursor:"pointer", fontSize:12, padding:"0 2px", opacity:0.45, lineHeight:1 }}
+                          >×</button>
+                          <button
+                            onMouseDown={e=>e.stopPropagation()}
+                            onClick={e=>{e.stopPropagation();openEdit(block);}}
+                            style={{ background:"none", border:"none", color:"var(--text-faint)", cursor:"pointer", fontSize:11, padding:"0 2px", opacity:0.6, lineHeight:1 }}
+                          >✎</button>
+                          {bPov&&<span style={{ fontSize:7.5, color:bPov.color, fontWeight:700, letterSpacing:"0.1em" }}>{bPov.label.toUpperCase()}</span>}
+                        </div>
                       </div>
                     </div>
-                    <button
-                      onMouseDown={e=>e.stopPropagation()}
-                      onClick={e=>{e.stopPropagation();openEdit(block);}}
-                      style={{ position:"absolute", top:3, right:20, background:"none", border:"none", color:"var(--text-faint)", cursor:"pointer", fontSize:11, padding:"0 2px", opacity:0.6, lineHeight:1 }}
-                    >✎</button>
-                    <button
-                      onMouseDown={e=>e.stopPropagation()}
-                      onClick={e=>{e.stopPropagation();deleteBlock(block.id);}}
-                      style={{ position:"absolute", top:3, right:4, background:"none", border:"none", color:"var(--danger)", cursor:"pointer", fontSize:13, padding:"0 2px", opacity:0.55, lineHeight:1 }}
-                    >×</button>
                     <div
                       onMouseDown={e=>{e.stopPropagation();onBlockMouseDown(e,block,"resize");}}
                       style={{ position:"absolute", bottom:0, left:0, right:0, height:10, cursor:"ns-resize", display:"flex", alignItems:"center", justifyContent:"center", background:"linear-gradient(transparent, rgba(0,0,0,0.2))" }}
