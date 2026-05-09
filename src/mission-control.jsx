@@ -17,9 +17,17 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
 
   const handleWizardSave = (project, mode) => {
     if (mode === "existing") {
-      setCustomProjects(prev => prev.map(p => p.id === project.id ? project : p));
+      setCustomProjects(prev => {
+        const updated = prev.map(p => p.id === project.id ? project : p);
+        LS.setItem("lifeos_custom_projects", JSON.stringify(updated));
+        return updated;
+      });
     } else {
-      addCustomProject(project);
+      setCustomProjects(prev => {
+        const updated = [...prev, project];
+        LS.setItem("lifeos_custom_projects", JSON.stringify(updated));
+        return updated;
+      });
     }
     setShowWizard(false);
     setWizardDefaultPov(null);

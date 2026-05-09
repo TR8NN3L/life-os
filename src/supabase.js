@@ -39,6 +39,21 @@
       const { data, error } = await _sb.from("user_data").select("key, value");
       if (error) { console.warn("[LS] syncDown:", error.message); return; }
       for (const row of (data || [])) {
+        // For arrays: merge local-only items into cloud data so unsynced saves aren't lost
+        if (Array.isArray(row.value)) {
+          let local;
+          try { local = JSON.parse(localStorage.getItem(row.key) || "[]"); } catch { local = []; }
+          if (Array.isArray(local) && local.length > 0) {
+            const cloudIds = new Set((row.value || []).map(item => item && item.id).filter(Boolean));
+            const localOnly = local.filter(item => item && item.id && !cloudIds.has(item.id));
+            if (localOnly.length > 0) {
+              const merged = [...row.value, ...localOnly];
+              localStorage.setItem(row.key, JSON.stringify(merged));
+              _write(row.key, JSON.stringify(merged));
+              continue;
+            }
+          }
+        }
         localStorage.setItem(row.key, JSON.stringify(row.value));
       }
     } catch (e) { console.warn("[LS] syncDown:", e.message); }
