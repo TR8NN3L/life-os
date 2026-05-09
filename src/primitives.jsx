@@ -131,14 +131,14 @@ function TaskDetail({ task, onBack, taskTimes, setTaskTimes, activeTaskId, setAc
 
   const [noteText, setNoteText] = React.useState(() => {
     try {
-      const v = JSON.parse(localStorage.getItem("lifeos_task_notes") || "{}")[task.id];
+      const v = JSON.parse(LS.getItem("lifeos_task_notes") || "{}")[task.id];
       if (!v) return "";
       return typeof v === "string" ? v : (v.text || "");
     } catch { return ""; }
   });
   const [noteTs, setNoteTs] = React.useState(() => {
     try {
-      const v = JSON.parse(localStorage.getItem("lifeos_task_notes") || "{}")[task.id];
+      const v = JSON.parse(LS.getItem("lifeos_task_notes") || "{}")[task.id];
       return (v && typeof v === "object" && v.updatedAt) ? v.updatedAt : null;
     } catch { return null; }
   });
@@ -147,9 +147,9 @@ function TaskDetail({ task, onBack, taskTimes, setTaskTimes, activeTaskId, setAc
     setNoteText(text);
     setNoteTs(updatedAt);
     try {
-      const all = JSON.parse(localStorage.getItem("lifeos_task_notes") || "{}");
+      const all = JSON.parse(LS.getItem("lifeos_task_notes") || "{}");
       all[task.id] = { text, updatedAt };
-      localStorage.setItem("lifeos_task_notes", JSON.stringify(all));
+      LS.setItem("lifeos_task_notes", JSON.stringify(all));
     } catch {}
   };
 
@@ -172,28 +172,28 @@ function TaskDetail({ task, onBack, taskTimes, setTaskTimes, activeTaskId, setAc
 
   // Est time (editable, minutes)
   const [est, setEst] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("lifeos_task_est") || "{}")[task.id] || 0; } catch { return 0; }
+    try { return JSON.parse(LS.getItem("lifeos_task_est") || "{}")[task.id] || 0; } catch { return 0; }
   });
   const saveEst = (val) => {
     const n = Math.max(0, Math.round(val / 5) * 5);
     setEst(n);
     try {
-      const all = JSON.parse(localStorage.getItem("lifeos_task_est") || "{}");
+      const all = JSON.parse(LS.getItem("lifeos_task_est") || "{}");
       all[task.id] = n;
-      localStorage.setItem("lifeos_task_est", JSON.stringify(all));
+      LS.setItem("lifeos_task_est", JSON.stringify(all));
     } catch {}
   };
 
   // Subtasks
   const [subtasks, setSubtasks] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("lifeos_subtasks") || "{}")[task.id] || []; } catch { return []; }
+    try { return JSON.parse(LS.getItem("lifeos_subtasks") || "{}")[task.id] || []; } catch { return []; }
   });
   const saveSubtasks = (arr) => {
     setSubtasks(arr);
     try {
-      const all = JSON.parse(localStorage.getItem("lifeos_subtasks") || "{}");
+      const all = JSON.parse(LS.getItem("lifeos_subtasks") || "{}");
       all[task.id] = arr;
-      localStorage.setItem("lifeos_subtasks", JSON.stringify(all));
+      LS.setItem("lifeos_subtasks", JSON.stringify(all));
     } catch {}
   };
   const addSubtask = () => {
@@ -204,16 +204,16 @@ function TaskDetail({ task, onBack, taskTimes, setTaskTimes, activeTaskId, setAc
 
   // Work sessions (read-only, written by app.jsx)
   const [sessions, setSessions] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("lifeos_sessions") || "{}")[task.id] || []; } catch { return []; }
+    try { return JSON.parse(LS.getItem("lifeos_sessions") || "{}")[task.id] || []; } catch { return []; }
   });
   // Refresh sessions when task becomes active/inactive
   React.useEffect(() => {
-    try { setSessions(JSON.parse(localStorage.getItem("lifeos_sessions") || "{}")[task.id] || []); } catch {}
+    try { setSessions(JSON.parse(LS.getItem("lifeos_sessions") || "{}")[task.id] || []); } catch {}
   }, [task.id]);
 
   // KR override for side quests
   const [krOverride, setKrOverride] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("lifeos_task_kr_overrides") || "{}")[task.id] || null; } catch { return null; }
+    try { return JSON.parse(LS.getItem("lifeos_task_kr_overrides") || "{}")[task.id] || null; } catch { return null; }
   });
   const [assigningKR, setAssigningKR] = React.useState(false);
   const [selOvrKR, setSelOvrKR] = React.useState("");
@@ -221,16 +221,16 @@ function TaskDetail({ task, onBack, taskTimes, setTaskTimes, activeTaskId, setAc
   const saveKrOverride = (krId) => {
     setKrOverride(krId || null);
     try {
-      const all = JSON.parse(localStorage.getItem("lifeos_task_kr_overrides") || "{}");
+      const all = JSON.parse(LS.getItem("lifeos_task_kr_overrides") || "{}");
       if (krId) all[task.id] = krId; else delete all[task.id];
-      localStorage.setItem("lifeos_task_kr_overrides", JSON.stringify(all));
+      LS.setItem("lifeos_task_kr_overrides", JSON.stringify(all));
     } catch {}
   };
   const effectiveKrId = task.kr || krOverride;
   const effectiveKrDef = effectiveKrId ? povKRs.find(k => k.id === effectiveKrId) : null;
 
   const [assignment, setAssignment] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("lifeos_task_assignments") || "{}")[task.id] || null; } catch { return null; }
+    try { return JSON.parse(LS.getItem("lifeos_task_assignments") || "{}")[task.id] || null; } catch { return null; }
   });
   const [editingAssignment, setEditingAssignment] = React.useState(false);
 
@@ -250,24 +250,24 @@ function TaskDetail({ task, onBack, taskTimes, setTaskTimes, activeTaskId, setAc
     const kr = projKRs.find(k => k.id === selKR);
     const entry = { projectId: selProject, krId: selKR, projectTitle: proj?.title, krTitle: kr?.title };
     try {
-      const all = JSON.parse(localStorage.getItem("lifeos_task_assignments") || "{}");
+      const all = JSON.parse(LS.getItem("lifeos_task_assignments") || "{}");
       all[task.id] = entry;
-      localStorage.setItem("lifeos_task_assignments", JSON.stringify(all));
+      LS.setItem("lifeos_task_assignments", JSON.stringify(all));
     } catch {}
     setAssignment(entry);
   };
 
   const removeAssignment = () => {
     try {
-      const all = JSON.parse(localStorage.getItem("lifeos_task_assignments") || "{}");
+      const all = JSON.parse(LS.getItem("lifeos_task_assignments") || "{}");
       delete all[task.id];
-      localStorage.setItem("lifeos_task_assignments", JSON.stringify(all));
+      LS.setItem("lifeos_task_assignments", JSON.stringify(all));
     } catch {}
     setAssignment(null); setSelProject(""); setSelKR("");
   };
 
   const isDone = (() => {
-    try { return new Set(JSON.parse(localStorage.getItem(`lifeos_done_${povId}`) || "[]")).has(task.id); } catch { return false; }
+    try { return new Set(JSON.parse(LS.getItem(`lifeos_done_${povId}`) || "[]")).has(task.id); } catch { return false; }
   })();
 
   return (

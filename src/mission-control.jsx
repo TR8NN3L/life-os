@@ -12,15 +12,28 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
   const [showNewModal, setShowNewModal] = React.useState(false);
   const [newModalPov, setNewModalPov] = React.useState(null);
 
+  const [showWizard, setShowWizard] = React.useState(false);
+  const [wizardDefaultPov, setWizardDefaultPov] = React.useState(null);
+
+  const handleWizardSave = (project, mode) => {
+    if (mode === "existing") {
+      setCustomProjects(prev => prev.map(p => p.id === project.id ? project : p));
+    } else {
+      addCustomProject(project);
+    }
+    setShowWizard(false);
+    setWizardDefaultPov(null);
+  };
+
   const [customProjects, setCustomProjects] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("lifeos_custom_projects") || "[]"); } catch { return []; }
+    try { return JSON.parse(LS.getItem("lifeos_custom_projects") || "[]"); } catch { return []; }
   });
-  React.useEffect(() => { localStorage.setItem("lifeos_custom_projects", JSON.stringify(customProjects)); }, [customProjects]);
+  React.useEffect(() => { LS.setItem("lifeos_custom_projects", JSON.stringify(customProjects)); }, [customProjects]);
 
   const [archivedIds, setArchivedIds] = React.useState(() => {
-    try { return new Set(JSON.parse(localStorage.getItem("lifeos_archived_projects") || "[]")); } catch { return new Set(); }
+    try { return new Set(JSON.parse(LS.getItem("lifeos_archived_projects") || "[]")); } catch { return new Set(); }
   });
-  React.useEffect(() => { localStorage.setItem("lifeos_archived_projects", JSON.stringify([...archivedIds])); }, [archivedIds]);
+  React.useEffect(() => { LS.setItem("lifeos_archived_projects", JSON.stringify([...archivedIds])); }, [archivedIds]);
   const [showArchived, setShowArchived] = React.useState(false);
   React.useEffect(() => { if (archivedIds.size === 0) setShowArchived(false); }, [archivedIds]);
 
@@ -30,9 +43,9 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
 
   // MainQuest edits — persisted
   const [mqEdits, setMqEdits] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("lifeos_mq_edits") || "{}"); } catch { return {}; }
+    try { return JSON.parse(LS.getItem("lifeos_mq_edits") || "{}"); } catch { return {}; }
   });
-  React.useEffect(() => { localStorage.setItem("lifeos_mq_edits", JSON.stringify(mqEdits)); }, [mqEdits]);
+  React.useEffect(() => { LS.setItem("lifeos_mq_edits", JSON.stringify(mqEdits)); }, [mqEdits]);
   const [editingMQ, setEditingMQ] = React.useState(null);
   const [mqDraft, setMqDraft] = React.useState({});
 
@@ -47,9 +60,9 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
     const allActiveKRs = getObjectives(proj).flatMap(o => o.krs).filter(k => k.status !== "locked");
     if (allActiveKRs.length === 0) return 0;
     let customKRTasks = {};
-    try { customKRTasks = JSON.parse(localStorage.getItem(`lifeos_proj_tasks_${proj.id}`) || "{}"); } catch {}
+    try { customKRTasks = JSON.parse(LS.getItem(`lifeos_proj_tasks_${proj.id}`) || "{}"); } catch {}
     let doneTasks = new Set();
-    try { doneTasks = new Set(JSON.parse(localStorage.getItem(`lifeos_done_${proj.pov}`) || "[]")); } catch {}
+    try { doneTasks = new Set(JSON.parse(LS.getItem(`lifeos_done_${proj.pov}`) || "[]")); } catch {}
     let total = 0, done = 0;
     for (const kr of allActiveKRs) {
       const tasks = [...kr.tasks, ...(customKRTasks[kr.id] || [])];
@@ -72,10 +85,10 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
     // fallback: task completion
     const hardcoded = (POV_DATA[povId]?.tasksToday || []);
     let custom = [];
-    try { custom = JSON.parse(localStorage.getItem(`lifeos_tasks_${povId}`) || "[]"); } catch {}
+    try { custom = JSON.parse(LS.getItem(`lifeos_tasks_${povId}`) || "[]"); } catch {}
     const allTasks = [...hardcoded, ...custom];
     let done = new Set();
-    try { done = new Set(JSON.parse(localStorage.getItem(`lifeos_done_${povId}`) || "[]")); } catch {}
+    try { done = new Set(JSON.parse(LS.getItem(`lifeos_done_${povId}`) || "[]")); } catch {}
     return allTasks.length > 0 ? allTasks.filter(t => done.has(t.id)).length / allTasks.length : 0;
   };
 
@@ -87,7 +100,7 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
       const data = POV_DATA[povId] || {};
       const hardcoded = (data.tasksToday || []).map(t => ({ ...t, _pov: povId }));
       let custom = [];
-      try { custom = JSON.parse(localStorage.getItem(`lifeos_tasks_${povId}`) || "[]").map(t => ({ ...t, _pov: povId })); } catch {}
+      try { custom = JSON.parse(LS.getItem(`lifeos_tasks_${povId}`) || "[]").map(t => ({ ...t, _pov: povId })); } catch {}
       result.push(...hardcoded, ...custom);
     }
     return result;
@@ -95,10 +108,10 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
 
   // Free task order — drag & drop reordering
   const [freeTaskOrder, setFreeTaskOrder] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("lifeos_free_task_order") || "null"); } catch { return null; }
+    try { return JSON.parse(LS.getItem("lifeos_free_task_order") || "null"); } catch { return null; }
   });
   React.useEffect(() => {
-    if (freeTaskOrder !== null) localStorage.setItem("lifeos_free_task_order", JSON.stringify(freeTaskOrder));
+    if (freeTaskOrder !== null) LS.setItem("lifeos_free_task_order", JSON.stringify(freeTaskOrder));
   }, [freeTaskOrder]);
 
   const freeTasks = React.useMemo(() => {
@@ -121,13 +134,13 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
 
   const [doneVer, setDoneVer] = React.useState(0);
   const isDoneTask = (taskId, povId) => {
-    try { return new Set(JSON.parse(localStorage.getItem(`lifeos_done_${povId}`) || "[]")).has(taskId); } catch { return false; }
+    try { return new Set(JSON.parse(LS.getItem(`lifeos_done_${povId}`) || "[]")).has(taskId); } catch { return false; }
   };
   const toggleFreeTaskDone = (taskId, povId) => {
     const key = `lifeos_done_${povId}`;
-    const done = new Set(JSON.parse(localStorage.getItem(key) || "[]"));
+    const done = new Set(JSON.parse(LS.getItem(key) || "[]"));
     done.has(taskId) ? done.delete(taskId) : done.add(taskId);
-    localStorage.setItem(key, JSON.stringify([...done]));
+    LS.setItem(key, JSON.stringify([...done]));
     setDoneVer(v => v + 1);
   };
 
@@ -168,6 +181,12 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
           onSave={(proj) => { addCustomProject(proj); setShowNewModal(false); setNewModalPov(null); }}
         />
       )}
+      {showWizard && window.OKRWizard && React.createElement(window.OKRWizard, {
+        defaultPov: wizardDefaultPov,
+        customProjects: customProjects,
+        onClose: () => { setShowWizard(false); setWizardDefaultPov(null); },
+        onSave: handleWizardSave,
+      })}
 
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
@@ -455,6 +474,22 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
                       </span>
                     </div>
                   </div>
+
+                  {/* OKR Wizard trigger */}
+                  {!isEditing && (
+                    <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--line-soft)" }}>
+                      <button
+                        onClick={() => { setWizardDefaultPov(povId); setShowWizard(true); }}
+                        style={{
+                          padding: "9px 20px", background: "transparent",
+                          border: "1px solid var(--accent-line)",
+                          color: "var(--accent)",
+                          fontSize: 10, letterSpacing: "0.18em", fontWeight: 700,
+                          cursor: "pointer", fontFamily: "inherit",
+                        }}
+                      >⚡ OKR WIZARD — PROJEKT ERSTELLEN</button>
+                    </div>
+                  )}
                 </div>
 
                 {/* ── Projects under this MainQuest ── */}
@@ -554,7 +589,7 @@ function ProjectDetail({ proj, onBack, onOpenKR, taskTimes, setTaskTimes, active
   const toggleKRDone = (krId, fallback) => {
     const cur = getKRVal(krId, fallback);
     const kr = currentKRs.find(k => k.id === krId);
-    const krTaskIds = kr ? [...kr.tasks, ...(JSON.parse(localStorage.getItem(`lifeos_proj_tasks_${proj.id}`) || "{}")[krId] || [])].map(t => t.id) : [];
+    const krTaskIds = kr ? [...kr.tasks, ...(JSON.parse(LS.getItem(`lifeos_proj_tasks_${proj.id}`) || "{}")[krId] || [])].map(t => t.id) : [];
     if (cur >= 1) {
       setKRVal(krId, krPrevVal[krId] ?? fallback);
       setKrPrevVal(p => { const n = { ...p }; delete n[krId]; return n; });
@@ -568,9 +603,9 @@ function ProjectDetail({ proj, onBack, onOpenKR, taskTimes, setTaskTimes, active
 
   const doneKey = `lifeos_done_${proj.pov}`;
   const [doneTasks, setDoneTasks] = React.useState(() => {
-    try { return new Set(JSON.parse(localStorage.getItem(doneKey) || "[]")); } catch { return new Set(); }
+    try { return new Set(JSON.parse(LS.getItem(doneKey) || "[]")); } catch { return new Set(); }
   });
-  React.useEffect(() => { localStorage.setItem(doneKey, JSON.stringify([...doneTasks])); }, [doneTasks]);
+  React.useEffect(() => { LS.setItem(doneKey, JSON.stringify([...doneTasks])); }, [doneTasks]);
   const toggleTaskDone = (id) => setDoneTasks(prev => {
     const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
   });
@@ -579,14 +614,14 @@ function ProjectDetail({ proj, onBack, onOpenKR, taskTimes, setTaskTimes, active
   const deletedKey = `lifeos_deleted_proj_tasks_${proj.id}`;
 
   const [customKRTasks, setCustomKRTasks] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem(storageKey) || "{}"); } catch { return {}; }
+    try { return JSON.parse(LS.getItem(storageKey) || "{}"); } catch { return {}; }
   });
-  React.useEffect(() => { localStorage.setItem(storageKey, JSON.stringify(customKRTasks)); }, [customKRTasks]);
+  React.useEffect(() => { LS.setItem(storageKey, JSON.stringify(customKRTasks)); }, [customKRTasks]);
 
   const [deletedHardcoded, setDeletedHardcoded] = React.useState(() => {
-    try { return new Set(JSON.parse(localStorage.getItem(deletedKey) || "[]")); } catch { return new Set(); }
+    try { return new Set(JSON.parse(LS.getItem(deletedKey) || "[]")); } catch { return new Set(); }
   });
-  React.useEffect(() => { localStorage.setItem(deletedKey, JSON.stringify([...deletedHardcoded])); }, [deletedHardcoded]);
+  React.useEffect(() => { LS.setItem(deletedKey, JSON.stringify([...deletedHardcoded])); }, [deletedHardcoded]);
 
   const getKRProgress = (krId, fallback) => {
     const kr = currentKRs.find(k => k.id === krId);
@@ -605,10 +640,10 @@ function ProjectDetail({ proj, onBack, onOpenKR, taskTimes, setTaskTimes, active
     const taskId = `pt_${Date.now()}`;
     const task = { id: taskId, title: newTaskTitle.trim(), kr: krId, flow: newTaskFlow, est: newTaskEst, elapsed: 0, custom: true };
     try {
-      const all = JSON.parse(localStorage.getItem("lifeos_task_assignments") || "{}");
+      const all = JSON.parse(LS.getItem("lifeos_task_assignments") || "{}");
       const kr = currentKRs.find(k => k.id === krId);
       all[taskId] = { projectId: proj.id, krId, projectTitle: proj.title, krTitle: kr?.title };
-      localStorage.setItem("lifeos_task_assignments", JSON.stringify(all));
+      LS.setItem("lifeos_task_assignments", JSON.stringify(all));
     } catch {}
     setCustomKRTasks(prev => ({ ...prev, [krId]: [...(prev[krId] || []), task] }));
     setNewTaskTitle(""); setNewTaskFlow("FLOW"); setNewTaskEst(30); setAddingToKR(null);
@@ -995,12 +1030,15 @@ function KRDetail({ proj, krId, onBack, onSwitchKR, taskTimes, setTaskTimes, act
   );
 }
 
-function NewProjectModal({ onClose, onSave, defaultPov }) {
+function NewProjectModal({ onClose, onSave, defaultPov, defaultKRs }) {
   const [name, setName] = React.useState("");
   const [selectedPov, setSelectedPov] = React.useState(defaultPov || POVS[0].id);
   const [deadline, setDeadline] = React.useState("");
+  const initKRs = defaultKRs && defaultKRs.length > 0
+    ? defaultKRs.map((kr, i) => ({ label: kr.label || `KR${i + 1}`, title: kr.title || "" }))
+    : [{ label: "KR1", title: "" }, { label: "KR2", title: "" }];
   const [objectives, setObjectives] = React.useState([
-    { id: `obj_${Date.now()}`, title: "", krs: [{ label: "KR1", title: "" }, { label: "KR2", title: "" }] },
+    { id: `obj_${Date.now()}`, title: "", krs: initKRs },
   ]);
 
   const addObjective = () => {

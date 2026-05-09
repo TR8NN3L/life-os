@@ -78,15 +78,15 @@ function Planner() {
   // ── Block storage: allBlocks[weekKey][dayIdx] = [...] ──────────────────────
   const [allBlocks, setAllBlocks] = React.useState(() => {
     try {
-      const v2 = localStorage.getItem("lifeos_timeblocks_v2");
+      const v2 = LS.getItem("lifeos_timeblocks_v2");
       if (v2) return JSON.parse(v2);
       // Migrate v1 (day-index keyed) → v2 (weekKey keyed)
-      const v1  = JSON.parse(localStorage.getItem("lifeos_timeblocks") || "{}");
+      const v1  = JSON.parse(LS.getItem("lifeos_timeblocks") || "{}");
       const wk  = getWeekKey(WEEK.mon);
       return { [wk]: v1 };
     } catch { return {}; }
   });
-  React.useEffect(() => { localStorage.setItem("lifeos_timeblocks_v2", JSON.stringify(allBlocks)); }, [allBlocks]);
+  React.useEffect(() => { LS.setItem("lifeos_timeblocks_v2", JSON.stringify(allBlocks)); }, [allBlocks]);
 
   // Proxy: read/write the current display week's blocks transparently
   const weekBlocks = allBlocks[dispWeekKey] || {};
@@ -100,10 +100,10 @@ function Planner() {
 
   // ── Recurring blocks ───────────────────────────────────────────────────────
   const [recurring, setRecurring] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("lifeos_recurring_blocks") || "[]"); }
+    try { return JSON.parse(LS.getItem("lifeos_recurring_blocks") || "[]"); }
     catch { return []; }
   });
-  React.useEffect(() => { localStorage.setItem("lifeos_recurring_blocks", JSON.stringify(recurring)); }, [recurring]);
+  React.useEffect(() => { LS.setItem("lifeos_recurring_blocks", JSON.stringify(recurring)); }, [recurring]);
 
   // Merge recurring + week-specific for selDay
   const recurringForDay = React.useMemo(() => {
@@ -297,13 +297,15 @@ function Planner() {
   const getSuggestions = block => {
     if (!block) return [];
     const allTasks = [];
+    let customProjs = [];
+    try { customProjs = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]"); } catch {}
     for (const { id:povId } of POVS) {
       if (block.bucket!=="alle" && block.bucket!==povId) continue;
       (POV_DATA[povId]?.tasksToday||[]).forEach(t => allTasks.push({...t,_pov:povId,_source:"daily"}));
     }
-    for (const proj of PROJECTS) {
+    for (const proj of [...PROJECTS, ...customProjs]) {
       if (block.bucket!=="alle" && block.bucket!==proj.pov) continue;
-      (proj.objectives||[]).flatMap(o=>o.krs).filter(k=>k.status!=="locked").forEach(kr => {
+      (proj.objectives||[]).flatMap(o=>o.krs||[]).filter(k=>k.status!=="locked").forEach(kr => {
         (kr.tasks||[]).forEach(t => allTasks.push({...t,_pov:proj.pov,_source:proj.title,_kr:kr.label}));
       });
     }
@@ -316,9 +318,9 @@ function Planner() {
   };
 
   const [blockSelections, setBlockSelections] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("lifeos_block_selections") || "{}"); } catch { return {}; }
+    try { return JSON.parse(LS.getItem("lifeos_block_selections") || "{}"); } catch { return {}; }
   });
-  React.useEffect(() => { localStorage.setItem("lifeos_block_selections", JSON.stringify(blockSelections)); }, [blockSelections]);
+  React.useEffect(() => { LS.setItem("lifeos_block_selections", JSON.stringify(blockSelections)); }, [blockSelections]);
 
   const toggleTaskSel = (blockId, taskKey) => {
     setBlockSelections(prev => {
@@ -700,38 +702,61 @@ function Planner() {
                   {suggestions.length} VORSCHLÄGE — ANHAKEN ZUM ZUTEILEN
                 </div>
               )}
-              {suggestions.map((t,i) => {
-                const taskKey = `${t.id}_${t._pov}`;
-                const isSel   = isTaskSel(selBlock.id, taskKey);
-                const povColor = POVS.find(p=>p.id===(t._pov||t.pov))?.color||"var(--accent)";
-                const flow = (t.flow||"QUICK").toUpperCase();
-                const est  = t.est||30;
-                return (
-                  <div key={`${t.id}_${i}`} onClick={()=>toggleTaskSel(selBlock.id,taskKey)} style={{
-                    display:"flex", alignItems:"center", gap:12, padding:"12px 14px", marginBottom:6,
-                    background:isSel?"var(--accent-soft)":"var(--panel)",
-                    border:`1px solid ${isSel?"var(--accent-line)":"var(--line-soft)"}`,
-                    borderLeft:`3px solid ${isSel?"var(--accent)":povColor}`,
-                    cursor:"pointer", transition:"all .12s",
-                  }}>
-                    <div style={{ width:16, height:16, borderRadius:3, flexShrink:0, border:`2px solid ${isSel?"var(--accent)":"var(--line)"}`, background:isSel?"var(--accent)":"transparent", display:"flex", alignItems:"center", justifyContent:"center", transition:"all .12s" }}>
-                      {isSel&&<span style={{ color:"#0a0a0c", fontSize:10, fontWeight:900, lineHeight:1 }}>✓</span>}
-                    </div>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:13.5, fontWeight:isSel?700:600, marginBottom:3, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", color:isSel?"var(--text)":"var(--text-dim)" }}>{t.title}</div>
-                      <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-                        <span style={{ fontSize:9, color:povColor, letterSpacing:"0.12em", fontWeight:700 }}>{(t._pov||t.pov||"").toUpperCase()}</span>
-                        {t._source&&t._source!=="daily"&&<span style={{ fontSize:9.5, color:"var(--text-faint)" }}>· {t._source}</span>}
-                        {t._kr&&<span style={{ fontSize:9.5, color:"var(--text-faint)" }}>· {t._kr}</span>}
+              {(() => {
+                // Group by _source → _kr
+                const groups = {};
+                suggestions.forEach(t => {
+                  const src = t._source || "Täglich";
+                  if (!groups[src]) groups[src] = {};
+                  const kr = t._kr || null;
+                  const krKey = kr || "__none__";
+                  if (!groups[src][krKey]) groups[src][krKey] = [];
+                  groups[src][krKey].push(t);
+                });
+                const TaskRow = ({t, i}) => {
+                  const taskKey = `${t.id}_${t._pov}`;
+                  const isSel   = isTaskSel(selBlock.id, taskKey);
+                  const povColor = POVS.find(p=>p.id===(t._pov||t.pov))?.color||"var(--accent)";
+                  const flow = (t.flow||"QUICK").toUpperCase();
+                  const est  = t.est||30;
+                  return (
+                    <div key={`${t.id}_${i}`} onClick={()=>toggleTaskSel(selBlock.id,taskKey)} style={{
+                      display:"flex", alignItems:"center", gap:12, padding:"10px 14px", marginBottom:4,
+                      background:isSel?"var(--accent-soft)":"var(--panel)",
+                      border:`1px solid ${isSel?"var(--accent-line)":"var(--line-soft)"}`,
+                      borderLeft:`3px solid ${isSel?"var(--accent)":povColor}`,
+                      cursor:"pointer", transition:"all .12s",
+                    }}>
+                      <div style={{ width:16, height:16, borderRadius:3, flexShrink:0, border:`2px solid ${isSel?"var(--accent)":"var(--line)"}`, background:isSel?"var(--accent)":"transparent", display:"flex", alignItems:"center", justifyContent:"center", transition:"all .12s" }}>
+                        {isSel&&<span style={{ color:"#0a0a0c", fontSize:10, fontWeight:900, lineHeight:1 }}>✓</span>}
                       </div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:13, fontWeight:isSel?700:600, marginBottom:2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", color:isSel?"var(--text)":"var(--text-dim)" }}>{t.title}</div>
+                        <span style={{ fontSize:9, color:povColor, letterSpacing:"0.12em", fontWeight:700 }}>{(t._pov||t.pov||"").toUpperCase()}</span>
+                      </div>
+                      <FlowTag kind={flow} />
+                      <div className="mono" style={{ fontSize:14, fontWeight:700, color:isSel?"var(--accent)":"var(--text-faint)", flexShrink:0 }}>{est}<span style={{ fontSize:8, fontWeight:400 }}>m</span></div>
                     </div>
-                    <FlowTag kind={flow} />
-                    <div style={{ textAlign:"right", flexShrink:0 }}>
-                      <div className="mono" style={{ fontSize:15, fontWeight:700, color:isSel?"var(--accent)":"var(--text-faint)" }}>{est} <span style={{ fontSize:9, fontWeight:400 }}>min</span></div>
+                  );
+                };
+                return Object.entries(groups).map(([src, krGroups]) => (
+                  <div key={src} style={{ marginBottom:16 }}>
+                    <div style={{ fontSize:9, letterSpacing:"0.16em", fontWeight:700, color:"var(--accent)", padding:"6px 0 8px", borderBottom:"1px solid var(--line-soft)", marginBottom:8 }}>
+                      {src === "Täglich" ? "⚡ TÄGLICH" : `✦ ${src.toUpperCase()}`}
                     </div>
+                    {Object.entries(krGroups).map(([krKey, tasks]) => (
+                      <div key={krKey} style={{ marginBottom:10 }}>
+                        {krKey !== "__none__" && (
+                          <div style={{ fontSize:9.5, fontWeight:600, color:"var(--text-faint)", letterSpacing:"0.08em", marginBottom:6, paddingLeft:2 }}>
+                            → {krKey}
+                          </div>
+                        )}
+                        {tasks.map((t,i) => <TaskRow key={`${t.id}_${i}`} t={t} i={i} />)}
+                      </div>
+                    ))}
                   </div>
-                );
-              })}
+                ));
+              })()}
             </>
           )}
         </div>

@@ -111,14 +111,14 @@ function Insights({ taskTimes, pov }) {
   const allTasks = React.useMemo(() => {
     const result = [];
     let krOverrides = {};
-    try { krOverrides = JSON.parse(localStorage.getItem("lifeos_task_kr_overrides") || "{}"); } catch {}
+    try { krOverrides = JSON.parse(LS.getItem("lifeos_task_kr_overrides") || "{}"); } catch {}
     for (const povId of Object.keys(POV_DATA)) {
       const data = POV_DATA[povId];
       const povColor = POVS.find(p => p.id === povId)?.color || "var(--accent)";
       let custom = [];
-      try { custom = JSON.parse(localStorage.getItem(`lifeos_tasks_${povId}`) || "[]"); } catch {}
+      try { custom = JSON.parse(LS.getItem(`lifeos_tasks_${povId}`) || "[]"); } catch {}
       const doneSet = (() => {
-        try { return new Set(JSON.parse(localStorage.getItem(`lifeos_done_${povId}`) || "[]")); } catch { return new Set(); }
+        try { return new Set(JSON.parse(LS.getItem(`lifeos_done_${povId}`) || "[]")); } catch { return new Set(); }
       })();
       for (const t of [...data.tasksToday, ...custom]) {
         const effectiveKrId = t.kr || krOverrides[t.id];
@@ -188,15 +188,15 @@ function Insights({ taskTimes, pov }) {
 
   // ── Truth Loop — editierbar, localStorage-persistent ───────────────────────
   const [tlPlan, setTlPlan] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("lifeos_tl_plan") || "null") || TRUTH_LOOP.plan; }
+    try { return JSON.parse(LS.getItem("lifeos_tl_plan") || "null") || TRUTH_LOOP.plan; }
     catch { return TRUTH_LOOP.plan; }
   });
   const [tlReality, setTlReality] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("lifeos_tl_reality") || "null") || TRUTH_LOOP.reality; }
+    try { return JSON.parse(LS.getItem("lifeos_tl_reality") || "null") || TRUTH_LOOP.reality; }
     catch { return TRUTH_LOOP.reality; }
   });
-  React.useEffect(() => { localStorage.setItem("lifeos_tl_plan", JSON.stringify(tlPlan)); }, [tlPlan]);
-  React.useEffect(() => { localStorage.setItem("lifeos_tl_reality", JSON.stringify(tlReality)); }, [tlReality]);
+  React.useEffect(() => { LS.setItem("lifeos_tl_plan", JSON.stringify(tlPlan)); }, [tlPlan]);
+  React.useEffect(() => { LS.setItem("lifeos_tl_reality", JSON.stringify(tlReality)); }, [tlReality]);
 
   const updateTl = (which, i, raw) => {
     const v = Math.max(0, Math.min(24, parseFloat(raw) || 0));
@@ -478,11 +478,11 @@ function Insights({ taskTimes, pov }) {
 
 function BehaviorTracker() {
   const [habits, setHabits] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("lifeos_habits") || "[]"); } catch { return []; }
+    try { return JSON.parse(LS.getItem("lifeos_habits") || "[]"); } catch { return []; }
   });
   const saveHabits = (arr) => {
     setHabits(arr);
-    try { localStorage.setItem("lifeos_habits", JSON.stringify(arr)); } catch {}
+    try { LS.setItem("lifeos_habits", JSON.stringify(arr)); } catch {}
   };
   const [adding, setAdding] = React.useState(false);
   const [newName, setNewName] = React.useState("");

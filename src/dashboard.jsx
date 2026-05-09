@@ -17,6 +17,40 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
   };
   const [editingKR, setEditingKR] = React.useState(null);
 
+  // All objectives — POV_DATA + custom projects
+  const loadAllObjectives = (povId) => {
+    const objs = [];
+    const d2 = POV_DATA[povId] || POV_DATA.founder;
+    if (d2.objective) {
+      objs.push({ id: "povdata_obj", title: d2.objective.title, period: d2.objective.period, krs: d2.objective.keyResults || [], _isPovData: true });
+    }
+    try {
+      const projs = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]");
+      projs.filter(p => p.pov === povId).forEach(proj => {
+        (proj.objectives || []).forEach(o => {
+          objs.push({ id: o.id, title: o.title, period: o.period || proj.title, krs: o.krs || [], _projectTitle: proj.title });
+        });
+      });
+    } catch {}
+    return objs;
+  };
+  const [allObjectives, setAllObjectives] = React.useState(() => loadAllObjectives(pov));
+  const [openObjectives, setOpenObjectives] = React.useState(() => new Set());
+  React.useEffect(() => {
+    setAllObjectives(loadAllObjectives(pov));
+    setOpenObjectives(new Set());
+  }, [pov]);
+  const findKRLabel = (krId) => {
+    for (const obj of allObjectives) {
+      const kr = (obj.krs || []).find(k => k.id === krId);
+      if (kr) return kr.label;
+    }
+    return null;
+  };
+  const allKRsForSelect = allObjectives.flatMap(o =>
+    (o.krs || []).filter(k => k.status !== "locked").map(k => ({ ...k, _objTitle: o.title }))
+  );
+
   // Task notes helpers — storage: {text, updatedAt} or legacy string
   const getNoteEntry = (id) => {
     const v = (taskNotes || {})[id];
@@ -29,14 +63,38 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
   // Custom tasks — persisted per POV
   const storageKey = `lifeos_tasks_${pov}`;
   const [customTasks, setCustomTasks] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem(storageKey) || "[]"); } catch { return []; }
+    try { return JSON.parse(LS.getItem(storageKey) || "[]"); } catch { return []; }
   });
-  React.useEffect(() => { localStorage.setItem(storageKey, JSON.stringify(customTasks)); }, [customTasks]);
+  React.useEffect(() => { LS.setItem(storageKey, JSON.stringify(customTasks)); }, [customTasks]);
   React.useEffect(() => {
-    try { setCustomTasks(JSON.parse(localStorage.getItem(`lifeos_tasks_${pov}`) || "[]")); } catch { setCustomTasks([]); }
+    try { setCustomTasks(JSON.parse(LS.getItem(`lifeos_tasks_${pov}`) || "[]")); } catch { setCustomTasks([]); }
   }, [pov]);
 
-  const tasksToday = [...data.tasksToday, ...customTasks];
+  // Tasks from wizard-generated custom projects for this POV
+  const loadProjTasks = (povId) => {
+    try {
+      const projs = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]");
+      return projs
+        .filter(p => p.pov === povId)
+        .flatMap(p => (p.objectives || []).flatMap(o =>
+          (o.krs || []).filter(k => k.status !== "locked").flatMap(kr =>
+            (kr.tasks || []).map(t => ({
+              ...t,
+              kr: kr.id,
+              _projectTitle: p.title,
+              _krLabel: kr.label,
+              pov: povId,
+              _fromProject: true,
+            }))
+          )
+        ));
+    } catch { return []; }
+  };
+  const [projTasks, setProjTasks] = React.useState(() => loadProjTasks(pov));
+  React.useEffect(() => { setProjTasks(loadProjTasks(pov)); }, [pov]);
+  React.useEffect(() => { setAllObjectives(loadAllObjectives(pov)); }, [projTasks]);
+
+  const tasksToday = [...data.tasksToday, ...customTasks, ...projTasks];
 
   // Add-task form state
   const [adding, setAdding] = React.useState(false);
@@ -64,11 +122,11 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
   // Completed tasks — persisted per POV
   const doneKey = `lifeos_done_${pov}`;
   const [doneTasks, setDoneTasks] = React.useState(() => {
-    try { return new Set(JSON.parse(localStorage.getItem(doneKey) || "[]")); } catch { return new Set(); }
+    try { return new Set(JSON.parse(LS.getItem(doneKey) || "[]")); } catch { return new Set(); }
   });
-  React.useEffect(() => { localStorage.setItem(doneKey, JSON.stringify([...doneTasks])); }, [doneTasks]);
+  React.useEffect(() => { LS.setItem(doneKey, JSON.stringify([...doneTasks])); }, [doneTasks]);
   React.useEffect(() => {
-    try { setDoneTasks(new Set(JSON.parse(localStorage.getItem(`lifeos_done_${pov}`) || "[]"))); } catch { setDoneTasks(new Set()); }
+    try { setDoneTasks(new Set(JSON.parse(LS.getItem(`lifeos_done_${pov}`) || "[]"))); } catch { setDoneTasks(new Set()); }
   }, [pov]);
   const toggleDone = (id) => setDoneTasks(prev => {
     const next = new Set(prev);
@@ -79,19 +137,57 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
   // KR filter: null = alle, "kr1" etc = nur Tasks dieses KR
   const [activeKR, setActiveKR] = React.useState(null);
 
+  // AI Daily Mission
+  const loadSavedMission = (povId) => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const saved = JSON.parse(LS.getItem(`lifeos_daily_mission_${povId}`) || "null");
+      return saved && saved.date === today ? saved : null;
+    } catch { return null; }
+  };
+  const [dailyMission, setDailyMission] = React.useState(() => loadSavedMission(pov));
+  const [missionLoading, setMissionLoading] = React.useState(false);
+  const [missionError, setMissionError] = React.useState(null);
+  React.useEffect(() => {
+    setDailyMission(loadSavedMission(pov));
+    setMissionError(null);
+  }, [pov]);
+
+  const generateMission = async () => {
+    if (!window.AI) return;
+    setMissionLoading(true);
+    setMissionError(null);
+    try {
+      const povLabel = POVS.find(p => p.id === pov)?.label || pov;
+      const userName = LS.getItem("lifeos_user_name") || "";
+      const mqTitle = (POV_DATA[pov]?.mainQuest?.title) || "";
+      const krs = (objective.keyResults || []).filter(k => k.status !== "locked");
+      const result = await window.AI.generateDailyMission(mqTitle, krs, povLabel, userName);
+      const today = new Date().toISOString().split("T")[0];
+      const mission = { date: today, tasks: result.tasks || [], motivation: result.motivation || "" };
+      setDailyMission(mission);
+      LS.setItem(`lifeos_daily_mission_${pov}`, JSON.stringify(mission));
+    } catch (e) {
+      if (e.code === "NO_KEY") setMissionError("Kein API Key — bitte in ⚙ Einstellungen eintragen.");
+      else setMissionError(e.message || "Fehler beim Generieren.");
+    } finally {
+      setMissionLoading(false);
+    }
+  };
+
   // Inbox section open/collapsed
   const [inboxOpen, setInboxOpen] = React.useState(true);
 
   // Task order — drag & drop reordering, persisted per POV
   const orderKey = `lifeos_task_order_${pov}`;
   const [taskOrder, setTaskOrder] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem(`lifeos_task_order_${pov}`) || "null"); } catch { return null; }
+    try { return JSON.parse(LS.getItem(`lifeos_task_order_${pov}`) || "null"); } catch { return null; }
   });
   React.useEffect(() => {
-    if (taskOrder !== null) localStorage.setItem(orderKey, JSON.stringify(taskOrder));
+    if (taskOrder !== null) LS.setItem(orderKey, JSON.stringify(taskOrder));
   }, [taskOrder, orderKey]);
   React.useEffect(() => {
-    try { setTaskOrder(JSON.parse(localStorage.getItem(`lifeos_task_order_${pov}`) || "null")); } catch { setTaskOrder(null); }
+    try { setTaskOrder(JSON.parse(LS.getItem(`lifeos_task_order_${pov}`) || "null")); } catch { setTaskOrder(null); }
   }, [pov]);
 
   const orderedTasksToday = React.useMemo(() => {
@@ -126,79 +222,124 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
 
   const active = tasksToday.find(t => t.id === activeTaskId);
   const elapsedFor = (t) => taskTimes[t.id] ?? t.elapsed;
-  const krOverrides = (() => { try { return JSON.parse(localStorage.getItem("lifeos_task_kr_overrides") || "{}"); } catch { return {}; } })();
+  const krOverrides = (() => { try { return JSON.parse(LS.getItem("lifeos_task_kr_overrides") || "{}"); } catch { return {}; } })();
 
-  // Strategic Anchor column — KRs are now clickable filters
-  const Anchor = () => (
+  // Strategic Anchor — MainQuest → Objectives accordion → KRs clickable filter
+  const Anchor = () => {
+    const mainQuestTitle = data.mainQuest?.title || "";
+    return (
     <div style={{
       width: 280, flex: "0 0 280px", padding: "28px 24px", borderRight: "1px solid var(--line)",
       overflow: "auto",
     }}>
-      <div className="uppercase-label" style={{ marginBottom: 24 }}>Strategic Anchor</div>
-      <div className="uppercase-label" style={{ marginBottom: 8, color: "var(--text-dim)" }}>Quarterly Objective</div>
-      <h2 style={{ fontSize: 19, fontWeight: 700, lineHeight: 1.2, margin: "0 0 6px" }}>
-        {objective.title}
-      </h2>
-      <div style={{ fontSize: 11.5, color: "var(--text-faint)", marginBottom: 28 }}>{objective.period}</div>
+      <div className="uppercase-label" style={{ marginBottom: 20 }}>Strategic Anchor</div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
-        <div className="uppercase-label">Key Results</div>
+      {mainQuestTitle && (
+        <div style={{ marginBottom: 24, padding: "12px 14px", background: "var(--panel-2)", border: "1px solid var(--accent-line)" }}>
+          <div style={{ fontSize: 9.5, letterSpacing: "0.14em", fontWeight: 700, color: "var(--accent)", marginBottom: 6 }}>⚡ MAIN QUEST</div>
+          <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.3, color: "var(--text)" }}>{mainQuestTitle}</div>
+        </div>
+      )}
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <div className="uppercase-label">Objectives</div>
         {activeKR && (
           <button onClick={() => setActiveKR(null)} style={{
             background: "none", border: "none", color: "var(--accent)", fontSize: 9.5,
             letterSpacing: "0.12em", fontWeight: 700, cursor: "pointer", padding: 0,
-          }}>ALLE ZEIGEN ×</button>
+          }}>ALLE ×</button>
         )}
       </div>
 
-      {objective.keyResults.map((kr) => {
-        const locked = kr.status === "locked";
-        const isFiltered = activeKR === kr.id;
-        const isEditing = editingKR === kr.id;
-        const taskCount = tasksToday.filter(t => t.kr === kr.id).length;
-        const krVal = getKRDisplayVal(kr.id, kr.value);
+      {allObjectives.map((obj) => {
+        const isOpen = openObjectives.has(obj.id);
+        const objKRs = obj.krs || [];
+        const hasActiveKR = objKRs.some(k => k.id === activeKR);
         return (
-          <div key={kr.id} style={{
-            marginBottom: 14, opacity: locked ? 0.45 : 1,
-            padding: "10px 12px",
-            background: isFiltered ? "var(--accent-soft)" : "transparent",
-            border: isFiltered ? "1px solid var(--accent-line)" : "1px solid transparent",
-            transition: "all .15s",
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, alignItems: "center" }}>
-              <span
-                onClick={() => !locked && !isEditing && setActiveKR(isFiltered ? null : kr.id)}
-                style={{
-                  fontSize: 12, fontWeight: 600, cursor: locked ? "default" : "pointer",
-                  color: isFiltered ? "var(--accent)" : locked ? "var(--text-faint)" : "var(--text)",
-                  flex: 1,
-                }}>{kr.label}</span>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                {taskCount > 0 && !locked && (
-                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", color: isFiltered ? "var(--accent)" : "var(--text-faint)" }}>
-                    {taskCount} TASK{taskCount > 1 ? "S" : ""}
-                  </span>
+          <div key={obj.id} style={{ marginBottom: 6 }}>
+            <button
+              onClick={() => setOpenObjectives(prev => {
+                const next = new Set(prev);
+                next.has(obj.id) ? next.delete(obj.id) : next.add(obj.id);
+                return next;
+              })}
+              style={{
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "9px 12px",
+                background: hasActiveKR ? "var(--accent-soft)" : isOpen ? "rgba(255,255,255,0.04)" : "transparent",
+                border: `1px solid ${hasActiveKR ? "var(--accent-line)" : "var(--line-soft)"}`,
+                cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all .15s",
+              }}
+            >
+              <div style={{ flex: 1, marginRight: 8 }}>
+                {obj._projectTitle && (
+                  <div style={{ fontSize: 8.5, letterSpacing: "0.12em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 3 }}>
+                    {obj._projectTitle.toUpperCase()}
+                  </div>
                 )}
-                <span className="mono" style={{ fontSize: 11, color: locked ? "var(--text-faint)" : "var(--text-dim)" }}>
-                  {Math.round(krVal * 100)}%
-                </span>
-                {!locked && taskCount === 0 && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setEditingKR(isEditing ? null : kr.id); }}
-                    title="Fortschritt bearbeiten"
-                    style={{ background: "none", border: "none", color: isEditing ? "var(--accent)" : "var(--text-faint)", cursor: "pointer", fontSize: 11, padding: "0 2px", lineHeight: 1 }}
-                  >✎</button>
+                <div style={{ fontSize: 11.5, fontWeight: 600, color: hasActiveKR ? "var(--accent)" : "var(--text)", lineHeight: 1.3 }}>
+                  {obj.title}
+                </div>
+                {obj.period && (
+                  <div style={{ fontSize: 9.5, color: "var(--text-faint)", marginTop: 2 }}>{obj.period}</div>
                 )}
               </div>
-            </div>
-            <ProgressBar value={krVal} dim={locked} color={isFiltered ? "var(--accent)" : undefined} />
-            {isEditing && taskCount === 0 && (
-              <div onClick={e => e.stopPropagation()} style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8 }}>
-                <input type="range" min="0" max="100" step="1" value={Math.round(getKRVal(kr.id, kr.value) * 100)}
-                  onChange={e => setKRVal(kr.id, parseInt(e.target.value) / 100)}
-                  style={{ flex: 1, accentColor: "var(--accent)", cursor: "pointer" }} />
-                <button onClick={() => setEditingKR(null)}
-                  style={{ background: "var(--accent)", color: "#0a0a0c", border: "none", padding: "3px 10px", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>✓</button>
+              <span style={{ color: "var(--text-faint)", fontSize: 9, flexShrink: 0 }}>{isOpen ? "▲" : "▼"}</span>
+            </button>
+
+            {isOpen && (
+              <div style={{ border: "1px solid var(--line-soft)", borderTop: "none" }}>
+                {objKRs.length === 0 && (
+                  <div style={{ padding: "10px 12px", fontSize: 10.5, color: "var(--text-faint)", fontStyle: "italic" }}>Keine Key Results</div>
+                )}
+                {objKRs.map((kr) => {
+                  const locked = kr.status === "locked";
+                  const isFiltered = activeKR === kr.id;
+                  const isEditing = editingKR === kr.id;
+                  const taskCount = tasksToday.filter(t => t.kr === kr.id).length;
+                  const krVal = getKRDisplayVal(kr.id, kr.value || 0);
+                  return (
+                    <div key={kr.id} style={{
+                      padding: "9px 12px",
+                      background: isFiltered ? "var(--accent-soft)" : "transparent",
+                      borderBottom: "1px solid var(--line-soft)",
+                      opacity: locked ? 0.45 : 1,
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5, alignItems: "center" }}>
+                        <span
+                          onClick={() => !locked && !isEditing && setActiveKR(isFiltered ? null : kr.id)}
+                          style={{
+                            fontSize: 11, fontWeight: 600, cursor: locked ? "default" : "pointer",
+                            color: isFiltered ? "var(--accent)" : "var(--text-dim)",
+                            flex: 1, lineHeight: 1.3, marginRight: 6,
+                          }}
+                        >{kr.label}</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                          {taskCount > 0 && !locked && (
+                            <span style={{ fontSize: 8.5, fontWeight: 700, color: isFiltered ? "var(--accent)" : "var(--text-faint)" }}>{taskCount}T</span>
+                          )}
+                          <span className="mono" style={{ fontSize: 10, color: "var(--text-faint)" }}>{Math.round(krVal * 100)}%</span>
+                          {!locked && taskCount === 0 && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setEditingKR(isEditing ? null : kr.id); }}
+                              style={{ background: "none", border: "none", color: isEditing ? "var(--accent)" : "var(--text-faint)", cursor: "pointer", fontSize: 10, padding: "0 2px", lineHeight: 1 }}
+                            >✎</button>
+                          )}
+                        </div>
+                      </div>
+                      <ProgressBar value={krVal} dim={locked} color={isFiltered ? "var(--accent)" : undefined} />
+                      {isEditing && taskCount === 0 && (
+                        <div onClick={e => e.stopPropagation()} style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                          <input type="range" min="0" max="100" step="1" value={Math.round(getKRVal(kr.id, kr.value || 0) * 100)}
+                            onChange={e => setKRVal(kr.id, parseInt(e.target.value) / 100)}
+                            style={{ flex: 1, accentColor: "var(--accent)", cursor: "pointer" }} />
+                          <button onClick={() => setEditingKR(null)}
+                            style={{ background: "var(--accent)", color: "#0a0a0c", border: "none", padding: "3px 10px", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>✓</button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -214,8 +355,90 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
           ✦ Filter aktiv — {filteredTasks.length} Task{filteredTasks.length !== 1 ? "s" : ""} sichtbar
         </div>
       )}
+
+      {/* ── AI Daily Mission ── */}
+      <div style={{ marginTop: 28, borderTop: "1px solid var(--line-soft)", paddingTop: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ fontSize: 9.5, letterSpacing: "0.16em", fontWeight: 700, color: "var(--accent)" }}>⚡ MISSION HEUTE</div>
+          {dailyMission && (
+            <button onClick={() => { setDailyMission(null); LS.removeItem(`lifeos_daily_mission_${pov}`); }} title="Neu generieren"
+              style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 13, padding: 0, lineHeight: 1 }}>↺</button>
+          )}
+        </div>
+
+        {!dailyMission && !missionLoading && (
+          <div>
+            <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 10, lineHeight: 1.5 }}>
+              KI generiert 3 konkrete Aufgaben aus deinen OKRs für heute.
+            </div>
+            <button onClick={generateMission} style={{
+              width: "100%", padding: "9px 0", background: "transparent",
+              border: "1px solid var(--accent-line)", color: "var(--accent)",
+              fontSize: 10, letterSpacing: "0.16em", fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+            }}>⚡ GENERIEREN</button>
+            {missionError && (
+              <div style={{ fontSize: 10.5, color: "var(--danger)", marginTop: 8, lineHeight: 1.4 }}>{missionError}</div>
+            )}
+          </div>
+        )}
+
+        {missionLoading && (
+          <div style={{ fontSize: 11.5, color: "var(--text-faint)", padding: "12px 0", textAlign: "center" }}>
+            Generiere Mission…
+          </div>
+        )}
+
+        {dailyMission && (
+          <div>
+            {dailyMission.motivation && (
+              <div style={{
+                fontSize: 11, color: "var(--accent)", marginBottom: 12,
+                fontStyle: "italic", lineHeight: 1.45, opacity: 0.85,
+              }}>"{dailyMission.motivation}"</div>
+            )}
+            {(dailyMission.tasks || []).map((task, i) => (
+              <div key={i} style={{
+                marginBottom: 8, padding: "10px 12px",
+                background: "var(--panel-2)", border: "1px solid var(--line-soft)",
+              }}>
+                <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 3, color: "var(--text)", lineHeight: 1.35 }}>{task.title}</div>
+                {task.sub && (
+                  <div style={{ fontSize: 10.5, color: "var(--text-faint)", marginBottom: 6, lineHeight: 1.4 }}>{task.sub}</div>
+                )}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    {task.krLabel && task.krLabel !== "null" && (
+                      <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", color: "var(--accent)", border: "1px solid var(--accent-line)", padding: "2px 6px" }}>→ {task.krLabel}</span>
+                    )}
+                    {task.est && (
+                      <span className="mono" style={{ fontSize: 9.5, color: "var(--text-faint)" }}>{task.est}m</span>
+                    )}
+                  </div>
+                  <button onClick={() => {
+                    const krId = task.krLabel && task.krLabel !== "null"
+                      ? (allKRsForSelect.find(k => k.label === task.krLabel || k.label?.split(":")[0]?.trim() === task.krLabel)?.id || null)
+                      : null;
+                    setCustomTasks(prev => [...prev, {
+                      id: `ai_${Date.now()}_${i}`,
+                      n: tasksToday.length + 1 + i,
+                      title: task.title,
+                      sub: task.sub || "",
+                      kr: krId,
+                      elapsed: 0, pov, custom: true,
+                    }]);
+                  }} style={{
+                    padding: "4px 10px", background: "var(--accent)", color: "#0a0a0c",
+                    border: "none", fontSize: 9, fontWeight: 700, letterSpacing: "0.1em",
+                    cursor: "pointer", fontFamily: "inherit",
+                  }}>ÜBERNEHMEN</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
-  );
+  ); };
 
   return (
     <div style={{ flex: 1, display: "flex", overflow: "hidden", background: "var(--bg)" }}>
@@ -269,7 +492,7 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
             Aufgaben Heute
             {activeKR && (
               <span style={{ marginLeft: 10, color: "var(--accent)" }}>
-                · {objective.keyResults.find(k => k.id === activeKR)?.label}
+                · {findKRLabel(activeKR)}
               </span>
             )}
           </div>
@@ -323,12 +546,13 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
                   }}
                 >{isDone ? "✓" : ""}</button>
                 <div onClick={() => {
-                  const krDef = objective.keyResults.find(k => k.id === t.kr);
-                  const parts = krDef ? krDef.label.split(":") : [];
+                  const krLabel = findKRLabel(t.kr) || "";
+                  const parts = krLabel ? krLabel.split(":") : [];
+                  const ownerObj = allObjectives.find(o => o.krs.some(k => k.id === t.kr));
                   onOpenTask && onOpenTask({
                     ...t,
                     _pov: t.pov || pov,
-                    _objectiveTitle: objective.title,
+                    _objectiveTitle: ownerObj?.title || objective.title,
                     _krLabel: parts.length > 0 ? parts[0].trim() : null,
                     _krTitle: parts.length > 1 ? parts.slice(1).join(":").trim() : null,
                   });
@@ -437,7 +661,7 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
                 }}
               >
                 <option value="none">⚠ Kein KR (Side Quest)</option>
-                {objective.keyResults.filter(k => k.status !== "locked").map(k => (
+                {allKRsForSelect.map(k => (
                   <option key={k.id} value={k.id}>{k.label}</option>
                 ))}
               </select>

@@ -54,7 +54,150 @@ function applyTweaks(t) {
   document.body.style.fontFamily = pair;
 }
 
+function LoadingScreen() {
+  return (
+    <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "var(--bg)", flexDirection: "column", gap: 16 }}>
+      <div style={{ width: 22, height: 22, background: "#e8e8ec", borderRadius: 3 }} />
+      <div style={{ fontSize: 9.5, letterSpacing: "0.22em", fontWeight: 700, color: "var(--text-faint)" }}>WIRD GELADEN…</div>
+    </div>
+  );
+}
+
+function LoginScreen({ onGuest }) {
+  const [mode, setMode] = React.useState("login"); // "login" | "register"
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [err, setErr] = React.useState(null);
+  const [confirmed, setConfirmed] = React.useState(false);
+
+  const inputStyle = {
+    width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)",
+    color: "var(--text)", padding: "11px 14px", fontSize: 14,
+    outline: "none", fontFamily: "inherit", boxSizing: "border-box", marginBottom: 10,
+  };
+
+  const submit = async () => {
+    if (!email.trim() || !password) return;
+    setLoading(true); setErr(null);
+    if (mode === "register") {
+      const { error } = await window.sbAuth.signUp(email.trim(), password);
+      setLoading(false);
+      if (error) { setErr(error.message); return; }
+      setConfirmed(true);
+    } else {
+      const { error } = await window.sbAuth.signIn(email.trim(), password);
+      setLoading(false);
+      if (error) { setErr(error.message === "Invalid login credentials" ? "E-Mail oder Passwort falsch." : error.message); return; }
+      // onAuthStateChange in App handles the rest
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
+      <div style={{ width: 400, padding: "48px 40px", background: "var(--panel)", border: "1px solid var(--line)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32 }}>
+          <div style={{ width: 22, height: 22, background: "#e8e8ec", borderRadius: 3 }} />
+          <div style={{ fontWeight: 700, fontSize: 13, letterSpacing: "0.16em", color: "#e8e8ec" }}>LIFE OS</div>
+        </div>
+
+        {confirmed ? (
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 12 }}>Bestätigungs-E-Mail gesendet ✓</div>
+            <div style={{ fontSize: 13, color: "var(--text-dim)", lineHeight: 1.6 }}>
+              Schau in dein Postfach und klick auf den Bestätigungslink.<br />
+              Danach kannst du dich hier einloggen.
+            </div>
+            <button onClick={() => { setConfirmed(false); setMode("login"); }} style={{ marginTop: 24, background: "none", border: "none", color: "var(--text-faint)", fontSize: 11, cursor: "pointer", padding: 0, letterSpacing: "0.1em" }}>← Zum Login</button>
+          </div>
+        ) : (
+          <div>
+            {/* Tab toggle */}
+            <div style={{ display: "flex", gap: 0, marginBottom: 28, borderBottom: "1px solid var(--line)" }}>
+              {[["login", "Anmelden"], ["register", "Registrieren"]].map(([m, label]) => (
+                <button key={m} onClick={() => { setMode(m); setErr(null); }} style={{
+                  flex: 1, padding: "10px 0", background: "none", border: "none",
+                  borderBottom: mode === m ? "2px solid var(--accent)" : "2px solid transparent",
+                  color: mode === m ? "var(--text)" : "var(--text-faint)",
+                  fontWeight: mode === m ? 700 : 500, fontSize: 12.5, letterSpacing: "0.08em",
+                  cursor: "pointer", marginBottom: -1,
+                }}>{label}</button>
+              ))}
+            </div>
+
+            <input autoFocus type="email" placeholder="E-Mail" value={email}
+              onChange={e => setEmail(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && submit()}
+              style={inputStyle}
+            />
+            <input type="password" placeholder="Passwort" value={password}
+              onChange={e => setPassword(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && submit()}
+              style={{ ...inputStyle, marginBottom: 14 }}
+            />
+
+            {err && <div style={{ fontSize: 11, color: "var(--danger)", marginBottom: 10 }}>{err}</div>}
+
+            <button onClick={submit} disabled={loading || !email.trim() || !password} style={{
+              width: "100%", padding: "12px", background: "var(--accent)", color: "#0a0a0c",
+              border: "none", fontWeight: 700, fontSize: 12, letterSpacing: "0.16em",
+              cursor: loading ? "default" : "pointer", opacity: (loading || !email.trim() || !password) ? 0.5 : 1, marginBottom: 16,
+            }}>{loading ? "…" : mode === "login" ? "ANMELDEN →" : "ACCOUNT ERSTELLEN →"}</button>
+
+            <div style={{ textAlign: "center" }}>
+              <button onClick={onGuest} style={{
+                background: "none", border: "none", color: "var(--text-faint)", fontSize: 11,
+                cursor: "pointer", letterSpacing: "0.1em",
+              }}>Ohne Account fortfahren</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function App() {
+  // Auth gate
+  const [authStatus, setAuthStatus] = React.useState("loading");
+
+  const reloadPovsFromLS = () => {
+    try { setUserPovs(JSON.parse(LS.getItem("lifeos_user_povs") || "[]")); } catch {}
+  };
+
+  React.useEffect(() => {
+    (async () => {
+      const session = await window.sbAuth.getSession();
+      if (session?.user?.id) {
+        const uid = session.user.id;
+        const { data } = await window._supabase.from("user_data").select("key").limit(1);
+        if (!data || data.length === 0) await window.sbAuth.pushLocal(uid);
+        else { await window.sbAuth.syncDown(uid); reloadPovsFromLS(); }
+        const done = LS.getItem("lifeos_onboarding_done") === "1";
+        setAuthStatus(done ? "ready" : "onboarding");
+      } else {
+        if (LS.getItem("lifeos_guest") === "1") {
+          const done = LS.getItem("lifeos_onboarding_done") === "1";
+          setAuthStatus(done ? "ready" : "onboarding");
+        } else setAuthStatus("login");
+      }
+    })();
+
+    const { data: { subscription } } = window._supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_IN" && session?.user?.id) {
+        const uid = session.user.id;
+        const { data } = await window._supabase.from("user_data").select("key").limit(1);
+        if (!data || data.length === 0) await window.sbAuth.pushLocal(uid);
+        else { await window.sbAuth.syncDown(uid); reloadPovsFromLS(); }
+        const done = LS.getItem("lifeos_onboarding_done") === "1";
+        setAuthStatus(done ? "ready" : "onboarding");
+      } else if (event === "SIGNED_OUT") {
+        setAuthStatus("login");
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
   React.useEffect(() => { applyTweaks(tweaks); }, [tweaks]);
 
@@ -74,45 +217,56 @@ function App() {
   }, [tweaks.fontPair]);
 
   const [route, setRoute] = React.useState("dashboard");
-  const [pov, setPov] = React.useState(() => localStorage.getItem("lifeos_pov") || "personal");
-  const [activeTaskId, setActiveTaskId] = React.useState(() => localStorage.getItem("lifeos_active") || null);
+  const [pov, setPov] = React.useState(() => LS.getItem("lifeos_pov") || "personal");
+  const [userPovs, setUserPovs] = React.useState(() => {
+    try { return JSON.parse(LS.getItem("lifeos_user_povs") || "[]"); } catch { return []; }
+  });
+  const [activeTaskId, setActiveTaskId] = React.useState(() => LS.getItem("lifeos_active") || null);
   // Tracks which task was last actively running — survives pausing (activeTaskId → null)
-  const [focusTaskId, setFocusTaskId] = React.useState(() => localStorage.getItem("lifeos_active") || null);
+  const [focusTaskId, setFocusTaskId] = React.useState(() => LS.getItem("lifeos_active") || null);
 
   // Keep focusTaskId in sync whenever a task starts
   React.useEffect(() => {
     if (activeTaskId) setFocusTaskId(activeTaskId);
   }, [activeTaskId]);
   const [taskTimes, setTaskTimes] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("lifeos_times") || "{}"); } catch { return {}; }
+    try { return JSON.parse(LS.getItem("lifeos_times") || "{}"); } catch { return {}; }
   });
 
-  React.useEffect(() => { localStorage.setItem("lifeos_pov", pov); }, [pov]);
-  React.useEffect(() => { localStorage.setItem("lifeos_active", activeTaskId || ""); }, [activeTaskId]);
-  React.useEffect(() => { localStorage.setItem("lifeos_times", JSON.stringify(taskTimes)); }, [taskTimes]);
+  React.useEffect(() => { LS.setItem("lifeos_pov", pov); }, [pov]);
+  React.useEffect(() => { LS.setItem("lifeos_active", activeTaskId || ""); }, [activeTaskId]);
+  React.useEffect(() => { LS.setItem("lifeos_times", JSON.stringify(taskTimes)); }, [taskTimes]);
 
   const [krProgress, setKrProgress] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("lifeos_kr_progress") || "{}"); } catch { return {}; }
+    try { return JSON.parse(LS.getItem("lifeos_kr_progress") || "{}"); } catch { return {}; }
   });
   const [taskNotes, setTaskNotes] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("lifeos_task_notes") || "{}"); } catch { return {}; }
+    try { return JSON.parse(LS.getItem("lifeos_task_notes") || "{}"); } catch { return {}; }
   });
   const [truthPlan, setTruthPlan] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("lifeos_truth_plan") || "null") || TRUTH_LOOP.plan; } catch { return TRUTH_LOOP.plan; }
+    try { return JSON.parse(LS.getItem("lifeos_truth_plan") || "null") || TRUTH_LOOP.plan; } catch { return TRUTH_LOOP.plan; }
   });
-  React.useEffect(() => { localStorage.setItem("lifeos_kr_progress", JSON.stringify(krProgress)); }, [krProgress]);
-  React.useEffect(() => { localStorage.setItem("lifeos_task_notes", JSON.stringify(taskNotes)); }, [taskNotes]);
-  React.useEffect(() => { localStorage.setItem("lifeos_truth_plan", JSON.stringify(truthPlan)); }, [truthPlan]);
+  React.useEffect(() => { LS.setItem("lifeos_kr_progress", JSON.stringify(krProgress)); }, [krProgress]);
+  React.useEffect(() => { LS.setItem("lifeos_task_notes", JSON.stringify(taskNotes)); }, [taskNotes]);
+  React.useEffect(() => { LS.setItem("lifeos_truth_plan", JSON.stringify(truthPlan)); }, [truthPlan]);
 
   // Apply the per-POV theme on mount and whenever POV / accent tweak changes.
   React.useEffect(() => {
-    const override = pov === "personal" ? tweaks.accent : null;
+    let override = null;
+    if (pov === "personal") override = tweaks.accent;
+    else {
+      const customPov = userPovs.find(p => p.id === pov);
+      if (customPov) override = customPov.color;
+    }
     applyPovTheme(pov, override);
-  }, [pov, tweaks.accent]);
+  }, [pov, tweaks.accent, userPovs]);
 
-  // When POV changes, drop the active task if it doesn't belong to the new POV's today list.
+  // When POV changes, drop active task if it doesn't belong to the new POV.
   React.useEffect(() => {
-    const ids = (POV_DATA[pov] || POV_DATA.founder).tasksToday.map(t => t.id);
+    const povData = POV_DATA[pov] || { tasksToday: [] };
+    let custom = [];
+    try { custom = JSON.parse(LS.getItem(`lifeos_tasks_${pov}`) || "[]"); } catch {}
+    const ids = [...povData.tasksToday, ...custom].map(t => t.id);
     if (activeTaskId && !ids.includes(activeTaskId)) setActiveTaskId(null);
   }, [pov]);
 
@@ -129,10 +283,10 @@ function App() {
       const tid = focusTaskIdRef.current;
       if (dur >= 5 && tid) {
         try {
-          const all = JSON.parse(localStorage.getItem("lifeos_sessions") || "{}");
+          const all = JSON.parse(LS.getItem("lifeos_sessions") || "{}");
           if (!all[tid]) all[tid] = [];
           all[tid].push({ ts: new Date().toISOString(), dur });
-          localStorage.setItem("lifeos_sessions", JSON.stringify(all));
+          LS.setItem("lifeos_sessions", JSON.stringify(all));
         } catch {}
       }
     }
@@ -162,9 +316,9 @@ function App() {
 
   // Inbox — quick capture, zero-friction
   const [inbox, setInbox] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("lifeos_inbox") || "[]"); } catch { return []; }
+    try { return JSON.parse(LS.getItem("lifeos_inbox") || "[]"); } catch { return []; }
   });
-  React.useEffect(() => { localStorage.setItem("lifeos_inbox", JSON.stringify(inbox)); }, [inbox]);
+  React.useEffect(() => { LS.setItem("lifeos_inbox", JSON.stringify(inbox)); }, [inbox]);
   const [captureOpen, setCaptureOpen] = React.useState(false);
   const [captureText, setCaptureText] = React.useState("");
   const saveCapture = () => {
@@ -179,10 +333,30 @@ function App() {
 
   const focusMode = route === "focus";
 
+  if (authStatus === "loading") return <LoadingScreen />;
+  if (authStatus === "login") return (
+    <LoginScreen onGuest={() => {
+      LS.setItem("lifeos_guest", "1");
+      const done = LS.getItem("lifeos_onboarding_done") === "1";
+      setAuthStatus(done ? "ready" : "onboarding");
+    }} />
+  );
+  if (authStatus === "onboarding") return (
+    <OnboardingWizard onComplete={({ userName, userPovs: newPovs }) => {
+      if (userName) LS.setItem("lifeos_user_name", userName);
+      setUserPovs(newPovs || []);
+      // Force-push onboarding data to Supabase immediately (don't rely on 800ms debounce)
+      window.sbAuth.getSession().then(s => {
+        if (s?.user?.id) window.sbAuth.pushLocal(s.user.id);
+      });
+      setAuthStatus("ready");
+    }} />
+  );
+
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}
          data-screen-label={"Life OS · " + route}>
-      {!focusMode && <Sidebar route={route} setRoute={setRoute} pov={pov} setPov={setPov} />}
+      {!focusMode && <Sidebar route={route} setRoute={setRoute} pov={pov} setPov={setPov} userPovs={userPovs} setUserPovs={setUserPovs} />}
       <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--bg)" }}>
         {focusMode && (
           // tiny top bar with exit

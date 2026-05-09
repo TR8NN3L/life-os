@@ -4,12 +4,23 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
   // Merge hardcoded + custom tasks so custom tasks survive pause/resume
   const hardcoded = (POV_DATA[pov] || POV_DATA.founder).tasksToday;
   let custom = [];
-  try { custom = JSON.parse(localStorage.getItem(`lifeos_tasks_${pov}`) || "[]"); } catch {}
+  try { custom = JSON.parse(LS.getItem(`lifeos_tasks_${pov}`) || "[]"); } catch {}
   const tasksToday = [...hardcoded, ...custom];
 
   // Use focusTaskId (from App) as the authoritative "last started task"
   const displayId = activeTaskId || focusTaskId;
   const task = tasksToday.find(t => t.id === displayId) ?? tasksToday[0];
+
+  // Empty state — no tasks configured yet
+  if (!task) {
+    return (
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "var(--bg)", gap: 16 }}>
+        <div style={{ fontSize: 13, color: "var(--text-faint)", letterSpacing: "0.08em" }}>Keine Aufgaben vorhanden</div>
+        <div style={{ fontSize: 11, color: "var(--text-faint)", opacity: 0.6 }}>Füge zuerst Tasks im Dashboard hinzu.</div>
+      </div>
+    );
+  }
+
   const isRunning = activeTaskId === task.id;
   const elapsed = taskTimes[task.id] ?? task.elapsed;
 
