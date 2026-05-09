@@ -332,7 +332,7 @@ function Planner() {
       if (block.type==="deep-work") return flow==="FLOW"||est>=60;
       if (block.type==="basic")     return flow==="QUICK"||flow==="EASY"||est<=30;
       return true;
-    }).sort((a,b) => block.type==="deep-work" ? (b.est||30)-(a.est||30) : (a.est||20)-(b.est||20));
+    });
   };
 
   const [blockSelections, setBlockSelections] = React.useState(() => {
@@ -647,8 +647,13 @@ function Planner() {
                     <button
                       onMouseDown={e=>e.stopPropagation()}
                       onClick={e=>{e.stopPropagation();openEdit(block);}}
-                      style={{ position:"absolute", top:3, right:4, background:"none", border:"none", color:"var(--text-faint)", cursor:"pointer", fontSize:11, padding:"0 2px", opacity:0.6, lineHeight:1 }}
+                      style={{ position:"absolute", top:3, right:20, background:"none", border:"none", color:"var(--text-faint)", cursor:"pointer", fontSize:11, padding:"0 2px", opacity:0.6, lineHeight:1 }}
                     >✎</button>
+                    <button
+                      onMouseDown={e=>e.stopPropagation()}
+                      onClick={e=>{e.stopPropagation();deleteBlock(block.id);}}
+                      style={{ position:"absolute", top:3, right:4, background:"none", border:"none", color:"var(--danger)", cursor:"pointer", fontSize:13, padding:"0 2px", opacity:0.55, lineHeight:1 }}
+                    >×</button>
                     <div
                       onMouseDown={e=>{e.stopPropagation();onBlockMouseDown(e,block,"resize");}}
                       style={{ position:"absolute", bottom:0, left:0, right:0, height:10, cursor:"ns-resize", display:"flex", alignItems:"center", justifyContent:"center", background:"linear-gradient(transparent, rgba(0,0,0,0.2))" }}
@@ -721,22 +726,28 @@ function Planner() {
                 </div>
               )}
               {(() => {
-                // Group by _source → _objective → _kr
-                const groups = {};
+                // Group by _pov → _source (project) → _objective → _kr
+                const povOrder = [];
+                const povGroups = {};
                 suggestions.forEach(t => {
+                  const pov = t._pov || "__none__";
+                  if (!povGroups[pov]) { povOrder.push(pov); povGroups[pov] = { _srcOrder: [], _srcs: {} }; }
                   const src = t._source || "Täglich";
-                  if (!groups[src]) groups[src] = { _objOrder: [], _objs: {} };
+                  if (!povGroups[pov]._srcs[src]) {
+                    povGroups[pov]._srcOrder.push(src);
+                    povGroups[pov]._srcs[src] = { _objOrder: [], _objs: {} };
+                  }
                   const obj = t._objective || "__none__";
-                  if (!groups[src]._objs[obj]) {
-                    groups[src]._objOrder.push(obj);
-                    groups[src]._objs[obj] = { _krOrder: [], _krs: {} };
+                  if (!povGroups[pov]._srcs[src]._objs[obj]) {
+                    povGroups[pov]._srcs[src]._objOrder.push(obj);
+                    povGroups[pov]._srcs[src]._objs[obj] = { _krOrder: [], _krs: {} };
                   }
                   const kr = t._kr || "__none__";
-                  if (!groups[src]._objs[obj]._krs[kr]) {
-                    groups[src]._objs[obj]._krOrder.push(kr);
-                    groups[src]._objs[obj]._krs[kr] = [];
+                  if (!povGroups[pov]._srcs[src]._objs[obj]._krs[kr]) {
+                    povGroups[pov]._srcs[src]._objs[obj]._krOrder.push(kr);
+                    povGroups[pov]._srcs[src]._objs[obj]._krs[kr] = [];
                   }
-                  groups[src]._objs[obj]._krs[kr].push(t);
+                  povGroups[pov]._srcs[src]._objs[obj]._krs[kr].push(t);
                 });
 
                 const TaskRow = ({t, i}) => {
@@ -766,38 +777,60 @@ function Planner() {
                   );
                 };
 
-                return Object.entries(groups).map(([src, { _objOrder, _objs }]) => (
-                  <div key={src} style={{ marginBottom:20 }}>
-                    {/* Project header */}
-                    <div style={{ fontSize:9, letterSpacing:"0.18em", fontWeight:700, color:"var(--accent)", padding:"5px 0 8px", borderBottom:"2px solid var(--accent-line)", marginBottom:12 }}>
-                      {src === "Täglich" ? "⚡ TÄGLICH" : `✦ ${src.toUpperCase()}`}
-                    </div>
-                    {_objOrder.map(objKey => {
-                      const { _krOrder, _krs } = _objs[objKey];
-                      return (
-                        <div key={objKey} style={{ marginBottom:14 }}>
-                          {/* Objective header */}
-                          {objKey !== "__none__" && (
-                            <div style={{ fontSize:11, fontWeight:700, color:"var(--text)", marginBottom:8, padding:"6px 10px", background:"rgba(255,255,255,0.04)", borderLeft:"2px solid var(--text-faint)" }}>
-                              {objKey}
-                            </div>
-                          )}
-                          {_krOrder.map(krKey => (
-                            <div key={krKey} style={{ marginBottom:10, paddingLeft: objKey !== "__none__" ? 8 : 0 }}>
-                              {/* KR header */}
-                              {krKey !== "__none__" && (
-                                <div style={{ fontSize:9.5, fontWeight:600, color:"var(--accent)", letterSpacing:"0.08em", marginBottom:5, display:"flex", alignItems:"center", gap:6 }}>
-                                  <span style={{ color:"var(--accent-line)" }}>→</span> {krKey}
+                return povOrder.map(povId => {
+                  const povMeta = allPovs.find(p=>p.id===povId);
+                  const povColor = povMeta?.color || "var(--accent)";
+                  const { _srcOrder, _srcs } = povGroups[povId];
+                  return (
+                    <div key={povId} style={{ marginBottom:24 }}>
+                      {/* POV header */}
+                      <div style={{ fontSize:8.5, letterSpacing:"0.22em", fontWeight:800, color:povColor, padding:"4px 0 10px", borderBottom:`2px solid ${povColor}33`, marginBottom:14, display:"flex", alignItems:"center", gap:8 }}>
+                        <span style={{ display:"inline-block", width:6, height:6, borderRadius:"50%", background:povColor, flexShrink:0 }} />
+                        {povMeta ? povMeta.label.toUpperCase() : povId.toUpperCase()}
+                      </div>
+                      {_srcOrder.map(src => {
+                        const { _objOrder, _objs } = _srcs[src];
+                        return (
+                          <div key={src} style={{ marginBottom:16 }}>
+                            {/* Project header */}
+                            {src !== "Täglich" && (
+                              <div style={{ fontSize:9, letterSpacing:"0.16em", fontWeight:700, color:"var(--accent)", marginBottom:10, display:"flex", alignItems:"center", gap:6 }}>
+                                <span style={{ opacity:0.5 }}>✦</span> {src.toUpperCase()}
+                              </div>
+                            )}
+                            {src === "Täglich" && (
+                              <div style={{ fontSize:9, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)", marginBottom:10 }}>⚡ TÄGLICH</div>
+                            )}
+                            {_objOrder.map(objKey => {
+                              const { _krOrder, _krs } = _objs[objKey];
+                              return (
+                                <div key={objKey} style={{ marginBottom:12 }}>
+                                  {/* Objective header */}
+                                  {objKey !== "__none__" && (
+                                    <div style={{ fontSize:11, fontWeight:700, color:"var(--text)", marginBottom:8, padding:"6px 10px", background:"rgba(255,255,255,0.04)", borderLeft:`2px solid ${povColor}` }}>
+                                      {objKey}
+                                    </div>
+                                  )}
+                                  {_krOrder.map(krKey => (
+                                    <div key={krKey} style={{ marginBottom:8, paddingLeft: objKey !== "__none__" ? 8 : 0 }}>
+                                      {/* KR header */}
+                                      {krKey !== "__none__" && (
+                                        <div style={{ fontSize:9.5, fontWeight:600, color:povColor, letterSpacing:"0.08em", marginBottom:5, display:"flex", alignItems:"center", gap:6, opacity:0.85 }}>
+                                          <span style={{ opacity:0.5 }}>→</span> {krKey}
+                                        </div>
+                                      )}
+                                      {_krs[krKey].map((t,i) => <TaskRow key={`${t.id}_${i}`} t={t} i={i} />)}
+                                    </div>
+                                  ))}
                                 </div>
-                              )}
-                              {_krs[krKey].map((t,i) => <TaskRow key={`${t.id}_${i}`} t={t} i={i} />)}
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ));
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                });
               })()}
             </>
           )}
