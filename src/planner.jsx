@@ -314,8 +314,17 @@ function Planner() {
     }
     for (const proj of [...PROJECTS, ...customProjs]) {
       if (block.bucket!=="alle" && block.bucket!==proj.pov) continue;
-      (proj.objectives||[]).flatMap(o=>o.krs||[]).filter(k=>k.status!=="locked").forEach(kr => {
-        (kr.tasks||[]).forEach(t => allTasks.push({...t,_pov:proj.pov,_source:proj.title,_kr:kr.label}));
+      (proj.objectives||[]).forEach((obj, oi) => {
+        (obj.krs||[]).filter(k=>k.status!=="locked").forEach(kr => {
+          (kr.tasks||[]).forEach(t => allTasks.push({
+            ...t,
+            _pov: proj.pov,
+            _source: proj.title,
+            _objective: obj.title,
+            _objIdx: oi,
+            _kr: kr.label,
+          }));
+        });
       });
     }
     return allTasks.filter(t => {
@@ -712,16 +721,24 @@ function Planner() {
                 </div>
               )}
               {(() => {
-                // Group by _source → _kr
+                // Group by _source → _objective → _kr
                 const groups = {};
                 suggestions.forEach(t => {
                   const src = t._source || "Täglich";
-                  if (!groups[src]) groups[src] = {};
-                  const kr = t._kr || null;
-                  const krKey = kr || "__none__";
-                  if (!groups[src][krKey]) groups[src][krKey] = [];
-                  groups[src][krKey].push(t);
+                  if (!groups[src]) groups[src] = { _objOrder: [], _objs: {} };
+                  const obj = t._objective || "__none__";
+                  if (!groups[src]._objs[obj]) {
+                    groups[src]._objOrder.push(obj);
+                    groups[src]._objs[obj] = { _krOrder: [], _krs: {} };
+                  }
+                  const kr = t._kr || "__none__";
+                  if (!groups[src]._objs[obj]._krs[kr]) {
+                    groups[src]._objs[obj]._krOrder.push(kr);
+                    groups[src]._objs[obj]._krs[kr] = [];
+                  }
+                  groups[src]._objs[obj]._krs[kr].push(t);
                 });
+
                 const TaskRow = ({t, i}) => {
                   const taskKey = `${t.id}_${t._pov}`;
                   const isSel   = isTaskSel(selBlock.id, taskKey);
@@ -730,7 +747,7 @@ function Planner() {
                   const est  = t.est||30;
                   return (
                     <div key={`${t.id}_${i}`} onClick={()=>toggleTaskSel(selBlock.id,taskKey)} style={{
-                      display:"flex", alignItems:"center", gap:12, padding:"10px 14px", marginBottom:4,
+                      display:"flex", alignItems:"center", gap:12, padding:"11px 14px", marginBottom:4,
                       background:isSel?"var(--accent-soft)":"var(--panel)",
                       border:`1px solid ${isSel?"var(--accent-line)":"var(--line-soft)"}`,
                       borderLeft:`3px solid ${isSel?"var(--accent)":povColor}`,
@@ -741,28 +758,44 @@ function Planner() {
                       </div>
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:13, fontWeight:isSel?700:600, marginBottom:2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", color:isSel?"var(--text)":"var(--text-dim)" }}>{t.title}</div>
-                        <span style={{ fontSize:9, color:povColor, letterSpacing:"0.12em", fontWeight:700 }}>{(t._pov||t.pov||"").toUpperCase()}</span>
+                        {t.sub && <div style={{ fontSize:10.5, color:"var(--text-faint)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{t.sub}</div>}
                       </div>
                       <FlowTag kind={flow} />
-                      <div className="mono" style={{ fontSize:14, fontWeight:700, color:isSel?"var(--accent)":"var(--text-faint)", flexShrink:0 }}>{est}<span style={{ fontSize:8, fontWeight:400 }}>m</span></div>
+                      <div className="mono" style={{ fontSize:13, fontWeight:700, color:isSel?"var(--accent)":"var(--text-faint)", flexShrink:0 }}>{est}<span style={{ fontSize:8, fontWeight:400 }}>m</span></div>
                     </div>
                   );
                 };
-                return Object.entries(groups).map(([src, krGroups]) => (
-                  <div key={src} style={{ marginBottom:16 }}>
-                    <div style={{ fontSize:9, letterSpacing:"0.16em", fontWeight:700, color:"var(--accent)", padding:"6px 0 8px", borderBottom:"1px solid var(--line-soft)", marginBottom:8 }}>
+
+                return Object.entries(groups).map(([src, { _objOrder, _objs }]) => (
+                  <div key={src} style={{ marginBottom:20 }}>
+                    {/* Project header */}
+                    <div style={{ fontSize:9, letterSpacing:"0.18em", fontWeight:700, color:"var(--accent)", padding:"5px 0 8px", borderBottom:"2px solid var(--accent-line)", marginBottom:12 }}>
                       {src === "Täglich" ? "⚡ TÄGLICH" : `✦ ${src.toUpperCase()}`}
                     </div>
-                    {Object.entries(krGroups).map(([krKey, tasks]) => (
-                      <div key={krKey} style={{ marginBottom:10 }}>
-                        {krKey !== "__none__" && (
-                          <div style={{ fontSize:9.5, fontWeight:600, color:"var(--text-faint)", letterSpacing:"0.08em", marginBottom:6, paddingLeft:2 }}>
-                            → {krKey}
-                          </div>
-                        )}
-                        {tasks.map((t,i) => <TaskRow key={`${t.id}_${i}`} t={t} i={i} />)}
-                      </div>
-                    ))}
+                    {_objOrder.map(objKey => {
+                      const { _krOrder, _krs } = _objs[objKey];
+                      return (
+                        <div key={objKey} style={{ marginBottom:14 }}>
+                          {/* Objective header */}
+                          {objKey !== "__none__" && (
+                            <div style={{ fontSize:11, fontWeight:700, color:"var(--text)", marginBottom:8, padding:"6px 10px", background:"rgba(255,255,255,0.04)", borderLeft:"2px solid var(--text-faint)" }}>
+                              {objKey}
+                            </div>
+                          )}
+                          {_krOrder.map(krKey => (
+                            <div key={krKey} style={{ marginBottom:10, paddingLeft: objKey !== "__none__" ? 8 : 0 }}>
+                              {/* KR header */}
+                              {krKey !== "__none__" && (
+                                <div style={{ fontSize:9.5, fontWeight:600, color:"var(--accent)", letterSpacing:"0.08em", marginBottom:5, display:"flex", alignItems:"center", gap:6 }}>
+                                  <span style={{ color:"var(--accent-line)" }}>→</span> {krKey}
+                                </div>
+                              )}
+                              {_krs[krKey].map((t,i) => <TaskRow key={`${t.id}_${i}`} t={t} i={i} />)}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
                   </div>
                 ));
               })()}
