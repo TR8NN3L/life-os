@@ -221,6 +221,8 @@ function App() {
   const [userPovs, setUserPovs] = React.useState(() => {
     try { return JSON.parse(LS.getItem("lifeos_user_povs") || "[]"); } catch { return []; }
   });
+  React.useEffect(() => { LS.setItem("lifeos_user_povs", JSON.stringify(userPovs)); }, [userPovs]);
+
   const [activeTaskId, setActiveTaskId] = React.useState(() => LS.getItem("lifeos_active") || null);
   // Tracks which task was last actively running — survives pausing (activeTaskId → null)
   const [focusTaskId, setFocusTaskId] = React.useState(() => LS.getItem("lifeos_active") || null);
