@@ -62,10 +62,13 @@ function Planner() {
   const todayIdx = todayRaw === 0 ? 6 : todayRaw - 1;
 
   // Merge hardcoded + user-created POVs
-  const [userPovs] = React.useState(() => {
-    try { return JSON.parse(LS.getItem("lifeos_user_povs") || "[]"); } catch { return []; }
-  });
-  const allPovs = [...POVS, ...userPovs];
+  const allPovs = React.useMemo(() => {
+    try {
+      const custom = JSON.parse(LS.getItem("lifeos_user_povs") || "[]");
+      const seenIds = new Set(POVS.map(p => p.id));
+      return [...POVS, ...custom.filter(p => !seenIds.has(p.id))];
+    } catch { return POVS; }
+  }, []);
 
   const [selDay,     setSelDay]     = React.useState(todayIdx);
   const [selBlockId, setSelBlockId] = React.useState(null);

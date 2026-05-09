@@ -74,7 +74,8 @@ function OKRWizard({ onClose, onSave, defaultPov, customProjects }) {
   const allPovs = React.useMemo(() => {
     try {
       const custom = JSON.parse(LS.getItem("lifeos_user_povs") || "[]");
-      return [...(POVS || []), ...custom];
+      const seenIds = new Set((POVS || []).map(p => p.id));
+      return [...(POVS || []), ...custom.filter(p => !seenIds.has(p.id))];
     } catch { return POVS || []; }
   }, []);
 
