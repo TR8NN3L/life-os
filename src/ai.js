@@ -1,5 +1,29 @@
 // AI helpers — Anthropic Claude Haiku for OKR Generator and Daily Mission.
 (function () {
+  // Attempt to repair truncated JSON by closing open structures
+  function tryRepairJson(raw) {
+    const match = raw.match(/\{[\s\S]*/);
+    if (!match) return null;
+    let s = match[0];
+    try { return JSON.parse(s); } catch {}
+    // Close any open string, then close open brackets/braces
+    const stack = [];
+    let inStr = false, esc = false;
+    for (const ch of s) {
+      if (esc) { esc = false; continue; }
+      if (ch === "\\" && inStr) { esc = true; continue; }
+      if (ch === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (ch === "{") stack.push("}");
+      else if (ch === "[") stack.push("]");
+      else if (ch === "}" || ch === "]") stack.pop();
+    }
+    let repaired = s;
+    if (inStr) repaired += '"';
+    while (stack.length) repaired += stack.pop();
+    try { return JSON.parse(repaired); } catch { return null; }
+  }
+
   async function callAI(system, userMessage, { maxTokens = 800 } = {}) {
     const key = localStorage.getItem("lifeos_openai_key");
     if (!key) {
@@ -28,8 +52,12 @@
     }
     const data = await res.json();
     const text = data.content[0].text;
-    const match = text.match(/\{[\s\S]*\}/);
-    return JSON.parse(match ? match[0] : text);
+    // Try direct parse, then repair truncated JSON
+    const direct = text.match(/\{[\s\S]*\}/);
+    try { return JSON.parse(direct ? direct[0] : text); } catch {}
+    const repaired = tryRepairJson(text);
+    if (repaired) return repaired;
+    throw new Error("JSON Parse Fehler — Antwort war unvollständig. Bitte nochmal versuchen oder Komplexität reduzieren.");
   }
 
   window.AI = {
@@ -140,7 +168,7 @@ Subtasks generieren: ${d.generateSubtasks ? "JA" : "NEIN"}
 
 Erstelle jetzt den Projektplan. Alle KRs und Tasks müssen direkt aus dem Kontext (${d.bigGoal}) abgeleitet sein — keine generischen Placeholder.`;
 
-      const maxT = d.complexity === "complex" ? 8000 : d.complexity === "medium" ? 5000 : 2500;
+      const maxT = d.complexity === "complex" ? 8192 : d.complexity === "medium" ? 8192 : 4096;
       return callAI(system, user, { maxTokens: maxT });
     },
   };
