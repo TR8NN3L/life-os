@@ -1,12 +1,7 @@
 // AI helpers — Anthropic Claude Haiku for OKR Generator and Daily Mission.
 (function () {
   // Attempt to repair truncated JSON by closing open structures
-  function tryRepairJson(raw) {
-    const match = raw.match(/\{[\s\S]*/);
-    if (!match) return null;
-    let s = match[0];
-    try { return JSON.parse(s); } catch {}
-    // Close any open string, then close open brackets/braces
+  function closeOpenBrackets(s) {
     const stack = [];
     let inStr = false, esc = false;
     for (const ch of s) {
@@ -18,10 +13,30 @@
       else if (ch === "[") stack.push("]");
       else if (ch === "}" || ch === "]") stack.pop();
     }
-    let repaired = s;
-    if (inStr) repaired += '"';
-    while (stack.length) repaired += stack.pop();
-    try { return JSON.parse(repaired); } catch { return null; }
+    let out = s;
+    if (inStr) out += '"';
+    while (stack.length) out += stack.pop();
+    return out;
+  }
+
+  function tryRepairJson(raw) {
+    const match = raw.match(/\{[\s\S]*/);
+    if (!match) return null;
+    let s = match[0];
+    try { return JSON.parse(s); } catch {}
+
+    // Pass 1: close open string + open brackets
+    try { return JSON.parse(closeOpenBrackets(s)); } catch {}
+
+    // Pass 2: truncate at last complete object boundary and re-close
+    // Walk backwards to find positions of "}", try each as a cut point
+    for (let i = s.length - 1; i > s.length * 0.3; i--) {
+      if (s[i] !== '}') continue;
+      const candidate = closeOpenBrackets(s.slice(0, i + 1));
+      try { return JSON.parse(candidate); } catch {}
+      i -= 10; // skip ahead to avoid O(n²) on dense text
+    }
+    return null;
   }
 
   async function callAI(system, userMessage, { maxTokens = 800 } = {}) {
@@ -92,8 +107,8 @@
       };
       const COMPLEXITY_GUIDE = {
         simple:  "1 Objective, genau 3 Key Results, 3 Tasks pro KR",
-        medium:  "2 Objectives, je 4 Key Results, 4–5 Tasks pro KR",
-        complex: `3–4 Objectives, je 5–6 Key Results, 6–8 Tasks pro KR${d.generateSubtasks ? ", 3–4 Subtasks pro Task" : ""}`,
+        medium:  "2 Objectives, je 3 Key Results, 3–4 Tasks pro KR",
+        complex: `3 Objectives, je 4 Key Results, 4–5 Tasks pro KR${d.generateSubtasks ? ", 2–3 Subtasks pro Task" : ""}`,
       };
 
       const povLabel = (typeof POVS !== "undefined" && POVS.find(p => p.id === d.pov)?.label) || d.pov;
