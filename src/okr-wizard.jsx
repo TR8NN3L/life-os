@@ -294,7 +294,7 @@ function OKRWizard({ onClose, onSave, defaultPov, customProjects }) {
         {/* Content */}
         <div style={{ flex: 1, overflowY: "auto", padding: "32px 40px" }}>
           <h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 24px", lineHeight: 1.2 }}>{cur.title}</h2>
-          <WizardStep step={step} d={d} upd={upd} toggleArr={toggleArr} phaseColor={phaseColor} totalHours={totalHours} customProjects={customProjects} />
+          <WizardStep step={step} d={d} upd={upd} toggleArr={toggleArr} phaseColor={phaseColor} totalHours={totalHours} customProjects={customProjects} allPovs={allPovs} />
         </div>
 
         {/* Footer */}
@@ -328,7 +328,8 @@ function OKRWizard({ onClose, onSave, defaultPov, customProjects }) {
 
 // ─── Step renderer ───────────────────────────────────────────────────────────
 
-function WizardStep({ step, d, upd, toggleArr, phaseColor, totalHours, customProjects }) {
+function WizardStep({ step, d, upd, toggleArr, phaseColor, totalHours, customProjects, allPovs }) {
+  allPovs = allPovs || POVS || [];
   const inp = {
     width: "100%", background: "var(--panel)", border: "1px solid var(--line)",
     color: "var(--text)", padding: "12px 16px", fontSize: 14, outline: "none",
