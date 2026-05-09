@@ -184,9 +184,27 @@ function TaskDetail({ task, onBack, taskTimes, setTaskTimes, activeTaskId, setAc
     } catch {}
   };
 
-  // Subtasks
+  // Subtasks — prefer persisted, fall back to wizard-generated strings
   const [subtasks, setSubtasks] = React.useState(() => {
-    try { return JSON.parse(LS.getItem("lifeos_subtasks") || "{}")[task.id] || []; } catch { return []; }
+    try {
+      const stored = JSON.parse(LS.getItem("lifeos_subtasks") || "{}")[task.id];
+      if (stored && stored.length > 0) return stored;
+      if (task.subtasks && task.subtasks.length > 0) {
+        const init = task.subtasks.map((st, i) => ({
+          id: `st_${task.id}_${i}`,
+          text: typeof st === "string" ? st : (st.text || ""),
+          done: false,
+        }));
+        // Persist immediately so future opens don't re-import
+        try {
+          const all = JSON.parse(LS.getItem("lifeos_subtasks") || "{}");
+          all[task.id] = init;
+          LS.setItem("lifeos_subtasks", JSON.stringify(all));
+        } catch {}
+        return init;
+      }
+      return [];
+    } catch { return []; }
   });
   const saveSubtasks = (arr) => {
     setSubtasks(arr);
