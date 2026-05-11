@@ -125,6 +125,36 @@ window.Push = {
     });
   },
 
+  deadlineReminder(projName, amount, unit) {
+    const urgent = unit === "Stunden" || amount <= 2;
+    return this.send({
+      title: urgent ? "🚨 Deadline naht!" : "📅 Deadline-Erinnerung",
+      message: `"${projName || "Projekt"}" — noch ${amount} ${unit} bis zur Deadline.`,
+      tag: "deadline-reminder",
+    });
+  },
+
+  habitReminder(count) {
+    return this.send({
+      title: "🔁 Habits nicht vergessen",
+      message: count === 1
+        ? "1 Habit heute noch nicht erledigt — kurz einchecken!"
+        : `${count} Habits heute noch offen — kurz einchecken!`,
+      tag: "habit-reminder",
+    });
+  },
+
+  milestone(percent, name) {
+    const emoji = percent >= 100 ? "🏆" : "🎯";
+    return this.send({
+      title: `${emoji} ${percent}% erreicht!`,
+      message: name
+        ? `"${name}" — ${percent === 100 ? "vollständig abgeschlossen!" : "Halbzeit! Weiter so."}`
+        : `${percent === 100 ? "Ziel vollständig erreicht!" : "Halbzeit — weiter so!"}`,
+      tag: `milestone-${percent}`,
+    });
+  },
+
   // ── Storage ─────────────────────────────────────────────────────────────────
   _save(sub) {
     try { localStorage.setItem("lifeos_push_sub", JSON.stringify(sub.toJSON ? sub.toJSON() : sub)); } catch {}

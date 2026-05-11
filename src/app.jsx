@@ -468,12 +468,89 @@ function App() {
       } else {
         pushedEstExceeded.current = false;
       }
+
+      // ── OKR / Projekt Deadlines ──
+      try {
+        const projects = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]");
+        const archived = new Set(JSON.parse(LS.getItem("lifeos_archived_projects") || "[]"));
+        for (const proj of projects) {
+          if (!proj.deadline || archived.has(proj.id)) continue;
+          const end      = new Date(proj.deadline + "T23:59:59");
+          const msLeft   = end - now;
+          if (msLeft < 0) continue; // already past
+          const daysLeft  = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+          const hoursLeft = Math.ceil(msLeft / (1000 * 60 * 60));
+          const name = proj.title || "Projekt";
+          for (const d of [10, 5, 3, 2, 1]) {
+            const key = `deadline_${proj.id}_${d}d`;
+            if (daysLeft === d && !pushedBlocks.current.has(key)) {
+              pushedBlocks.current.add(key);
+              window.Push.deadlineReminder(name, d, d === 1 ? "Tag" : "Tage");
+            }
+          }
+          const key12h = `deadline_${proj.id}_12h`;
+          if (hoursLeft <= 12 && !pushedBlocks.current.has(key12h)) {
+            pushedBlocks.current.add(key12h);
+            window.Push.deadlineReminder(name, hoursLeft, "Stunden");
+          }
+        }
+      } catch {}
+
+      // ── Habit Reminder ab 20:00 ──
+      try {
+        if (now.getHours() >= 20) {
+          const todayISO  = now.toISOString().slice(0, 10);
+          const habitKey  = `habitreminder_${todayISO}`;
+          if (!pushedBlocks.current.has(habitKey)) {
+            const habits  = JSON.parse(LS.getItem("lifeos_habits") || "[]");
+            const unchecked = habits.filter(h => !h.log?.[todayISO]);
+            if (unchecked.length > 0) {
+              pushedBlocks.current.add(habitKey);
+              window.Push.habitReminder(unchecked.length);
+            }
+          }
+        }
+      } catch {}
     };
 
     check();
     const iv = setInterval(check, 60_000);
     return () => clearInterval(iv);
   }, [activeTaskId, taskTimes]);
+
+  // ── 50% / 100% Milestone Notifications ──────────────────────────────────────
+  const prevKrProgress = React.useRef({});
+  React.useEffect(() => {
+    if (!window.Push?.isConfigured()) return;
+    const prev = prevKrProgress.current;
+
+    // Helper: find KR title from projects
+    const getKRName = (krKey) => {
+      try {
+        const projects = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]");
+        for (const proj of projects) {
+          for (const obj of (proj.objectives || [])) {
+            for (const kr of (obj.krs || [])) {
+              if (krKey.endsWith(kr.id)) return kr.title || null;
+            }
+          }
+        }
+      } catch {}
+      return null;
+    };
+
+    for (const [key, val] of Object.entries(krProgress)) {
+      const prevVal = prev[key] ?? 0;
+      if (prevVal < 0.5 && val >= 0.5 && val < 1.0) {
+        window.Push.milestone(50, getKRName(key));
+      }
+      if (prevVal < 1.0 && val >= 1.0) {
+        window.Push.milestone(100, getKRName(key));
+      }
+    }
+
+    prevKrProgress.current = { ...krProgress };
+  }, [krProgress]);
 
   // Keyboard: ESC exits focus, SPACE toggles active timer in focus
   React.useEffect(() => {
