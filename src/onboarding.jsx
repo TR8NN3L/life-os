@@ -367,7 +367,7 @@ function OnboardingWizard({ onComplete }) {
 
     const iosSteps = [
       { n: 1, text: "Tippe auf das Teilen-Symbol unten in Safari" },
-      { n: 2, text: "Wähle „Zum Home-Bildschirm"" },
+      { n: 2, text: 'Wähle „Zum Home-Bildschirm“' },
       { n: 3, text: "Öffne Life OS vom Homescreen" },
       { n: 4, text: "Erlaubt dann Push-Notifications" },
     ];
