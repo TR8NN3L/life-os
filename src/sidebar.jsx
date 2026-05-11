@@ -370,6 +370,14 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs }) {
                 )}
               </div>
 
+              {/* restart tutorial */}
+              <button onClick={() => { LS.removeItem("lifeos_tutorial_done"); window.location.reload(); }} style={{
+                width: "100%", padding: "8px 0", marginBottom: 8,
+                background: "transparent", border: "1px solid var(--accent-line)",
+                color: "var(--accent)", fontSize: 11, letterSpacing: "0.08em",
+                cursor: "pointer", fontFamily: "inherit",
+              }}>TUTORIAL NEU STARTEN</button>
+
               {/* reset data */}
               <button onClick={() => { if (confirm("Alle Daten löschen? Das kann nicht rückgängig gemacht werden.")) resetAllData(); }} style={{
                 width: "100%", padding: "8px 0", marginBottom: 8,
