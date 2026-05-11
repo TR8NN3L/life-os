@@ -84,6 +84,7 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
     const handler = (e) => {
       if (!e.detail?.pov || e.detail.pov === pov) {
         try { setCustomTasks(JSON.parse(LS.getItem(`lifeos_tasks_${pov}`) || "[]")); } catch {}
+        try { setDoneTasks(new Set(JSON.parse(LS.getItem(`lifeos_done_${pov}`) || "[]"))); } catch {}
       }
     };
     window.addEventListener("lifeos-tasks-updated", handler);
@@ -548,6 +549,7 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
             return (
               <div key={t.id}
                 draggable
+                data-tutorial={t.id === "tutorial_task_1" ? "tutorial-task-row" : undefined}
                 onDragStart={() => setDragIdx(i)}
                 onDragOver={(e) => { e.preventDefault(); setDragOverIdx(i); }}
                 onDrop={() => { handleTaskDrop(dragIdx, dragOverIdx); setDragIdx(null); setDragOverIdx(null); }}

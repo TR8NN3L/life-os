@@ -21,7 +21,13 @@ function injectTutorialSeedData() {
       ]));
     }
   } catch {}
-  // Notify Dashboard to re-read tasks from LS
+  // Reset done-state for tutorial task so it always starts unchecked
+  try {
+    const done = new Set(JSON.parse(localStorage.getItem("lifeos_done_personal") || "[]"));
+    done.delete("tutorial_task_1");
+    localStorage.setItem("lifeos_done_personal", JSON.stringify([...done]));
+  } catch {}
+  // Notify Dashboard to re-read tasks + done state from LS
   window.dispatchEvent(new CustomEvent("lifeos-tasks-updated", { detail: { pov: "personal" } }));
 }
 
@@ -79,12 +85,12 @@ const TUT_STEPS = [
     position: "right", blockClicks: false,
   },
   {
-    id: "check-task", route: "dashboard", forcePov: "personal", selector: "[data-tutorial='tutorial-task-checkbox']", type: "do",
+    id: "check-task", route: "dashboard", forcePov: "personal", selector: "[data-tutorial='tutorial-task-row']", type: "do",
     waitFor: "task-checked-tutorial_task_1",
     title: "Life OS installieren – Task erledigt!",
     body: "Das bist du — du hast es gerade getan. Hak die Aufgabe ab. Dein erster echter Fortschritt.",
     hint: "Klick auf die Checkbox links neben dem Task.",
-    position: "corner", blockClicks: true,
+    position: "bottom", blockClicks: true,
   },
   {
     id: "nav-mc", route: "dashboard", selector: "[data-tutorial='nav-missioncontrol']", type: "do",
@@ -363,9 +369,9 @@ function TutorialManager({ onDone, setRoute, setPov }) {
     if (step && step.forcePov && setPov) setPov(step.forcePov);
   }, [step && step.id]);
 
-  // Click blocking for "do" steps that require it
+  // Global click blocking for ALL steps — only card + current target + wizard are allowed
   React.useEffect(() => {
-    if (!step || !step.blockClicks || step.type !== "do") return;
+    if (!step) return;
     const sel = step.selector;
     const block = (e) => {
       const card = document.getElementById("tutorial-info-card");
@@ -374,7 +380,6 @@ function TutorialManager({ onDone, setRoute, setPov }) {
         const target = document.querySelector(sel);
         if (target && target.contains(e.target)) return;
       }
-      // Allow clicks inside open wizard
       const wizard = document.querySelector("[data-tutorial='wizard-container']");
       if (wizard && wizard.contains(e.target)) return;
       e.preventDefault();
@@ -386,7 +391,7 @@ function TutorialManager({ onDone, setRoute, setPov }) {
       document.removeEventListener("mousedown", block, true);
       document.removeEventListener("click", block, true);
     };
-  }, [step && step.id, step && step.blockClicks]);
+  }, [step && step.id]);
 
   if (!step) return null;
   if (step.type === "celebrate") return <TutCelebrate onDone={onDone} />;
