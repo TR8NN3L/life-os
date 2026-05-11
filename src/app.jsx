@@ -335,7 +335,7 @@ function App() {
   // Keyboard: ESC exits focus, SPACE toggles active timer in focus
   React.useEffect(() => {
     const onKey = (e) => {
-      if (route === "focus" && e.key === "Escape") setRoute("dashboard");
+      if (route === "focus" && e.key === "Escape") { setRoute("dashboard"); window.TUTORIAL?.onAction?.('route-dashboard'); }
       if (route === "focus" && e.key === " ") {
         e.preventDefault();
         setActiveTaskId(curr => curr ? null : focusTaskId);
@@ -397,7 +397,7 @@ function App() {
             position: "absolute", top: 16, left: 16, zIndex: 5,
             display: "flex", alignItems: "center", gap: 12,
           }}>
-            <button onClick={() => setRoute("dashboard")} style={{
+            <button data-tutorial="exit-focus-btn" onClick={() => { setRoute("dashboard"); window.TUTORIAL?.onAction?.('route-dashboard'); }} style={{
               padding: "8px 14px", background: "var(--panel)", border: "1px solid var(--line)",
               color: "var(--text-faint)", fontSize: 10.5, letterSpacing: "0.18em", fontWeight: 600,
               cursor: "pointer",

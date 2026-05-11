@@ -36,7 +36,7 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
       </div>
 
       {/* canvas */}
-      <div style={{
+      <div data-tutorial="focus-canvas" style={{
         flex: 1, margin: "0 28px 28px", background: "#000",
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
         position: "relative", border: "1px solid var(--line)",
@@ -94,7 +94,12 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
 
         {/* big button */}
         <button
-          onClick={() => setActiveTaskId(isRunning ? null : task.id)}
+          data-tutorial="focus-start-btn"
+          onClick={() => {
+            const willRun = !isRunning;
+            setActiveTaskId(isRunning ? null : task.id);
+            if (willRun) window.TUTORIAL?.onAction?.('timer-started');
+          }}
           style={{
             width: 168, height: 168, borderRadius: "50%",
             background: isRunning ? "var(--bg)" : "var(--accent)",

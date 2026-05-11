@@ -653,7 +653,7 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
                   disabled={isDone}
                   onClick={() => {
                     if (isActive) { setActiveTaskId(null); }
-                    else { setActiveTaskId(t.id); setRoute("focus"); }
+                    else { setActiveTaskId(t.id); setRoute("focus"); window.TUTORIAL?.onAction?.('route-focus'); }
                   }}
                   style={{
                     padding: "9px 22px", minWidth: 100,
