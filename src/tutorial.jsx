@@ -102,6 +102,12 @@ const TUT_STEPS = [
     hint: "Klick auf 'Mission Control' in der Sidebar.", position: "right", blockClicks: true,
   },
   {
+    id: "mc-page-intro", route: "missioncontrol", selector: null, type: "explain",
+    title: "Mission Control — Überblick",
+    body: "Das ist dein strategisches Cockpit. Jeder Lebensbereich hat einen Main Quest (dein großes Ziel) und darunter OKR-Projekte mit konkreten Key Results. Schau dir kurz an wie alles strukturiert ist.",
+    position: "center", blockClicks: false,
+  },
+  {
     id: "mc-overview", route: "missioncontrol", selector: "[data-tutorial='mc-main-quest-section']", type: "explain",
     title: "Das Mission Control Board",
     body: "Jeder Bereich zeigt seinen Main Quest und darunter Projekte mit OKRs. Du kannst dein Hauptziel direkt hier bearbeiten — klick auf das Stift-Symbol neben dem Prozentwert.",
@@ -138,17 +144,23 @@ const TUT_STEPS = [
     hint: "Klick auf 'Insights'.", position: "right", blockClicks: true,
   },
   {
+    id: "insights-page-intro", route: "insights", selector: null, type: "explain",
+    title: "Insights — Überblick",
+    body: "Hier siehst du alles auf einen Blick: geplante vs. gelebte Stunden, KR-Fortschritt nach POV, Behavior Streaks. Mit jedem Tag füllst du dieses Dashboard mit echten Daten.",
+    position: "center", blockClicks: false,
+  },
+  {
     id: "behaviors-section", route: "insights", selector: "[data-tutorial='behaviors-section']", type: "explain",
     title: "Behavior Change Tracker",
     body: "Täglich einchecken. Streaks aufbauen. Drift sichtbar machen. Ein erster Behavior wartet schon auf dich.",
-    position: "top", blockClicks: false,
+    position: "right", blockClicks: false,
   },
   {
-    id: "check-behavior", route: "insights", selector: "[data-tutorial='tutorial-habit-checkbox']", type: "do",
+    id: "check-behavior", route: "insights", selector: "[data-tutorial='behaviors-section']", type: "do",
     waitFor: "habit-checked-tutorial_habit_1",
     title: "Erster Behavior Check-in",
     body: "Hak 'Täglicher System-Check' für heute ab. Streak Tag 1 startet jetzt.",
-    hint: "Klick auf die heutige Checkbox.", position: "top", blockClicks: true,
+    hint: "Klick auf die heutige Checkbox im Tracker.", position: "right", blockClicks: true,
   },
   {
     id: "nav-planner", route: "insights", selector: "[data-tutorial='nav-planner']", type: "do",
@@ -156,6 +168,12 @@ const TUT_STEPS = [
     title: "Der Planner",
     body: "Dein tägliches Cockpit. Erstelle Zeitblöcke und weise ihnen Tasks zu.",
     hint: "Klick auf 'Planner'.", position: "right", blockClicks: true,
+  },
+  {
+    id: "planner-page-intro", route: "planner", selector: null, type: "explain",
+    title: "Planner — Überblick",
+    body: "Dein tägliches Cockpit. Ziehe auf der Zeitachse um Blöcke zu erstellen und weise ihnen Tasks zu. So wird jede Stunde bewusst verplant.",
+    position: "center", blockClicks: false,
   },
   {
     id: "planner-intro", route: "planner", selector: "[data-tutorial='timeline']", type: "explain",
