@@ -81,9 +81,16 @@ const TUT_STEPS = [
     position: "right", blockClicks: false,
   },
   {
+    id: "task-overview", route: "dashboard", forcePov: "personal",
+    selector: null, spotlightSelector: "[data-tutorial='tutorial-task-row']", type: "explain",
+    title: "Heutige Tasks",
+    body: "Das ist deine erste Aufgabe. Jede Task zeigt Titel, Kontext und einen eingebauten Timer — mit 'START →' wechselst du direkt in den Fokusmodus.",
+    position: "bottom", blockClicks: false,
+  },
+  {
     id: "task-list", route: "dashboard", forcePov: "personal", selector: "[data-tutorial='task-start-btn']", type: "explain",
-    title: "Heutige Tasks & Timer",
-    body: "Hier siehst du was heute ansteht — Tasks aus all deinen Projekten, nach Lebensbereich geordnet. Jede Task hat einen eingebauten Timer. Klick auf 'START →' um direkt in den Fokusmodus zu wechseln.",
+    title: "Timer starten",
+    body: "Klick auf 'START →' wenn du bereit bist — der Timer startet sofort und der Fokusmodus öffnet sich.",
     position: "bottom", blockClicks: false,
   },
   {
@@ -458,7 +465,7 @@ function TutorialManager({ onDone, setRoute, setPov }) {
 
   return (
     <>
-      {!step.noSpotlight && <TutSpotlight selector={step.selector} />}
+      {!step.noSpotlight && <TutSpotlight selector={step.spotlightSelector || step.selector} />}
       <TutCard step={step} idx={idx} total={TUT_STEPS.length} onNext={advance} onSkip={onDone} />
     </>
   );
