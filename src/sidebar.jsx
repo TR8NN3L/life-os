@@ -119,7 +119,7 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
   );
 
   return (
-    <div onClick={onClose} style={{
+    <div onClick={onClose} data-tutorial="settings-modal-container" style={{
       position: "fixed", inset: 0, zIndex: 600,
       background: "rgba(0,0,0,0.7)",
       display: "flex", alignItems: "center", justifyContent: "center",

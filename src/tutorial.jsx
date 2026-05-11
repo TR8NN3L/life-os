@@ -166,8 +166,8 @@ const TUT_STEPS = [
     id: "setup-api", route: "missioncontrol", selector: "[data-tutorial='settings-area']", type: "do",
     waitFor: "api-key-set", skippable: true,
     title: "API Key einrichten (optional)",
-    body: "Der OKR Wizard braucht deinen Anthropic API Key. Klick unten links auf ⚙ — dann füge deinen Key (sk-ant-...) ein. Du kannst diesen Schritt auch jetzt überspringen und den Key später in den Einstellungen eintragen.",
-    hint: "⚙ Einstellungen öffnen → Anthropic API Key eingeben.",
+    body: "Der OKR Wizard braucht deinen Anthropic API Key. Klick unten links auf ⚙, wechsle zum Tab 'KI' und füge deinen Key (sk-ant-...) ein. Du kannst diesen Schritt auch jetzt überspringen.",
+    hint: "⚙ klicken → Tab 'KI' → API Key eingeben.",
     position: "right", blockClicks: true,
   },
   {
@@ -329,10 +329,11 @@ function TutProgress({ idx, total }) {
 // ─── Celebrate Screen ─────────────────────────────────────────────────────────
 function TutCelebrate({ onDone }) {
   const items = [
-    { icon: "✓", label: "Ersten Task abgehakt" },
-    { icon: "🎯", label: "Ersten OKR-Plan mit dem Wizard erstellt" },
+    { icon: "✓",  label: "Ersten Task abgehakt & im Fokusmodus gearbeitet" },
     { icon: "🔥", label: "Ersten Behavior Streak gestartet" },
-    { icon: "📅", label: "Ersten Zeitblock geplant" },
+    { icon: "🎯", label: "OKR-Projekt mit dem Wizard erstellt" },
+    { icon: "📅", label: "Ersten Zeitblock im Planner geplant" },
+    { icon: "🔔", label: "Push Notifications: ⚙ → Notifications → Aktivieren" },
   ];
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.93)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -340,7 +341,8 @@ function TutCelebrate({ onDone }) {
         <div style={{ fontSize: 52, marginBottom: 18 }}>🎯</div>
         <div style={{ fontSize: 23, fontWeight: 800, color: "var(--text)", marginBottom: 8, letterSpacing: "-0.02em" }}>Life OS gehört dir.</div>
         <div style={{ fontSize: 13.5, color: "var(--text-dim)", marginBottom: 32, lineHeight: 1.65 }}>
-          Du hast alles kennengelernt — und dein System ist nicht mehr leer.
+          Du hast alles kennengelernt — und dein System ist nicht mehr leer.<br />
+          <span style={{ fontSize: 12, color: "var(--text-faint)" }}>Tipp: Push Notifications aktivieren unter ⚙ → Notifications.</span>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 36 }}>
           {items.map((a, i) => (
@@ -459,6 +461,8 @@ function TutorialManager({ onDone, setRoute, setPov }) {
       }
       const wizard = document.querySelector("[data-tutorial='wizard-container']");
       if (wizard && wizard.contains(e.target)) return;
+      const settingsModal = document.querySelector("[data-tutorial='settings-modal-container']");
+      if (settingsModal && settingsModal.contains(e.target)) return;
       e.preventDefault();
       e.stopImmediatePropagation();
     };
