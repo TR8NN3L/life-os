@@ -332,6 +332,74 @@ function App() {
     return () => clearInterval(id);
   }, [activeTaskId]);
 
+  // ── Push Notifications ──────────────────────────────────────────────────────
+  // Runs every 60s: checks planner block starts + timer running too long
+  const pushedBlocks = React.useRef(new Set()); // dedup: don't push same block twice
+  const pushedTimerReminder = React.useRef(false);
+  React.useEffect(() => {
+    if (!window.Push?.isConfigured()) return;
+
+    const check = () => {
+      const now = new Date();
+      const nowMins = now.getHours() * 60 + now.getMinutes();
+      const todayISO = now.toISOString().slice(0, 10);
+
+      // ── Planner block start ──
+      try {
+        const allBlocks = JSON.parse(LS.getItem("lifeos_timeblocks_v2") || "{}");
+        // Find today's weekKey — iterate all weeks to find today
+        for (const [, dayBlocks] of Object.entries(allBlocks)) {
+          if (typeof dayBlocks !== "object") continue;
+          for (const [dayIdx, blocks] of Object.entries(dayBlocks)) {
+            if (!Array.isArray(blocks)) continue;
+            for (const block of blocks) {
+              if (!block.start) continue;
+              const [h, m] = block.start.split(":").map(Number);
+              const blockMins = h * 60 + m;
+              const key = `${todayISO}_${block.id || block.start}_${dayIdx}`;
+              // Fire if block starts within the current minute and same day-of-week
+              const todayDow = now.getDay(); // 0=Sun
+              const blockDow = parseInt(dayIdx, 10);
+              if (blockDow === todayDow && Math.abs(blockMins - nowMins) <= 1 && !pushedBlocks.current.has(key)) {
+                pushedBlocks.current.add(key);
+                window.Push.blockStart(block.label || block.title || "Block");
+              }
+            }
+          }
+        }
+        // Also check recurring blocks
+        const recurring = JSON.parse(LS.getItem("lifeos_recurring_blocks") || "[]");
+        for (const block of recurring) {
+          if (!block.start || !Array.isArray(block.days)) continue;
+          const todayDow = now.getDay();
+          if (!block.days.includes(todayDow)) continue;
+          const [h, m] = block.start.split(":").map(Number);
+          const blockMins = h * 60 + m;
+          const key = `recurring_${todayISO}_${block.id || block.start}`;
+          if (Math.abs(blockMins - nowMins) <= 1 && !pushedBlocks.current.has(key)) {
+            pushedBlocks.current.add(key);
+            window.Push.blockStart(block.label || block.title || "Block");
+          }
+        }
+      } catch {}
+
+      // ── Timer running > 2h without break ──
+      if (activeTaskId) {
+        const elapsed = taskTimes[activeTaskId] ?? 0;
+        const minutes = Math.floor(elapsed / 60);
+        if (minutes > 0 && minutes % 120 === 0 && !pushedTimerReminder.current) {
+          pushedTimerReminder.current = true;
+          setTimeout(() => { pushedTimerReminder.current = false; }, 65000); // reset after 65s
+          window.Push.timerReminder(activeTaskId, minutes);
+        }
+      }
+    };
+
+    check(); // run immediately on mount
+    const iv = setInterval(check, 60_000);
+    return () => clearInterval(iv);
+  }, [activeTaskId, taskTimes]);
+
   // Keyboard: ESC exits focus, SPACE toggles active timer in focus
   React.useEffect(() => {
     const onKey = (e) => {

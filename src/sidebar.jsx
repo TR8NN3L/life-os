@@ -370,6 +370,54 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs }) {
                 )}
               </div>
 
+              {/* Pushover Push Notifications */}
+              <div style={{ marginBottom: 14 }}>
+                <div className="uppercase-label" style={{ marginBottom: 2 }}>Pushover Notifications</div>
+                <div style={{ fontSize: 9.5, color: "var(--text-faint)", marginBottom: 8, lineHeight: 1.4 }}>
+                  App Token + User Key von <span style={{ color: "var(--accent)" }}>pushover.net</span>
+                </div>
+                {(() => {
+                  const [poToken, setPoToken] = React.useState(() => LS.getItem("lifeos_pushover_token") || "");
+                  const [poUser, setPoUser] = React.useState(() => LS.getItem("lifeos_pushover_user") || "");
+                  const [poStatus, setPoStatus] = React.useState(null);
+                  const configured = poToken && poUser;
+                  const testPush = async () => {
+                    setPoStatus("sending");
+                    const ok = await window.Push?.send({ title: "✅ Life OS", message: "Push funktioniert!" });
+                    setPoStatus(ok ? "ok" : "err");
+                    setTimeout(() => setPoStatus(null), 3000);
+                  };
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <input
+                        type="password"
+                        value={poToken}
+                        onChange={e => { setPoToken(e.target.value); LS.setItem("lifeos_pushover_token", e.target.value.trim()); }}
+                        placeholder="App Token (a…)"
+                        style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "7px 10px", fontSize: 12, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+                      />
+                      <input
+                        type="password"
+                        value={poUser}
+                        onChange={e => { setPoUser(e.target.value); LS.setItem("lifeos_pushover_user", e.target.value.trim()); }}
+                        placeholder="User Key (u…)"
+                        style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "7px 10px", fontSize: 12, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+                      />
+                      {configured && (
+                        <button onClick={testPush} style={{
+                          background: "var(--panel-2)", border: "1px solid var(--accent-line)",
+                          color: poStatus === "ok" ? "var(--good)" : poStatus === "err" ? "var(--danger)" : "var(--accent)",
+                          padding: "6px 0", fontSize: 10.5, letterSpacing: "0.1em", fontWeight: 700,
+                          cursor: "pointer", fontFamily: "inherit",
+                        }}>
+                          {poStatus === "sending" ? "SENDE…" : poStatus === "ok" ? "✓ PUSH GESENDET" : poStatus === "err" ? "✗ FEHLER" : "TEST PUSH SENDEN"}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+
               {/* restart tutorial */}
               <button onClick={() => { LS.removeItem("lifeos_tutorial_done"); window.location.reload(); }} style={{
                 width: "100%", padding: "8px 0", marginBottom: 8,
