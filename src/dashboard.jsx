@@ -28,7 +28,12 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
   };
   const [editingKR, setEditingKR] = React.useState(null);
 
-  // All objectives — POV_DATA + custom projects
+  // Helper: set of archived project IDs
+  const getArchivedIds = () => {
+    try { return new Set(JSON.parse(LS.getItem("lifeos_archived_projects") || "[]")); } catch { return new Set(); }
+  };
+
+  // All objectives — POV_DATA + custom projects (excluding archived)
   const loadAllObjectives = (povId) => {
     const objs = [];
     const d2 = POV_DATA[povId] || POV_DATA.founder;
@@ -36,8 +41,9 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
       objs.push({ id: "povdata_obj", title: d2.objective.title, period: d2.objective.period, krs: d2.objective.keyResults || [], _isPovData: true });
     }
     try {
+      const archivedIds = getArchivedIds();
       const projs = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]");
-      projs.filter(p => p.pov === povId).forEach(proj => {
+      projs.filter(p => p.pov === povId && !archivedIds.has(p.id)).forEach(proj => {
         (proj.objectives || []).forEach(o => {
           objs.push({ id: o.id, title: o.title, period: o.period || proj.title, krs: o.krs || [], _projectTitle: proj.title });
         });
@@ -91,12 +97,13 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
     return () => window.removeEventListener("lifeos-tasks-updated", handler);
   }, [pov]);
 
-  // Tasks from wizard-generated custom projects for this POV
+  // Tasks from wizard-generated custom projects for this POV (excluding archived projects)
   const loadProjTasks = (povId) => {
     try {
+      const archivedIds = getArchivedIds();
       const projs = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]");
       return projs
-        .filter(p => p.pov === povId)
+        .filter(p => p.pov === povId && !archivedIds.has(p.id))
         .flatMap(p => (p.objectives || []).flatMap(o =>
           (o.krs || []).filter(k => k.status !== "locked").flatMap(kr =>
             (kr.tasks || []).map(t => ({

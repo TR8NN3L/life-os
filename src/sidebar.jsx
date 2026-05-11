@@ -129,9 +129,12 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs }) {
     setPovModal(null);
   };
 
-  const resetAllData = () => {
+  const resetAllData = async () => {
+    // 1. Clear localStorage immediately
     const keys = Object.keys(localStorage).filter(k => k.startsWith("lifeos_"));
-    keys.forEach(k => { if (k !== "lifeos_guest") LS.removeItem(k); });
+    keys.forEach(k => { if (k !== "lifeos_guest") localStorage.removeItem(k); });
+    // 2. Wipe Supabase cloud rows so syncDown on reload finds nothing
+    if (window.sbAuth?.resetCloud) await window.sbAuth.resetCloud();
     window.location.reload();
   };
 

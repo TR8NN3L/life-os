@@ -131,5 +131,10 @@
     getSession: async () => { const { data } = await _sb.auth.getSession(); return data.session; },
     syncDown,
     pushLocal,
+    // Wipe all user_data rows from Supabase (used before full reset so syncDown on reload finds nothing)
+    resetCloud: async () => {
+      if (!_uid) return;
+      try { await _sb.from("user_data").delete().eq("user_id", _uid); } catch (e) { console.warn("[LS] resetCloud:", e.message); }
+    },
   };
 })();
