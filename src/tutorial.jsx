@@ -185,8 +185,8 @@ const TUT_STEPS = [
     id: "planner-drop", route: "planner", selector: "[data-tutorial='planner-block-form']", type: "do",
     waitFor: "block-created",
     title: "Ersten Zeitblock anlegen",
-    body: "Mach einen Doppelklick auf die Zeitachse — das Formular öffnet sich. Gib dem Block einen Namen und klick auf Speichern.",
-    hint: "Doppelklick ins Zeitraster → Name eingeben → Speichern.", position: "right", blockClicks: false,
+    body: "Das Formular ist offen. Gib deinem Block einen Namen, passe die Zeit an — und klick auf Speichern.",
+    hint: "Name eingeben → Speichern klicken.", position: "right", blockClicks: false,
   },
   {
     id: "done", route: null, selector: null, type: "celebrate", position: "center", blockClicks: false,
@@ -391,6 +391,7 @@ function TutorialManager({ onDone, setRoute, setPov }) {
   // Global click blocking for ALL steps — only card + current target + wizard are allowed
   React.useEffect(() => {
     if (!step) return;
+    if (step.type === "celebrate") return; // celebrate screen handles its own clicks
     const sel = step.selector;
     const block = (e) => {
       const card = document.getElementById("tutorial-info-card");
