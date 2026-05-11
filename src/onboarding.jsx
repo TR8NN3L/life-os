@@ -50,7 +50,7 @@ function OnboardingWizard({ onComplete }) {
     ];
   }, [selectedPovIds, customPovs]);
 
-  const totalSteps = 2 + allSelectedPovs.length;
+  const totalSteps = 2 + allSelectedPovs.length + 1; // +1 for push step
 
   const togglePreset = (id) => {
     setSelectedPovIds(prev =>
@@ -315,7 +315,7 @@ function OnboardingWizard({ onComplete }) {
           <div className="uppercase-label" style={{ marginBottom: 8 }}>Main Quest</div>
           <input autoFocus value={q.title}
             onChange={e => updateQuest(currentPov.id, "title", e.target.value)}
-            onKeyDown={e => e.key === "Enter" && q.title.trim() && (isLast ? finish() : setStep(s => s + 1))}
+            onKeyDown={e => e.key === "Enter" && q.title.trim() && (isLast ? setStep(2 + allSelectedPovs.length) : setStep(s => s + 1))}
             placeholder="Dein übergeordnetes Ziel…"
             style={inputStyle} />
         </div>
@@ -335,11 +335,92 @@ function OnboardingWizard({ onComplete }) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <button onClick={() => setStep(s => s - 1)} style={btnSecondary}>← ZURÜCK</button>
           <button
-            onClick={() => isLast ? finish() : setStep(s => s + 1)}
+            onClick={() => isLast ? setStep(2 + allSelectedPovs.length) : setStep(s => s + 1)}
             disabled={!q.title.trim()}
             style={btnPrimary(!q.title.trim())}
           >
             {isLast ? "FERTIG →" : "WEITER →"}
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  // ── STEP PUSH ──────────────────────────────────────────
+  if (step === 2 + allSelectedPovs.length) {
+    const device = window.Push?.deviceType?.() || "desktop";
+    const isPWA  = window.Push?.isPWA?.() || false;
+    const [pushState, setPushState] = React.useState(window.Push?.permissionState?.() || "default");
+    const [installing, setInstalling] = React.useState(false);
+
+    const handleAllow = async () => {
+      setInstalling(true);
+      const perm = await window.Push?.requestPermission?.();
+      if (perm === "granted") {
+        await window.Push?.subscribe?.();
+        setPushState("granted");
+      } else {
+        setPushState(perm || "denied");
+      }
+      setInstalling(false);
+    };
+
+    const iosSteps = [
+      { n: 1, text: "Tippe auf das Teilen-Symbol unten in Safari" },
+      { n: 2, text: "Wähle „Zum Home-Bildschirm"" },
+      { n: 3, text: "Öffne Life OS vom Homescreen" },
+      { n: 4, text: "Erlaubt dann Push-Notifications" },
+    ];
+
+    return wrap(
+      <>
+        <OnboardingStep current={totalSteps - 1} total={totalSteps} />
+        <div style={{ fontSize: 36, marginBottom: 12, textAlign: "center" }}>🔔</div>
+        <div style={{ fontSize: 22, fontWeight: 800, textAlign: "center", marginBottom: 8, letterSpacing: "-0.02em" }}>
+          Bleib auf Kurs
+        </div>
+        <div style={{ fontSize: 13, color: "var(--text-dim)", textAlign: "center", marginBottom: 28, lineHeight: 1.65 }}>
+          Life OS erinnert dich wenn ein Block startet oder der Timer zu lange läuft — auf allen Geräten.
+        </div>
+
+        {device === "ios" && !isPWA ? (
+          // iOS: must install as PWA first
+          <div style={{ background: "var(--panel)", border: "1px solid var(--line-soft)", borderRadius: 12, padding: "20px 20px", marginBottom: 24 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "var(--accent)", marginBottom: 14 }}>
+              AUF HOMESCREEN INSTALLIEREN (iOS)
+            </div>
+            {iosSteps.map(s => (
+              <div key={s.n} style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 10 }}>
+                <div style={{ width: 22, height: 22, borderRadius: "50%", background: "var(--accent)", color: "#0a0a0c", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{s.n}</div>
+                <div style={{ fontSize: 13, color: "var(--text-dim)", lineHeight: 1.5, paddingTop: 2 }}>{s.text}</div>
+              </div>
+            ))}
+          </div>
+        ) : pushState === "granted" ? (
+          <div style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.3)", borderRadius: 12, padding: "16px 20px", marginBottom: 24, textAlign: "center" }}>
+            <div style={{ fontSize: 20, marginBottom: 6 }}>✅</div>
+            <div style={{ fontSize: 13, color: "var(--good)", fontWeight: 600 }}>Push Notifications aktiv!</div>
+          </div>
+        ) : pushState === "denied" ? (
+          <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 12, padding: "16px 20px", marginBottom: 24, textAlign: "center" }}>
+            <div style={{ fontSize: 13, color: "var(--danger)" }}>Zugriff verweigert — in den Browser-Einstellungen freischalten.</div>
+          </div>
+        ) : (
+          <button onClick={handleAllow} disabled={installing} style={{
+            width: "100%", padding: "14px 0", marginBottom: 16,
+            background: "var(--accent)", border: "none", borderRadius: 10,
+            color: "#0a0a0c", fontWeight: 700, fontSize: 14,
+            letterSpacing: "0.08em", cursor: "pointer", fontFamily: "inherit",
+            opacity: installing ? 0.7 : 1,
+          }}>
+            {installing ? "WIRD AKTIVIERT…" : "🔔  PUSH ERLAUBEN"}
+          </button>
+        )}
+
+        <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+          <button onClick={() => setStep(s => s - 1)} style={btnSecondary}>← ZURÜCK</button>
+          <button onClick={finish} style={{ ...btnPrimary(false), flex: 1 }}>
+            {pushState === "granted" ? "LIFE OS STARTEN →" : "ÜBERSPRINGEN →"}
           </button>
         </div>
       </>
