@@ -267,7 +267,7 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
   const krOverrides = (() => { try { return JSON.parse(LS.getItem("lifeos_task_kr_overrides") || "{}"); } catch { return {}; } })();
 
   // Strategic Anchor — MainQuest → Objectives accordion → KRs clickable filter
-  const Anchor = () => {
+  const renderAnchor = () => {
     const mainQuestTitle = data.mainQuest?.title || "";
     return (
     <div style={{
@@ -484,7 +484,7 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
 
   return (
     <div style={{ flex: 1, display: "flex", overflow: "hidden", background: "var(--bg)" }}>
-      <Anchor />
+      {renderAnchor()}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
         {/* Quick Start banner — fixed */}
