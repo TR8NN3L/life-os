@@ -296,7 +296,7 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs }) {
         })()}
 
         {/* user + settings toggle */}
-        <div style={{ borderTop: "1px solid var(--line-soft)" }}>
+        <div data-tutorial="settings-area" style={{ borderTop: "1px solid var(--line-soft)" }}>
           <div style={{ padding: "14px 20px", display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{
               width: 32, height: 32, borderRadius: "50%",
@@ -354,7 +354,7 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs }) {
                 <input
                   type="password"
                   value={apiKey}
-                  onChange={e => { const v = e.target.value; setApiKey(v); LS.setItem("lifeos_openai_key", v.trim()); }}
+                  onChange={e => { const v = e.target.value; setApiKey(v); LS.setItem("lifeos_openai_key", v.trim()); if (v.trim()) window.TUTORIAL?.onAction?.("api-key-set"); }}
                   placeholder="sk-ant-..."
                   style={{
                     width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)",

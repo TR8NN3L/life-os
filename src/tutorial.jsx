@@ -106,15 +106,12 @@ const TUT_STEPS = [
     position: "left", blockClicks: false,
   },
   {
-    id: "setup-api", route: "missioncontrol", selector: "[data-tutorial='settings-btn']", type: "explain",
+    id: "setup-api", route: "missioncontrol", selector: "[data-tutorial='settings-area']", type: "do",
+    waitFor: "api-key-set",
     title: "API Key einrichten",
-    body: () => {
-      const hasKey = !!(localStorage.getItem("lifeos_openai_key") || "").trim();
-      return hasKey
-        ? "✓ API Key gefunden — du bist bereit. Klick auf Weiter."
-        : "Für den OKR Wizard brauchst du einen Anthropic API Key. Klick auf das ⚙-Symbol unten links in der Sidebar → füge deinen Key ein → klick dann hier auf Weiter.";
-    },
-    nextLabel: "Weiter →", position: "right", blockClicks: false,
+    body: "Der OKR Wizard braucht deinen Anthropic API Key. Klick unten links auf ⚙ — dann füge deinen Key (sk-ant-...) in das Feld ein.",
+    hint: "⚙ Einstellungen öffnen → Anthropic API Key eingeben.",
+    position: "right", blockClicks: true,
   },
   {
     id: "new-project", route: "missioncontrol", selector: "[data-tutorial='new-project-btn']", type: "do",
