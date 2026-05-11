@@ -589,7 +589,7 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
                     transition: "all .15s", padding: 0, flexShrink: 0,
                   }}
                 >{isDone ? "✓" : ""}</button>
-                <div onClick={() => {
+                <div data-tutorial={t.id === "tutorial_task_1" ? "task-content" : undefined} onClick={() => {
                   const krLabel = findKRLabel(t.kr) || "";
                   const parts = krLabel ? krLabel.split(":") : [];
                   const ownerObj = allObjectives.find(o => o.krs.some(k => k.id === t.kr));

@@ -82,10 +82,13 @@ const TUT_STEPS = [
   },
   {
     id: "task-overview", route: "dashboard", forcePov: "personal",
-    selector: null, spotlightSelector: "[data-tutorial='tutorial-task-row']", type: "explain",
+    selector: null,
+    spotlightSelector: "[data-tutorial='task-content']",
+    positionSelector: "[data-tutorial='task-content']",
+    type: "explain",
     title: "Heutige Tasks",
     body: "Das ist deine erste Aufgabe. Jede Task zeigt Titel, Kontext und einen eingebauten Timer — mit 'START →' wechselst du direkt in den Fokusmodus.",
-    position: "bottom", blockClicks: false,
+    position: "right", blockClicks: false,
   },
   {
     id: "task-list", route: "dashboard", forcePov: "personal", selector: "[data-tutorial='task-start-btn']", type: "explain",
@@ -124,7 +127,11 @@ const TUT_STEPS = [
     position: "right", blockClicks: true,
   },
   {
-    id: "check-task", route: "dashboard", forcePov: "personal", selector: "[data-tutorial='tutorial-task-checkbox']", type: "do",
+    id: "check-task", route: "dashboard", forcePov: "personal",
+    selector: "[data-tutorial='tutorial-task-checkbox']",
+    spotlightSelector: "[data-tutorial='task-content']",
+    positionSelector: "[data-tutorial='task-content']",
+    type: "do",
     waitFor: "task-checked-tutorial_task_1",
     title: "Task als erledigt markieren",
     body: "Du hast die Zeit gestoppt — jetzt die Aufgabe abhaken. Hak 'Life OS installieren & einloggen' als erledigt ab.",
@@ -357,9 +364,10 @@ function TutCelebrate({ onDone }) {
 
 // ─── Info Card ────────────────────────────────────────────────────────────────
 function TutCard({ step, idx, total, onNext, onSkip }) {
-  const [style, setStyle] = React.useState(() => cardPos(step.position, step.selector));
+  const posEl = step.positionSelector || step.selector;
+  const [style, setStyle] = React.useState(() => cardPos(step.position, posEl));
   React.useEffect(() => {
-    const upd = () => setStyle(cardPos(step.position, step.selector));
+    const upd = () => setStyle(cardPos(step.position, posEl));
     upd();
     const id = setInterval(upd, 150);
     return () => clearInterval(id);
