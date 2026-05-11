@@ -84,7 +84,7 @@ const TUT_STEPS = [
     title: "Life OS installieren – Task erledigt!",
     body: "Das bist du — du hast es gerade getan. Hak die Aufgabe ab. Dein erster echter Fortschritt.",
     hint: "Klick auf die Checkbox links neben dem Task.",
-    position: "right", blockClicks: true,
+    position: "corner", blockClicks: true,
   },
   {
     id: "nav-mc", route: "dashboard", selector: "[data-tutorial='nav-missioncontrol']", type: "do",
