@@ -123,11 +123,12 @@ const TUT_STEPS = [
     hint: "Klick auf '⚡ OKR WIZARD — PROJEKT ERSTELLEN'.", position: "left", blockClicks: true,
   },
   {
-    id: "wizard-session", route: "missioncontrol", selector: null, type: "do",
-    waitFor: "project-saved", noSpotlight: true,
+    id: "wizard-session", route: "missioncontrol", selector: "[data-tutorial='wizard-review-save']", type: "do",
+    waitFor: "project-saved",
     title: "Wizard: Deinen ersten Plan erstellen",
-    body: "Die Felder sind vorausgefüllt. Schau sie durch, passe sie an — und klick am Ende auf 'Generieren', dann 'Speichern'. Du erstellst hier deinen echten ersten OKR-Plan.",
-    position: "corner", blockClicks: false,
+    body: "Die Felder sind vorausgefüllt. Schau sie durch, passe sie an — und klick am Ende auf 'Generieren', dann unten auf '⚡ PROJEKT STARTEN'.",
+    hint: "⚡ PROJEKT STARTEN klicken um deinen Plan zu speichern.",
+    position: "top", blockClicks: false,
   },
   {
     id: "nav-insights", route: "missioncontrol", selector: "[data-tutorial='nav-insights']", type: "do",

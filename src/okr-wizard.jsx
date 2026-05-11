@@ -725,7 +725,7 @@ function OKRReview({ result, setResult, wizardData, totalHours, onBack, onSave, 
   ].filter(Boolean);
 
   return (
-    <div style={{
+    <div data-tutorial="wizard-container" style={{
       position: "fixed", inset: 0, zIndex: 300, background: "rgba(0,0,0,0.78)",
       display: "flex", alignItems: "center", justifyContent: "center",
     }}>
@@ -874,7 +874,7 @@ function OKRReview({ result, setResult, wizardData, totalHours, onBack, onSave, 
             padding: "10px 20px", background: "transparent", border: "1px solid var(--line)",
             color: "var(--text-faint)", fontSize: 11, letterSpacing: "0.14em", cursor: "pointer", fontFamily: "inherit",
           }}>← ZURÜCK</button>
-          <button onClick={() => onSave(result)} style={{
+          <button data-tutorial="wizard-review-save" onClick={() => onSave(result)} style={{
             padding: "12px 36px", background: "var(--good)", color: "#0a0a0c",
             border: "none", fontSize: 11.5, letterSpacing: "0.18em", fontWeight: 700,
             cursor: "pointer", fontFamily: "inherit",
