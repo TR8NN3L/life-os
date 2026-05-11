@@ -519,35 +519,61 @@ function App() {
   }, [activeTaskId, taskTimes]);
 
   // ── 50% / 100% Milestone Notifications ──────────────────────────────────────
-  const prevKrProgress = React.useRef({});
+  const prevKrProgress   = React.useRef({});
+  const prevProjProgress = React.useRef({}); // keyed by proj.id
+  const prevObjProgress  = React.useRef({}); // keyed by `${proj.id}_${objIdx}`
+
   React.useEffect(() => {
     if (!window.Push?.isConfigured()) return;
-    const prev = prevKrProgress.current;
 
-    // Helper: find KR title from projects
-    const getKRName = (krKey) => {
-      try {
-        const projects = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]");
-        for (const proj of projects) {
-          for (const obj of (proj.objectives || [])) {
-            for (const kr of (obj.krs || [])) {
-              if (krKey.endsWith(kr.id)) return kr.title || null;
-            }
-          }
-        }
-      } catch {}
-      return null;
+    const getVal = (pov, krId, fallback = 0) =>
+      krProgress[`${pov}_${krId}`] ?? fallback;
+
+    const checkMilestone = (prevVal, newVal, name) => {
+      if (prevVal < 0.5 && newVal >= 0.5 && newVal < 1.0)
+        window.Push.milestone(50, name);
+      if (prevVal < 1.0 && newVal >= 1.0)
+        window.Push.milestone(100, name);
     };
 
-    for (const [key, val] of Object.entries(krProgress)) {
-      const prevVal = prev[key] ?? 0;
-      if (prevVal < 0.5 && val >= 0.5 && val < 1.0) {
-        window.Push.milestone(50, getKRName(key));
+    try {
+      const projects = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]");
+      const archived  = new Set(JSON.parse(LS.getItem("lifeos_archived_projects") || "[]"));
+
+      for (const proj of projects) {
+        if (archived.has(proj.id)) continue;
+        const pov = proj.pov || "personal";
+
+        // ── KR-level ──
+        for (const obj of (proj.objectives || [])) {
+          (obj.krs || []).forEach(kr => {
+            const key     = `${pov}_${kr.id}`;
+            const newVal  = krProgress[key] ?? (kr.progress || 0);
+            const prevVal = prevKrProgress.current[key] ?? (kr.progress || 0);
+            checkMilestone(prevVal, newVal, kr.title || null);
+          });
+
+          // ── Objective-level (avg of active KRs) ──
+          const activeKRs = (obj.krs || []).filter(k => k.status !== "locked");
+          if (activeKRs.length > 0) {
+            const objKey    = `${proj.id}_${obj.id || obj.title || "obj"}`;
+            const newObjVal = activeKRs.reduce((s, k) => s + (krProgress[`${pov}_${k.id}`] ?? (k.progress || 0)), 0) / activeKRs.length;
+            const prevObjVal = prevObjProgress.current[objKey] ?? 0;
+            checkMilestone(prevObjVal, newObjVal, obj.title || obj.period || "Objective");
+            prevObjProgress.current[objKey] = newObjVal;
+          }
+        }
+
+        // ── Project-level (avg across all objectives' active KRs) ──
+        const allActiveKRs = (proj.objectives || []).flatMap(o => (o.krs || []).filter(k => k.status !== "locked"));
+        if (allActiveKRs.length > 0) {
+          const newProjVal  = allActiveKRs.reduce((s, k) => s + (krProgress[`${pov}_${k.id}`] ?? (k.progress || 0)), 0) / allActiveKRs.length;
+          const prevProjVal = prevProjProgress.current[proj.id] ?? 0;
+          checkMilestone(prevProjVal, newProjVal, proj.title || "Projekt");
+          prevProjProgress.current[proj.id] = newProjVal;
+        }
       }
-      if (prevVal < 1.0 && val >= 1.0) {
-        window.Push.milestone(100, getKRName(key));
-      }
-    }
+    } catch {}
 
     prevKrProgress.current = { ...krProgress };
   }, [krProgress]);
