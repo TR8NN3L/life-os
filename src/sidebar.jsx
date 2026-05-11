@@ -88,6 +88,8 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs }) {
   const [editingName, setEditingName]   = React.useState(false);
   const [nameInput, setNameInput]       = React.useState(userName);
   const [apiKey, setApiKey]             = React.useState(() => LS.getItem("lifeos_openai_key") || "");
+  const [pushStatus, setPushStatus]     = React.useState(() => window.Push?.permissionState?.() || "default");
+  const [pushLoading, setPushLoading]   = React.useState(false);
 
   const allPovs = [
     { id: "personal", label: "Personal", sub: "Persönliches Leben", color: "#8b5cf6" },
@@ -370,52 +372,41 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs }) {
                 )}
               </div>
 
-              {/* Pushover Push Notifications */}
+              {/* Web Push Notifications */}
               <div style={{ marginBottom: 14 }}>
-                <div className="uppercase-label" style={{ marginBottom: 2 }}>Pushover Notifications</div>
-                <div style={{ fontSize: 9.5, color: "var(--text-faint)", marginBottom: 8, lineHeight: 1.4 }}>
-                  App Token + User Key von <span style={{ color: "var(--accent)" }}>pushover.net</span>
-                </div>
-                {(() => {
-                  const [poToken, setPoToken] = React.useState(() => LS.getItem("lifeos_pushover_token") || "");
-                  const [poUser, setPoUser] = React.useState(() => LS.getItem("lifeos_pushover_user") || "");
-                  const [poStatus, setPoStatus] = React.useState(null);
-                  const configured = poToken && poUser;
-                  const testPush = async () => {
-                    setPoStatus("sending");
-                    const ok = await window.Push?.send({ title: "✅ Life OS", message: "Push funktioniert!" });
-                    setPoStatus(ok ? "ok" : "err");
-                    setTimeout(() => setPoStatus(null), 3000);
-                  };
-                  return (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      <input
-                        type="password"
-                        value={poToken}
-                        onChange={e => { setPoToken(e.target.value); LS.setItem("lifeos_pushover_token", e.target.value.trim()); }}
-                        placeholder="App Token (a…)"
-                        style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "7px 10px", fontSize: 12, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
-                      />
-                      <input
-                        type="password"
-                        value={poUser}
-                        onChange={e => { setPoUser(e.target.value); LS.setItem("lifeos_pushover_user", e.target.value.trim()); }}
-                        placeholder="User Key (u…)"
-                        style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "7px 10px", fontSize: 12, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
-                      />
-                      {configured && (
-                        <button onClick={testPush} style={{
-                          background: "var(--panel-2)", border: "1px solid var(--accent-line)",
-                          color: poStatus === "ok" ? "var(--good)" : poStatus === "err" ? "var(--danger)" : "var(--accent)",
-                          padding: "6px 0", fontSize: 10.5, letterSpacing: "0.1em", fontWeight: 700,
-                          cursor: "pointer", fontFamily: "inherit",
-                        }}>
-                          {poStatus === "sending" ? "SENDE…" : poStatus === "ok" ? "✓ PUSH GESENDET" : poStatus === "err" ? "✗ FEHLER" : "TEST PUSH SENDEN"}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })()}
+                <div className="uppercase-label" style={{ marginBottom: 6 }}>Push Notifications</div>
+                {pushStatus === "granted" ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div style={{ fontSize: 10.5, color: "var(--good)", fontWeight: 600, letterSpacing: "0.06em" }}>✓ Push aktiv auf diesem Gerät</div>
+                    <button onClick={async () => {
+                      setPushLoading(true);
+                      await window.Push?.send({ title: "✅ Life OS", message: "Push funktioniert!" });
+                      setPushLoading(false);
+                    }} style={{
+                      background: "transparent", border: "1px solid var(--line)",
+                      color: "var(--text-faint)", padding: "6px 0", fontSize: 10.5,
+                      letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                    }}>{pushLoading ? "SENDE…" : "TEST PUSH SENDEN"}</button>
+                  </div>
+                ) : pushStatus === "denied" ? (
+                  <div style={{ fontSize: 10.5, color: "var(--danger)", lineHeight: 1.5 }}>
+                    Zugriff verweigert — im Browser unter 🔒 → Benachrichtigungen → Erlauben freischalten.
+                  </div>
+                ) : (
+                  <button onClick={async () => {
+                    setPushLoading(true);
+                    const perm = await window.Push?.requestPermission?.();
+                    if (perm === "granted") await window.Push?.subscribe?.();
+                    setPushStatus(perm || "denied");
+                    setPushLoading(false);
+                  }} disabled={pushLoading} style={{
+                    width: "100%", padding: "8px 0",
+                    background: "var(--accent-soft)", border: "1px solid var(--accent-line)",
+                    color: "var(--accent)", fontSize: 11, letterSpacing: "0.1em",
+                    fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                    opacity: pushLoading ? 0.6 : 1,
+                  }}>{pushLoading ? "WIRD AKTIVIERT…" : "🔔  PUSH AKTIVIEREN"}</button>
+                )}
               </div>
 
               {/* restart tutorial */}
