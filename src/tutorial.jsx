@@ -120,15 +120,15 @@ const TUT_STEPS = [
     waitFor: "wizard-opened",
     title: "Ersten Projektplan erstellen",
     body: "Der OKR-Wizard führt dich durch die Erstellung — mit Wizard-generierten Key Results und konkreten Tasks.",
-    hint: "Klick auf '⚡ OKR WIZARD — PROJEKT ERSTELLEN'.", position: "left", blockClicks: true,
+    hint: "Klick auf '⚡ OKR WIZARD — PROJEKT ERSTELLEN'.", position: "right", blockClicks: true,
   },
   {
-    id: "wizard-session", route: "missioncontrol", selector: "[data-tutorial='wizard-review-save']", type: "do",
-    waitFor: "project-saved",
+    id: "wizard-session", route: "missioncontrol", selector: null, type: "do",
+    waitFor: "project-saved", noSpotlight: true,
     title: "Wizard: Deinen ersten Plan erstellen",
     body: "Die Felder sind vorausgefüllt. Schau sie durch, passe sie an — und klick am Ende auf 'Generieren', dann unten auf '⚡ PROJEKT STARTEN'.",
     hint: "⚡ PROJEKT STARTEN klicken um deinen Plan zu speichern.",
-    position: "top", blockClicks: false,
+    position: "corner-left", blockClicks: false,
   },
   {
     id: "nav-insights", route: "missioncontrol", selector: "[data-tutorial='nav-insights']", type: "do",
@@ -222,8 +222,9 @@ function cardPos(position, selector) {
     borderRadius: 14, padding: "24px 24px 20px",
     boxShadow: "0 24px 64px rgba(0,0,0,0.75), 0 0 0 1px rgba(139,92,246,0.1)",
   };
-  if (position === "center") return { ...base, left: "50%", top: "50%", transform: "translate(-50%,-50%)" };
-  if (position === "corner") return { ...base, right: 24, bottom: 80, width: 320 };
+  if (position === "center")      return { ...base, left: "50%", top: "50%", transform: "translate(-50%,-50%)" };
+  if (position === "corner")      return { ...base, right: 24, bottom: 80, width: 320 };
+  if (position === "corner-left") return { ...base, left: 24, bottom: 80, width: 310 };
   const el = selector ? document.querySelector(selector) : null;
   const r = el ? el.getBoundingClientRect() : null;
   if (!r) return { ...base, left: "50%", top: "50%", transform: "translate(-50%,-50%)" };
