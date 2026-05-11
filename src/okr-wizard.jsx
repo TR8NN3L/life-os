@@ -569,9 +569,13 @@ function WizardStep({ step, d, upd, toggleArr, phaseColor, totalHours, customPro
     // ── Step 8: Obstacles ──
     case 8: {
       const allObs = [...d.obstacles, ...(d.obstacleCustom.trim() ? ["custom"] : [])];
-      const primaryPrompt = d.obstacles.length > 0
-        ? OKR_OBSTACLES.find(o => o.id === d.obstacles[0])?.prompt || d.obstacles[0]
-        : d.obstacleCustom.trim() || "dein Hindernis";
+      const allPrompts = [
+        ...d.obstacles.map(id => OKR_OBSTACLES.find(o => o.id === id)?.prompt || id),
+        ...(d.obstacleCustom.trim() ? [d.obstacleCustom.trim()] : []),
+      ].filter(Boolean);
+      const joinDE = (arr) => arr.length === 0 ? "dein Hindernis" : arr.length === 1 ? arr[0] : arr.length === 2 ? `${arr[0]} und ${arr[1]}` : `${arr.slice(0, -1).join(", ")} und ${arr[arr.length - 1]}`;
+      const fullPrompt = joinDE(allPrompts);
+      const verb = allPrompts.length > 1 ? "passieren" : "passiert";
       return (
         <div>
           <div style={{ fontSize: 12.5, color: "var(--text-faint)", marginBottom: 20, lineHeight: 1.6 }}>
@@ -597,7 +601,7 @@ function WizardStep({ step, d, upd, toggleArr, phaseColor, totalHours, customPro
             <div style={{ padding: "16px 18px", background: "var(--panel)", border: `1px solid ${phaseColor}50`, borderLeft: `3px solid ${phaseColor}` }}>
               <div className="uppercase-label" style={{ marginBottom: 8, color: phaseColor }}>Implementation Intention</div>
               <div style={{ fontSize: 12, color: "var(--text-faint)", marginBottom: 10, lineHeight: 1.6 }}>
-                "Wenn <strong style={{ color: "var(--text)" }}>{primaryPrompt}</strong> passiert, werde ich…"
+                "Wenn <strong style={{ color: "var(--text)" }}>{fullPrompt}</strong> {verb}, werde ich…"
               </div>
               <textarea value={d.implementationIntention} onChange={e => upd("implementationIntention", e.target.value)}
                 placeholder="…konkret beschreiben was ich dann tue. z.B. 'sofort den nächsten Schritt ausführen und Termin fixieren.'"
@@ -859,7 +863,7 @@ function OKRReview({ result, setResult, wizardData, totalHours, onBack, onSave, 
               <div style={{ fontSize: 12, color: "var(--text-faint)", lineHeight: 1.7 }}>
                 Wenn{" "}
                 <strong style={{ color: "var(--text)" }}>
-                  {wizardData.obstacles.map(id => OKR_OBSTACLES.find(o => o.id === id)?.prompt || id).filter(Boolean).join(", ") || "Hindernisse"}
+                  {(() => { const ps = [...wizardData.obstacles.map(id => OKR_OBSTACLES.find(o => o.id === id)?.prompt || id), ...(wizardData.obstacleCustom?.trim() ? [wizardData.obstacleCustom.trim()] : [])].filter(Boolean); return ps.length === 0 ? "Hindernisse" : ps.length === 1 ? ps[0] : ps.length === 2 ? `${ps[0]} und ${ps[1]}` : `${ps.slice(0, -1).join(", ")} und ${ps[ps.length - 1]}`; })()}
                 </strong>{" "}
                 auftreten, werde ich:{" "}
                 <strong style={{ color: "var(--text)" }}>{wizardData.implementationIntention}</strong>
