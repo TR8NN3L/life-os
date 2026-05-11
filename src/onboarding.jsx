@@ -39,6 +39,8 @@ function OnboardingWizard({ onComplete }) {
   const [customSub, setCustomSub]     = React.useState("");
   const [customColor, setCustomColor] = React.useState("#8b5cf6");
   const [quests, setQuests]           = React.useState({});
+  const [pushState, setPushState]     = React.useState(() => window.Push?.permissionState?.() || "default");
+  const [installing, setInstalling]   = React.useState(false);
 
   // All POVs the user will configure (personal always first)
   const allSelectedPovs = React.useMemo(() => {
@@ -350,8 +352,6 @@ function OnboardingWizard({ onComplete }) {
   if (step === 2 + allSelectedPovs.length) {
     const device = window.Push?.deviceType?.() || "desktop";
     const isPWA  = window.Push?.isPWA?.() || false;
-    const [pushState, setPushState] = React.useState(window.Push?.permissionState?.() || "default");
-    const [installing, setInstalling] = React.useState(false);
 
     const handleAllow = async () => {
       setInstalling(true);
