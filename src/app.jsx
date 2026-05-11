@@ -345,6 +345,35 @@ function App() {
     // Helper: parse "HH:MM" → total minutes
     const toMins = (str) => { if (!str) return -1; const [h, m] = str.split(":").map(Number); return h * 60 + m; };
 
+    // Helper: find task title by ID (searches all POVs + custom projects)
+    const getTaskName = (taskId) => {
+      if (!taskId) return null;
+      try {
+        // POV tasks
+        for (const povKey of Object.keys(POV_DATA)) {
+          const hardcoded = POV_DATA[povKey].tasksToday || [];
+          let custom = [];
+          try { custom = JSON.parse(LS.getItem(`lifeos_tasks_${povKey}`) || "[]"); } catch {}
+          const t = [...hardcoded, ...custom].find(t => t.id === taskId);
+          if (t?.title) return t.title;
+        }
+        // Project KR tasks
+        const projects = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]");
+        for (const proj of projects) {
+          let customKRTasks = {};
+          try { customKRTasks = JSON.parse(LS.getItem(`lifeos_proj_tasks_${proj.id}`) || "{}"); } catch {}
+          for (const obj of (proj.objectives || [])) {
+            for (const kr of (obj.krs || [])) {
+              const allTasks = [...(kr.tasks || []), ...(customKRTasks[kr.id] || [])];
+              const t = allTasks.find(t => t.id === taskId);
+              if (t?.title) return t.title;
+            }
+          }
+        }
+      } catch {}
+      return taskId; // fallback to ID
+    };
+
     // Helper: collect all today's blocks (one-off + recurring)
     const getTodayBlocks = (now) => {
       const todayDow = now.getDay();
@@ -443,7 +472,7 @@ function App() {
         if (minutes > 0 && minutes % 120 === 0 && !pushedTimerReminder.current) {
           pushedTimerReminder.current = true;
           setTimeout(() => { pushedTimerReminder.current = false; }, 65000);
-          window.Push.timerReminder(activeTaskId, minutes);
+          window.Push.timerReminder(getTaskName(activeTaskId), minutes);
         }
 
         // ── Zeitschätzung überschritten ──
@@ -461,7 +490,7 @@ function App() {
           if (estMins && minutes > estMins && !pushedEstExceeded.current) {
             pushedEstExceeded.current = true;
             const over = Math.round(minutes - estMins);
-            window.Push.taskEstExceeded(activeTaskId, over);
+            window.Push.taskEstExceeded(getTaskName(activeTaskId), over);
           }
           if (!activeTaskId) pushedEstExceeded.current = false;
         } catch {}
