@@ -81,17 +81,17 @@ const TUT_STEPS = [
     position: "right", blockClicks: false,
   },
   {
-    id: "task-list", route: "dashboard", forcePov: "personal", selector: "[data-tutorial='task-list']", type: "explain",
-    title: "Heutige Tasks",
+    id: "task-list", route: "dashboard", forcePov: "personal", selector: "[data-tutorial='task-start-btn']", type: "explain",
+    title: "Heutige Tasks & Timer",
     body: "Hier siehst du was heute ansteht — Tasks aus all deinen Projekten, nach Lebensbereich geordnet. Jede Task hat einen eingebauten Timer. Klick auf 'START →' um direkt in den Fokusmodus zu wechseln.",
-    position: "right", blockClicks: false,
+    position: "bottom", blockClicks: false,
   },
   {
-    id: "task-timer", route: "dashboard", forcePov: "personal", selector: "[data-tutorial='tutorial-task-row']", type: "do",
+    id: "task-timer", route: "dashboard", forcePov: "personal", selector: "[data-tutorial='task-start-btn']", type: "do",
     waitFor: "route-focus",
     title: "Fokusmodus starten",
-    body: "Klick auf 'START →' bei der Tutorial-Task — der Timer startet sofort und du wechselst in den Fokusmodus.",
-    hint: "Klick auf 'START →' bei der Tutorial-Task.",
+    body: "Klick auf 'START →' — der Timer startet sofort und du wechselst in den Fokusmodus.",
+    hint: "Klick auf 'START →'.",
     position: "bottom", blockClicks: true,
   },
   {

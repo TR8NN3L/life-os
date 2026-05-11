@@ -650,6 +650,7 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
                   </span>
                 ) : <span />}
                 <button
+                  data-tutorial={t.id === "tutorial_task_1" ? "task-start-btn" : undefined}
                   disabled={isDone}
                   onClick={() => {
                     if (isActive) { setActiveTaskId(null); }
