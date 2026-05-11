@@ -101,14 +101,14 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
     { id: "system",        label: "System" },
   ];
 
-  const Section = ({ title, children }) => (
+  const renderSection = (title, children) => (
     <div style={{ marginBottom: 28 }}>
       <div className="uppercase-label" style={{ marginBottom: 14, color: "var(--text-faint)", letterSpacing: "0.18em" }}>{title}</div>
       {children}
     </div>
   );
 
-  const Row = ({ label, description, children }) => (
+  const renderRow = (label, description, children) => (
     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 24, padding: "14px 0", borderBottom: "1px solid var(--line-soft)" }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: description ? 3 : 0 }}>{label}</div>
@@ -141,9 +141,8 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
             {tabs.map(t => (
               <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
                 display: "block", width: "100%", textAlign: "left",
-                padding: "10px 20px", background: "none",
+                padding: "10px 20px", background: "none", border: "none",
                 borderLeft: activeTab === t.id ? "2px solid var(--accent)" : "2px solid transparent",
-                border: "none", borderLeft: activeTab === t.id ? "2px solid var(--accent)" : "2px solid transparent",
                 color: activeTab === t.id ? "var(--text)" : "var(--text-faint)",
                 fontWeight: activeTab === t.id ? 600 : 400,
                 fontSize: 13, cursor: "pointer", fontFamily: "inherit",
@@ -155,56 +154,49 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
           <div style={{ flex: 1, padding: "24px 28px", overflowY: "auto" }}>
 
             {/* ── PROFIL ── */}
-            {activeTab === "profile" && (
-              <Section title="Profil">
-                <Row label="Dein Name" description="Wird im Interface angezeigt.">
-                  {editingName ? (
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <input autoFocus value={nameInput}
-                        onChange={e => setNameInput(e.target.value)}
-                        onKeyDown={e => { if (e.key === "Enter") saveName(); if (e.key === "Escape") setEditingName(false); }}
-                        style={{ flex: 1, background: "var(--panel-2)", border: "1px solid var(--accent-line)", color: "var(--text)", padding: "8px 10px", fontSize: 13, outline: "none", fontFamily: "inherit" }} />
-                      <button onClick={saveName} style={{ background: "var(--accent)", border: "none", color: "#0a0a0c", padding: "8px 14px", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}>✓</button>
-                    </div>
-                  ) : (
-                    <button onClick={() => { setNameInput(userName); setEditingName(true); }} style={{
-                      width: "100%", textAlign: "left", background: "var(--panel-2)",
-                      border: "1px solid var(--line)", color: userName ? "var(--text)" : "var(--text-faint)",
-                      padding: "8px 12px", fontSize: 13, cursor: "pointer", fontFamily: "inherit",
-                    }}>{userName || "Name eingeben…"}</button>
-                  )}
-                </Row>
-              </Section>
+            {activeTab === "profile" && renderSection("Profil",
+              renderRow("Dein Name", "Wird im Interface angezeigt.",
+                editingName ? (
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input autoFocus value={nameInput}
+                      onChange={e => setNameInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter") saveName(); if (e.key === "Escape") setEditingName(false); }}
+                      style={{ flex: 1, background: "var(--panel-2)", border: "1px solid var(--accent-line)", color: "var(--text)", padding: "8px 10px", fontSize: 13, outline: "none", fontFamily: "inherit" }} />
+                    <button onClick={saveName} style={{ background: "var(--accent)", border: "none", color: "#0a0a0c", padding: "8px 14px", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}>✓</button>
+                  </div>
+                ) : (
+                  <button onClick={() => { setNameInput(userName); setEditingName(true); }} style={{
+                    width: "100%", textAlign: "left", background: "var(--panel-2)",
+                    border: "1px solid var(--line)", color: userName ? "var(--text)" : "var(--text-faint)",
+                    padding: "8px 12px", fontSize: 13, cursor: "pointer", fontFamily: "inherit",
+                  }}>{userName || "Name eingeben…"}</button>
+                )
+              )
             )}
 
             {/* ── KI ── */}
-            {activeTab === "ai" && (
-              <Section title="Künstliche Intelligenz">
-                <Row label="Anthropic API Key" description="Für KI-Funktionen (OKR-Wizard, Insights). Wird lokal gespeichert, nie übertragen.">
-                  <div>
-                    <input
-                      type="password"
-                      value={apiKey}
-                      onChange={e => { const v = e.target.value; setApiKey(v); LS.setItem("lifeos_openai_key", v.trim()); if (v.trim()) window.TUTORIAL?.onAction?.("api-key-set"); }}
-                      placeholder="sk-ant-..."
-                      style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "8px 12px", fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
-                    />
-                    {apiKey
-                      ? <div style={{ fontSize: 11, color: "var(--good)", marginTop: 6, letterSpacing: "0.06em" }}>✓ Key gespeichert</div>
-                      : <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 6, lineHeight: 1.5 }}>Key unter <b>console.anthropic.com</b> → API Keys erstellen.</div>}
-                  </div>
-                </Row>
-              </Section>
+            {activeTab === "ai" && renderSection("Künstliche Intelligenz",
+              renderRow("Anthropic API Key", "Für KI-Funktionen (OKR-Wizard, Insights). Wird lokal gespeichert, nie übertragen.",
+                <div>
+                  <input
+                    type="password"
+                    value={apiKey}
+                    onChange={e => { const v = e.target.value; setApiKey(v); LS.setItem("lifeos_openai_key", v.trim()); if (v.trim()) window.TUTORIAL?.onAction?.("api-key-set"); }}
+                    placeholder="sk-ant-..."
+                    style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "8px 12px", fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+                  />
+                  {apiKey
+                    ? <div style={{ fontSize: 11, color: "var(--good)", marginTop: 6, letterSpacing: "0.06em" }}>✓ Key gespeichert</div>
+                    : <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 6, lineHeight: 1.5 }}>Key unter <b>console.anthropic.com</b> → API Keys erstellen.</div>}
+                </div>
+              )
             )}
 
             {/* ── NOTIFICATIONS ── */}
-            {activeTab === "notifications" && (
-              <Section title="Push Notifications">
-                <Row
-                  label="Web Push"
-                  description="Benachrichtigungen für Block-Start, Deadlines, Habits u.v.m. Funktioniert wenn der Tab offen ist, auf iOS/Android als PWA auch im Hintergrund."
-                >
-                  {pushStatus === "granted" ? (
+            {activeTab === "notifications" && renderSection("Push Notifications",
+              <div>
+                {renderRow("Web Push", "Benachrichtigungen für Block-Start, Deadlines, Habits u.v.m. Funktioniert wenn der Tab offen ist, auf iOS/Android als PWA auch im Hintergrund.",
+                  pushStatus === "granted" ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--good)" }} />
@@ -222,8 +214,7 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
                     </div>
                   ) : pushStatus === "denied" ? (
                     <div style={{ fontSize: 12, color: "var(--danger)", lineHeight: 1.6 }}>
-                      Zugriff verweigert.<br />
-                      Browser → 🔒 → Benachrichtigungen → Erlauben, dann Seite neu laden.
+                      Zugriff verweigert. Browser → 🔒 → Benachrichtigungen → Erlauben, dann Seite neu laden.
                     </div>
                   ) : (
                     <button onClick={async () => {
@@ -239,44 +230,41 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
                       fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
                       opacity: pushLoading ? 0.6 : 1,
                     }}>{pushLoading ? "WIRD AKTIVIERT…" : "🔔  PUSH AKTIVIEREN"}</button>
-                  )}
-                </Row>
-
-                <Row label="Als PWA installieren" description="Für Hintergrund-Pushs auf iOS/Android: App zum Homescreen hinzufügen (Safari → Teilen → Zum Home-Bildschirm).">
+                  )
+                )}
+                {renderRow("PWA Status", "Für Hintergrund-Pushs auf iOS/Android: App zum Homescreen hinzufügen.",
                   <div style={{ fontSize: 12, color: window.Push?.isPWA?.() ? "var(--good)" : "var(--text-faint)", fontWeight: window.Push?.isPWA?.() ? 600 : 400 }}>
                     {window.Push?.isPWA?.() ? "✓ Läuft als PWA" : "Nicht installiert"}
                   </div>
-                </Row>
-              </Section>
+                )}
+              </div>
             )}
 
             {/* ── SYSTEM ── */}
-            {activeTab === "system" && (
-              <Section title="System">
-                <Row label="Tutorial" description="Setzt den Onboarding-Fortschritt zurück und startet das Tutorial neu.">
+            {activeTab === "system" && renderSection("System",
+              <div>
+                {renderRow("Tutorial", "Setzt den Onboarding-Fortschritt zurück und startet das Tutorial neu.",
                   <button onClick={() => { LS.removeItem("lifeos_tutorial_done"); window.location.reload(); }} style={{
                     width: "100%", padding: "9px 0", background: "transparent",
                     border: "1px solid var(--accent-line)", color: "var(--accent)",
                     fontSize: 11, letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
                   }}>TUTORIAL NEU STARTEN</button>
-                </Row>
-
-                <Row label="Alle Daten löschen" description="Löscht Tasks, Fortschritte, Einstellungen und POVs. Nicht rückgängig machbar.">
+                )}
+                {renderRow("Alle Daten löschen", "Löscht Tasks, Fortschritte, Einstellungen und POVs. Nicht rückgängig machbar.",
                   <button onClick={() => { if (confirm("Alle Daten löschen? Das kann nicht rückgängig gemacht werden.")) { resetAllData(); onClose(); } }} style={{
                     width: "100%", padding: "9px 0", background: "transparent",
                     border: "1px solid var(--line)", color: "var(--text-faint)",
                     fontSize: 11, letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
                   }}>DATEN ZURÜCKSETZEN</button>
-                </Row>
-
-                <Row label="Account" description="Meldet dich aus diesem Gerät ab.">
+                )}
+                {renderRow("Account", "Meldet dich aus diesem Gerät ab.",
                   <button onClick={() => { signOut(); onClose(); }} style={{
                     width: "100%", padding: "9px 0", background: "var(--danger-soft)",
                     border: "1px solid var(--danger)", color: "var(--danger)",
                     fontSize: 11, letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
                   }}>ABMELDEN</button>
-                </Row>
-              </Section>
+                )}
+              </div>
             )}
 
           </div>
