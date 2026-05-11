@@ -153,6 +153,7 @@ function Planner() {
     const e = startMins !== null ? strFromMins(clamp(snap15(startMins)+60, GRID_START_H*60+60, GRID_END_H*60)) : "11:00";
     setDraft({ name:"", start:s, end:e, type:"deep-work", bucket:"alle", days:[selDay], recurrence:"none" });
     setShowModal(true);
+    window.TUTORIAL?.onAction?.('block-form-opened');
   };
 
   const openEdit = block => {

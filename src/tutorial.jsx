@@ -176,9 +176,11 @@ const TUT_STEPS = [
     position: "center", blockClicks: false,
   },
   {
-    id: "planner-intro", route: "planner", selector: "[data-tutorial='timeline']", type: "explain",
+    id: "planner-intro", route: "planner", selector: "[data-tutorial='timeline']", type: "do",
+    waitFor: "block-form-opened",
     title: "Timeline & Zeitblöcke",
-    body: "Doppelklick auf die Zeitachse um einen Block zu erstellen. Oder oben rechts auf '+ BLOCK' klicken. Gib dem Block einen Namen und speichere ihn.",
+    body: "Mach einen Doppelklick auf die Zeitachse — das Formular öffnet sich automatisch.",
+    hint: "Doppelklick ins Zeitraster.",
     position: "right", blockClicks: false,
   },
   {
