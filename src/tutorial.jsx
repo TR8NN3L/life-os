@@ -117,12 +117,12 @@ const TUT_STEPS = [
     position: "right", blockClicks: true,
   },
   {
-    id: "check-task", route: "dashboard", forcePov: "personal", selector: "[data-tutorial='tutorial-task-row']", type: "do",
+    id: "check-task", route: "dashboard", forcePov: "personal", selector: "[data-tutorial='tutorial-task-checkbox']", type: "do",
     waitFor: "task-checked-tutorial_task_1",
     title: "Task als erledigt markieren",
     body: "Du hast die Zeit gestoppt — jetzt die Aufgabe abhaken. Hak 'Life OS installieren & einloggen' als erledigt ab.",
     hint: "Klick auf die Checkbox links neben dem Task.",
-    position: "bottom", blockClicks: true,
+    position: "right", blockClicks: true,
   },
   {
     id: "nav-mc", route: "dashboard", selector: "[data-tutorial='nav-missioncontrol']", type: "do",
