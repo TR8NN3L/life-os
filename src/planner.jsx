@@ -365,13 +365,13 @@ function Planner() {
   const recurrenceLabels = { none:"Einmalig", daily:"Täglich", weekdays:"Werktags (Mo–Fr)", weekly:"Wöchentlich" };
 
   return (
-    <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
+    <div data-tutorial="planner-content-area" style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
 
       {/* ── Modal ─────────────────────────────────────────────────────────── */}
       {showModal && (
         <div style={{ position:"fixed", inset:0, zIndex:100, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center" }}
           onClick={e=>e.target===e.currentTarget&&setShowModal(false)}>
-          <div style={{ background:"var(--panel)", border:"1px solid var(--line)", padding:32, width:460, boxShadow:"0 0 60px rgba(0,0,0,0.6)" }}>
+          <div data-tutorial="planner-block-form" style={{ background:"var(--panel)", border:"1px solid var(--line)", padding:32, width:460, boxShadow:"0 0 60px rgba(0,0,0,0.6)" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
               <div className="uppercase-label">{editId?"Block bearbeiten":"Neuer Zeitblock"}</div>
               <button onClick={()=>setShowModal(false)} style={{ background:"none", border:"none", color:"var(--text-faint)", cursor:"pointer", fontSize:18, padding:0 }}>×</button>

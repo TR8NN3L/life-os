@@ -210,7 +210,7 @@ function Insights({ taskTimes, pov }) {
   const secToH = (s) => (s / 3600).toFixed(1) + "h";
 
   return (
-    <div style={{ flex: 1, overflow: "auto", padding: "20px 28px" }}>
+    <div data-tutorial="insights-content-area" style={{ flex: 1, overflow: "auto", padding: "20px 28px" }}>
       <div className="uppercase-label" style={{ marginBottom: 20 }}>Insights</div>
 
       {/* ── Hero Stats ─────────────────────────────────────────── */}

@@ -144,7 +144,7 @@ const TUT_STEPS = [
     hint: "Klick auf 'Insights'.", position: "right", blockClicks: true,
   },
   {
-    id: "insights-page-intro", route: "insights", selector: null, type: "explain",
+    id: "insights-page-intro", route: "insights", selector: "[data-tutorial='insights-content-area']", type: "explain",
     title: "Insights — Überblick",
     body: "Hier siehst du alles auf einen Blick: geplante vs. gelebte Stunden, KR-Fortschritt nach POV, Behavior Streaks. Mit jedem Tag füllst du dieses Dashboard mit echten Daten.",
     position: "center", blockClicks: false,
@@ -153,14 +153,14 @@ const TUT_STEPS = [
     id: "behaviors-section", route: "insights", selector: "[data-tutorial='behaviors-section']", type: "explain",
     title: "Behavior Change Tracker",
     body: "Täglich einchecken. Streaks aufbauen. Drift sichtbar machen. Ein erster Behavior wartet schon auf dich.",
-    position: "right", blockClicks: false,
+    position: "top", blockClicks: false,
   },
   {
     id: "check-behavior", route: "insights", selector: "[data-tutorial='behaviors-section']", type: "do",
     waitFor: "habit-checked-tutorial_habit_1",
     title: "Erster Behavior Check-in",
     body: "Hak 'Täglicher System-Check' für heute ab. Streak Tag 1 startet jetzt.",
-    hint: "Klick auf die heutige Checkbox im Tracker.", position: "corner-left", blockClicks: true,
+    hint: "Klick auf die heutige Checkbox im Tracker.", position: "top", blockClicks: true,
   },
   {
     id: "nav-planner", route: "insights", selector: "[data-tutorial='nav-planner']", type: "do",
@@ -170,7 +170,7 @@ const TUT_STEPS = [
     hint: "Klick auf 'Planner'.", position: "right", blockClicks: true,
   },
   {
-    id: "planner-page-intro", route: "planner", selector: null, type: "explain",
+    id: "planner-page-intro", route: "planner", selector: "[data-tutorial='planner-content-area']", type: "explain",
     title: "Planner — Überblick",
     body: "Dein tägliches Cockpit. Ziehe auf der Zeitachse um Blöcke zu erstellen und weise ihnen Tasks zu. So wird jede Stunde bewusst verplant.",
     position: "center", blockClicks: false,
@@ -178,15 +178,15 @@ const TUT_STEPS = [
   {
     id: "planner-intro", route: "planner", selector: "[data-tutorial='timeline']", type: "explain",
     title: "Timeline & Zeitblöcke",
-    body: "Klick und zieh auf der Zeitachse um einen Block zu erstellen. Wähle dann rechts Tasks aus, die du in diesem Zeitraum erledigen willst.",
+    body: "Doppelklick auf die Zeitachse um einen Block zu erstellen. Oder oben rechts auf '+ BLOCK' klicken. Gib dem Block einen Namen und speichere ihn.",
     position: "right", blockClicks: false,
   },
   {
-    id: "planner-drop", route: "planner", selector: "[data-tutorial='timeline']", type: "do",
+    id: "planner-drop", route: "planner", selector: "[data-tutorial='planner-block-form']", type: "do",
     waitFor: "block-created",
     title: "Ersten Zeitblock anlegen",
-    body: "Zieh auf der Timeline um deinen ersten Block zu erstellen. Gib ihm einen Namen und klick auf Speichern.",
-    hint: "Klick & Zieh auf der grauen Zeitachse.", position: "right", blockClicks: false,
+    body: "Mach einen Doppelklick auf die Zeitachse — das Formular öffnet sich. Gib dem Block einen Namen und klick auf Speichern.",
+    hint: "Doppelklick ins Zeitraster → Name eingeben → Speichern.", position: "right", blockClicks: false,
   },
   {
     id: "done", route: null, selector: null, type: "celebrate", position: "center", blockClicks: false,
