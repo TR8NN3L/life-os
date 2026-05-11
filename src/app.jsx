@@ -160,6 +160,7 @@ function LoginScreen({ onGuest }) {
 function App() {
   // Auth gate
   const [authStatus, setAuthStatus] = React.useState("loading");
+  const [tutorialActive, setTutorialActive] = React.useState(false);
 
   const reloadPovsFromLS = () => {
     try { setUserPovs(JSON.parse(LS.getItem("lifeos_user_povs") || "[]")); } catch {}
@@ -174,11 +175,17 @@ function App() {
         if (!data || data.length === 0) await window.sbAuth.pushLocal(uid);
         else { await window.sbAuth.syncDown(uid); reloadPovsFromLS(); }
         const done = LS.getItem("lifeos_onboarding_done") === "1";
+        if (done && LS.getItem("lifeos_tutorial_done") !== "1") {
+          if (window.injectTutorialSeedData) window.injectTutorialSeedData();
+          setTutorialActive(true);
+        }
         setAuthStatus(done ? "ready" : "onboarding");
       } else {
         if (LS.getItem("lifeos_guest") === "1") {
-          const done = LS.getItem("lifeos_onboarding_done") === "1";
-          setAuthStatus(done ? "ready" : "onboarding");
+          // Guests always restart with onboarding so tutorial can be tested fresh
+          localStorage.removeItem("lifeos_onboarding_done");
+          localStorage.removeItem("lifeos_tutorial_done");
+          setAuthStatus("onboarding");
         } else setAuthStatus("login");
       }
     })();
@@ -190,6 +197,10 @@ function App() {
         if (!data || data.length === 0) await window.sbAuth.pushLocal(uid);
         else { await window.sbAuth.syncDown(uid); reloadPovsFromLS(); }
         const done = LS.getItem("lifeos_onboarding_done") === "1";
+        if (done && LS.getItem("lifeos_tutorial_done") !== "1") {
+          if (window.injectTutorialSeedData) window.injectTutorialSeedData();
+          setTutorialActive(true);
+        }
         setAuthStatus(done ? "ready" : "onboarding");
       } else if (event === "SIGNED_OUT") {
         setAuthStatus("login");
@@ -232,7 +243,18 @@ function App() {
     if (activeTaskId) setFocusTaskId(activeTaskId);
   }, [activeTaskId]);
   const [taskTimes, setTaskTimes] = React.useState(() => {
-    try { return JSON.parse(LS.getItem("lifeos_times") || "{}"); } catch { return {}; }
+    try {
+      const times = JSON.parse(localStorage.getItem("lifeos_times") || "{}");
+      // Recover elapsed time for a timer that was running when the tab/browser closed
+      const ts = JSON.parse(localStorage.getItem("lifeos_timer_start") || "null");
+      if (ts?.taskId && ts?.startedAt != null && ts?.baseTime != null) {
+        const recovered = ts.baseTime + Math.floor((Date.now() - ts.startedAt) / 1000);
+        times[ts.taskId] = recovered;
+        // Reset anchor so the next recovery won't double-count
+        localStorage.setItem("lifeos_timer_start", JSON.stringify({ taskId: ts.taskId, startedAt: Date.now(), baseTime: recovered }));
+      }
+      return times;
+    } catch { return {}; }
   });
 
   React.useEffect(() => { LS.setItem("lifeos_pov", pov); }, [pov]);
@@ -296,7 +318,14 @@ function App() {
 
   // Tick the active task across whole app
   React.useEffect(() => {
-    if (!activeTaskId) return;
+    if (!activeTaskId) {
+      localStorage.removeItem("lifeos_timer_start");
+      return;
+    }
+    // Save anchor: baseTime = elapsed so far, startedAt = wall clock now
+    // On next load, recovered = baseTime + (now - startedAt) gives correct total
+    const baseTime = taskTimes[activeTaskId] ?? 0;
+    localStorage.setItem("lifeos_timer_start", JSON.stringify({ taskId: activeTaskId, startedAt: Date.now(), baseTime }));
     const id = setInterval(() => {
       setTaskTimes(prev => ({ ...prev, [activeTaskId]: (prev[activeTaskId] ?? 0) + 1 }));
     }, 1000);
@@ -339,19 +368,21 @@ function App() {
   if (authStatus === "login") return (
     <LoginScreen onGuest={() => {
       LS.setItem("lifeos_guest", "1");
-      const done = LS.getItem("lifeos_onboarding_done") === "1";
-      setAuthStatus(done ? "ready" : "onboarding");
+      LS.removeItem("lifeos_onboarding_done");
+      LS.removeItem("lifeos_tutorial_done");
+      setAuthStatus("onboarding");
     }} />
   );
   if (authStatus === "onboarding") return (
     <OnboardingWizard onComplete={({ userName, userPovs: newPovs }) => {
       if (userName) LS.setItem("lifeos_user_name", userName);
       setUserPovs(newPovs || []);
-      // Force-push onboarding data to Supabase immediately (don't rely on 800ms debounce)
       window.sbAuth.getSession().then(s => {
         if (s?.user?.id) window.sbAuth.pushLocal(s.user.id);
       });
+      if (window.injectTutorialSeedData) window.injectTutorialSeedData();
       setAuthStatus("ready");
+      setTutorialActive(true);
     }} />
   );
 
@@ -391,11 +422,20 @@ function App() {
           <MissionControl pov={pov} setPov={setPov} taskTimes={taskTimes} setTaskTimes={setTaskTimes}
             activeTaskId={activeTaskId} setActiveTaskId={setActiveTaskId}
             krProgress={krProgress} setKrProgress={setKrProgress}
-            onOpenTask={setGlobalTask} />
+            onOpenTask={setGlobalTask} userPovs={userPovs} />
         )}
         {route === "planner" && <Planner />}
         {route === "insights" && <Insights taskTimes={taskTimes} pov={pov} />}
       </main>
+
+      {/* Tutorial overlay */}
+      {tutorialActive && window.TutorialManager && React.createElement(window.TutorialManager, {
+        setRoute,
+        onDone: () => {
+          setTutorialActive(false);
+          LS.setItem("lifeos_tutorial_done", "1");
+        },
+      })}
 
       {/* Global task detail panel — slides in from right over any screen */}
       {globalTask && (

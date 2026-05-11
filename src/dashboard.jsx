@@ -1,5 +1,16 @@
 // Dashboard — three-pane: Strategic Anchor (KRs) | Quick Start + Today's Tasks + Truth Loop
 
+const DONE_QUOTES = [
+  "Erledigt. Momentum aufgebaut.",
+  "Done. Der nächste Schritt wartet.",
+  "Check. Du bist näher dran.",
+  "Fertig — einer weniger. Weiter.",
+  "Sauber erledigt. Bleib dran.",
+  "Task down. Keep pushing.",
+  "Abgehakt. Skaliere das.",
+  "Exakt so. Weiter.",
+];
+
 function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes, tickActive, setRoute,
                       krProgress, setKrProgress, taskNotes, setTaskNotes, truthPlan, setTruthPlan,
                       inbox, setInbox, onOpenTask }) {
@@ -128,9 +139,23 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
   React.useEffect(() => {
     try { setDoneTasks(new Set(JSON.parse(LS.getItem(`lifeos_done_${pov}`) || "[]"))); } catch { setDoneTasks(new Set()); }
   }, [pov]);
+
+  const [doneToast, setDoneToast] = React.useState(null);
+  const doneToastTimer = React.useRef(null);
+  const showDoneToast = () => {
+    const quote = DONE_QUOTES[Math.floor(Math.random() * DONE_QUOTES.length)];
+    setDoneToast(quote);
+    clearTimeout(doneToastTimer.current);
+    doneToastTimer.current = setTimeout(() => setDoneToast(null), 2200);
+  };
+
   const toggleDone = (id) => setDoneTasks(prev => {
     const next = new Set(prev);
     next.has(id) ? next.delete(id) : next.add(id);
+    if (next.has(id)) {
+      window.TUTORIAL?.onAction?.('task-checked-' + id);
+      showDoneToast();
+    }
     return next;
   });
 
@@ -369,7 +394,7 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
         {!dailyMission && !missionLoading && (
           <div>
             <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 10, lineHeight: 1.5 }}>
-              KI generiert 3 konkrete Aufgaben aus deinen OKRs für heute.
+              Wizard generiert 3 konkrete Aufgaben aus deinen OKRs für heute.
             </div>
             <button onClick={generateMission} style={{
               width: "100%", padding: "9px 0", background: "transparent",
@@ -484,7 +509,7 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
         })()}
 
         {/* Tasks — scrollable middle section */}
-        <div style={{ flex: 1, overflowY: "auto" }}>
+        <div data-tutorial="task-list" style={{ flex: 1, overflowY: "auto" }}>
 
         {/* Tasks today */}
         <div style={{ padding: "20px 28px 8px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
@@ -536,6 +561,7 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
                 <button
                   onClick={() => toggleDone(t.id)}
                   title={isDone ? "Als offen markieren" : "Als erledigt markieren"}
+                  data-tutorial={t.id === "tutorial_task_1" ? "tutorial-task-checkbox" : undefined}
                   style={{
                     width: 22, height: 22, borderRadius: 4, cursor: "pointer",
                     background: isDone ? "var(--accent)" : "transparent",
@@ -749,6 +775,18 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
           <TruthLoop truthPlan={truthPlan} setTruthPlan={setTruthPlan} />
         </div>
       </div>
+
+      {/* Done Toast */}
+      {doneToast && (
+        <div style={{
+          position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)",
+          background: "var(--panel)", border: "1px solid var(--good)",
+          color: "var(--good)", fontSize: 12.5, fontWeight: 700,
+          padding: "10px 22px", letterSpacing: "0.06em",
+          zIndex: 9999, pointerEvents: "none",
+          animation: "fadeInUp .18s ease",
+        }}>{doneToast}</div>
+      )}
     </div>
   );
 }

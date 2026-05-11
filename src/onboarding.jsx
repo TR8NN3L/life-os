@@ -275,10 +275,13 @@ function OnboardingWizard({ onComplete }) {
         </div>
 
         <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 6, lineHeight: 1.1 }}>
-          Dein Ziel
+          Dein Main Quest
         </div>
-        <div style={{ fontSize: 13, color: "var(--text-dim)", marginBottom: 24, lineHeight: 1.6 }}>
-          Projekte und Objective Key Results richtest du danach über den OKR-Generator ein.
+        <div style={{ fontSize: 13, color: "var(--text-dim)", marginBottom: 8, lineHeight: 1.6 }}>
+          Das ist dein übergeordnetes Lebensziel für diesen Bereich — nicht eine einzelne Aufgabe, sondern der größte Gewinn den du in den nächsten 3–12 Monaten erreichen willst.
+        </div>
+        <div style={{ fontSize: 12, color: "var(--text-faint)", marginBottom: 20, lineHeight: 1.5 }}>
+          Konkrete Projekte und OKRs richtest du danach im OKR-Wizard ein.
         </div>
 
         {/* Example box */}

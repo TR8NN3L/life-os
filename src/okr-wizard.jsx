@@ -53,7 +53,7 @@ function weeksLabel(w) {
 
 // ─── Main Wizard ────────────────────────────────────────────────────────────
 
-function OKRWizard({ onClose, onSave, defaultPov, customProjects }) {
+function OKRWizard({ onClose, onSave, defaultPov, customProjects, initialDraft }) {
   const STEPS = [
     { id: "mode",      phase: "KONTEXT",    title: "Wie möchtest du starten?" },
     { id: "project",   phase: "KONTEXT",    title: "Dein Projekt" },
@@ -79,7 +79,7 @@ function OKRWizard({ onClose, onSave, defaultPov, customProjects }) {
     } catch { return POVS || []; }
   }, []);
 
-  const [step, setStep] = React.useState(0);
+  const [step, setStep] = React.useState(initialDraft ? 1 : 0);
   const [d, setD] = React.useState({
     mode: null, existingProjectId: null,
     pov: defaultPov || (allPovs[0] ? allPovs[0].id : "personal"),
@@ -88,6 +88,7 @@ function OKRWizard({ onClose, onSave, defaultPov, customProjects }) {
     successDefinition: "", obstacles: [], obstacleCustom: "",
     implementationIntention: "", complexity: "medium",
     generateTodos: true, generateSubtasks: false,
+    ...(initialDraft || {}),
   });
   const upd = (k, v) => setD(p => ({ ...p, [k]: v }));
   const toggleArr = (k, v) => setD(p => ({
@@ -220,7 +221,7 @@ function OKRWizard({ onClose, onSave, defaultPov, customProjects }) {
             <div style={{ marginTop: 32, display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
               <span style={{ display: "inline-block", width: 48, height: 48, border: "4px solid var(--accent)", borderTopColor: "transparent", borderRadius: "50%", animation: "okr-spin 0.9s linear infinite" }} />
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", letterSpacing: "0.06em", marginBottom: 4 }}>KI generiert deinen Projektplan…</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", letterSpacing: "0.06em", marginBottom: 4 }}>Wizard generiert deinen Projektplan…</div>
                 <div style={{ fontSize: 11, color: "var(--text-faint)" }}>Das kann 15–30 Sekunden dauern. Je komplexer, desto präziser.</div>
               </div>
             </div>
@@ -262,7 +263,7 @@ function OKRWizard({ onClose, onSave, defaultPov, customProjects }) {
   const pct = (step / (STEPS.length - 1)) * 100;
 
   return (
-    <div style={{
+    <div data-tutorial="wizard-container" style={{
       position: "fixed", inset: 0, zIndex: 300, background: "rgba(0,0,0,0.78)",
       display: "flex", alignItems: "center", justifyContent: "center",
     }}>
@@ -308,7 +309,7 @@ function OKRWizard({ onClose, onSave, defaultPov, customProjects }) {
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             {step === STEPS.length - 1 && (
               <span style={{ fontSize: 10, color: "var(--text-faint)", letterSpacing: "0.06em" }}>
-                Alles bereit — KI generiert deinen Plan
+                Alles bereit — Wizard generiert deinen Plan
               </span>
             )}
             <button onClick={goNext} disabled={!canNext()} style={{
@@ -440,7 +441,7 @@ function WizardStep({ step, d, upd, toggleArr, phaseColor, totalHours, customPro
                 placeholder="Oft ist die Antwort auf diese Frage der eigentliche Antrieb…" rows={3}
                 style={{ ...inp, resize: "none" }} />
               <div style={{ marginTop: 10, fontSize: 10.5, color: "var(--text-faint)", lineHeight: 1.6 }}>
-                ✦ <strong>5-Whys-Methode</strong> (Toyota): Das zweite Warum deckt den echten Antrieb auf. Die KI nutzt beide Ebenen für präzisere Formulierungen.
+                ✦ <strong>5-Whys-Methode</strong> (Toyota): Das zweite Warum deckt den echten Antrieb auf. Der Wizard nutzt beide Ebenen für präzisere Formulierungen.
               </div>
             </div>
           )}
@@ -452,7 +453,7 @@ function WizardStep({ step, d, upd, toggleArr, phaseColor, totalHours, customPro
       return (
         <div>
           <div style={{ fontSize: 12.5, color: "var(--text-faint)", marginBottom: 20, lineHeight: 1.6 }}>
-            Wähle alle die zutreffen. Die KI formuliert KRs die dich wirklich motivieren — nicht generische Ziele die sich nach Hausaufgaben anfühlen.
+            Wähle alle die zutreffen. Der Wizard formuliert KRs die dich wirklich motivieren — nicht generische Ziele die sich nach Hausaufgaben anfühlen.
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
             {OKR_MOTIVATION_TYPES.map(m => {
@@ -518,7 +519,7 @@ function WizardStep({ step, d, upd, toggleArr, phaseColor, totalHours, customPro
       return (
         <div>
           <div style={{ fontSize: 12.5, color: "var(--text-faint)", marginBottom: 24, lineHeight: 1.6 }}>
-            Sei ehrlich — nicht wie viel du dir wünschst, sondern wie viel du <em>wirklich</em> investieren wirst. Die KI passt die Anzahl der Tasks und KRs genau diesem Budget an.
+            Sei ehrlich — nicht wie viel du dir wünschst, sondern wie viel du <em>wirklich</em> investieren wirst. Der Wizard passt die Anzahl der Tasks und KRs genau diesem Budget an.
           </div>
           <div className="uppercase-label" style={{ marginBottom: 10 }}>Stunden pro Woche (realistisch)</div>
           <input type="range" min={1} max={40} step={1} value={d.hoursPerWeek}
@@ -553,7 +554,7 @@ function WizardStep({ step, d, upd, toggleArr, phaseColor, totalHours, customPro
       return (
         <div>
           <div style={{ fontSize: 12.5, color: "var(--text-faint)", marginBottom: 20, lineHeight: 1.7 }}>
-            Stell dir vor du bist am Tag der Deadline und schaust zufrieden zurück. Was ist passiert? Die KI entwickelt daraus deine Objectives — sei so konkret wie möglich.
+            Stell dir vor du bist am Tag der Deadline und schaust zufrieden zurück. Was ist passiert? Der Wizard entwickelt daraus deine Objectives — sei so konkret wie möglich.
           </div>
           <textarea autoFocus value={d.successDefinition} onChange={e => upd("successDefinition", e.target.value)}
             placeholder='"Ich habe meine erste Immobilienprovision verdient und den vollständigen Vertriebsprozess von Opening bis Close beherrscht."'
@@ -598,7 +599,7 @@ function WizardStep({ step, d, upd, toggleArr, phaseColor, totalHours, customPro
                 "Wenn <strong style={{ color: "var(--text)" }}>{primaryPrompt}</strong> passiert, werde ich…"
               </div>
               <textarea value={d.implementationIntention} onChange={e => upd("implementationIntention", e.target.value)}
-                placeholder="…konkret beschreiben was ich dann tue. z.B. 'sofort Tobi anrufen und nächsten Termin fixieren.'"
+                placeholder="…konkret beschreiben was ich dann tue. z.B. 'sofort den nächsten Schritt ausführen und Termin fixieren.'"
                 rows={2} style={{ ...inp, resize: "none" }} />
               <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 8 }}>✦ Gollwitzer 1999: If-Then-Pläne erhöhen Zielerreichung um 200–300%</div>
             </div>
@@ -616,7 +617,7 @@ function WizardStep({ step, d, upd, toggleArr, phaseColor, totalHours, customPro
             <div className="uppercase-label" style={{ marginBottom: 12 }}>Komplexität des Plans</div>
             <div style={{ display: "flex", gap: 10 }}>
               {OKR_COMPLEXITY.map(c => (
-                <button key={c.id} onClick={() => upd("complexity", c.id)} style={{
+                <button key={c.id} onClick={() => { upd("complexity", c.id); if (c.id === "complex") upd("generateSubtasks", false); }} style={{
                   flex: 1, padding: "16px 12px", textAlign: "left", cursor: "pointer", fontFamily: "inherit",
                   background: d.complexity === c.id ? `${c.color}18` : "var(--panel)",
                   border: `2px solid ${d.complexity === c.id ? c.color : "var(--line)"}`,
@@ -641,7 +642,7 @@ function WizardStep({ step, d, upd, toggleArr, phaseColor, totalHours, customPro
                 </div>
               </label>
             ))}
-            {d.generateTodos && (
+            {d.generateTodos && d.complexity !== "complex" && (
               <label style={{ display: "flex", alignItems: "center", gap: 14, cursor: "pointer", padding: "14px 18px", background: "var(--panel)", border: `1px solid ${d.generateSubtasks ? phaseColor : "var(--line)"}`, marginLeft: 24 }}>
                 <input type="checkbox" checked={d.generateSubtasks} onChange={e => upd("generateSubtasks", e.target.checked)}
                   style={{ width: 16, height: 16, accentColor: phaseColor, cursor: "pointer", flexShrink: 0 }} />

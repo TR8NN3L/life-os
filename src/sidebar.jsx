@@ -168,6 +168,7 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs }) {
 
         {/* main quest */}
         {(() => {
+          // data-tutorial added to wrapper below
           const mq = (POV_DATA[pov] || POV_DATA.personal).mainQuest;
           const hardcodedTasks = (POV_DATA[pov] || POV_DATA.personal).tasksToday || [];
           let customTasks = [];
@@ -179,7 +180,7 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs }) {
             ? allTasks.filter(t => done.has(t.id)).length / allTasks.length : 0;
           const mqTitle = mq.title || (activePov.label + " · Main Quest");
           return (
-            <div style={{ padding: "0 20px 18px" }}>
+            <div data-tutorial="main-quest-sidebar" style={{ padding: "0 20px 18px" }}>
               <div className="uppercase-label" style={{ color: activePov.color, marginBottom: 6 }}>Main Quest</div>
               <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10, lineHeight: 1.25, color: "var(--text-dim)" }}>
                 {mq.title || <span style={{ fontStyle: "italic", opacity: 0.5 }}>Noch nicht konfiguriert</span>}
@@ -193,7 +194,7 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs }) {
         })()}
 
         {/* POV toggle */}
-        <div style={{ padding: "16px 12px 8px", borderTop: "1px solid var(--line-soft)" }}>
+        <div data-tutorial="pov-section" style={{ padding: "16px 12px 8px", borderTop: "1px solid var(--line-soft)" }}>
           <div className="uppercase-label" style={{ padding: "0 8px 8px" }}>POV</div>
           {allPovs.map((p) => {
             const active = pov === p.id;
@@ -244,7 +245,7 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs }) {
           {navItems.map((it) => {
             const active = route === it.id;
             return (
-              <button key={it.id} onClick={() => setRoute(it.id)}
+              <button key={it.id} data-tutorial={`nav-${it.id}`} onClick={() => { setRoute(it.id); window.TUTORIAL?.onAction?.(`route-${it.id}`); }}
                 style={{
                   display: "block", width: "100%", textAlign: "left",
                   padding: "11px 12px", marginBottom: 2,

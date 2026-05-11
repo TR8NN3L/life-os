@@ -215,7 +215,7 @@ function Insights({ taskTimes, pov }) {
 
       {/* ── Hero Stats ─────────────────────────────────────────── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 32 }}>
-        <StatCard label="TOTAL TRACKED" value={secToH(totalTrackedSec)} color="var(--accent)" sub="über alle Tasks" />
+        <StatCard label="TOTAL TRACKED" value={secToH(totalTrackedSec)} color="#60a5fa" sub="über alle Tasks" />
         <StatCard label="IGNORANCE DEBT" value={`−${debt.toFixed(1)}h`} color="var(--danger)" sub="diese Woche" />
         <StatCard label="SIDE QUEST DRIFT" value={`${sideQuestPct}%`} color="var(--warn)" sub={`${sideQuestCount} Tasks ohne KR`} />
         <StatCard label="TASKS ERLEDIGT" value={`${allTasks.filter(t => t.done).length} / ${allTasks.length}`} color="var(--good)" sub="gesamt" />
@@ -298,7 +298,7 @@ function Insights({ taskTimes, pov }) {
                       <div style={{
                         position: "absolute", left: 0, top: 0, height: "100%",
                         width: `${pct}%`,
-                        background: kr.isSideQuest ? "var(--warn)" : kr.color,
+                        background: kr.isSideQuest ? "var(--warn)" : "#60a5fa",
                         transition: "width .4s ease",
                       }} />
                     </div>
@@ -332,7 +332,7 @@ function Insights({ taskTimes, pov }) {
                   </div>
                   {/* stacked bar */}
                   <div style={{ height: 10, background: "var(--line-soft)", display: "flex", overflow: "hidden" }}>
-                    <div style={{ width: `${pct * 100}%`, background: p.color, transition: "width .4s ease" }} />
+                    <div style={{ width: `${pct * 100}%`, background: "#60a5fa", transition: "width .4s ease" }} />
                   </div>
                   <div style={{ display: "flex", gap: 14, marginTop: 5 }}>
                     <span style={{ fontSize: 9.5, color: "var(--good)", letterSpacing: "0.08em" }}>✓ {done} erledigt</span>
@@ -512,6 +512,7 @@ function BehaviorTracker() {
       if (h.id !== habitId) return h;
       const log = { ...h.log };
       log[iso] ? delete log[iso] : (log[iso] = true);
+      if (iso === todayISO && log[iso]) window.TUTORIAL?.onAction?.('habit-checked-' + habitId);
       return { ...h, log };
     }));
   };
@@ -526,7 +527,7 @@ function BehaviorTracker() {
   };
 
   return (
-    <div style={{ background: "var(--panel)", border: "1px solid var(--line-soft)", padding: "20px 24px", marginBottom: 20 }}>
+    <div data-tutorial="behaviors-section" style={{ background: "var(--panel)", border: "1px solid var(--line-soft)", padding: "20px 24px", marginBottom: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: habits.length > 0 ? 16 : 0 }}>
         <div>
           <div className="uppercase-label" style={{ marginBottom: 3 }}>Behavior Change Tracker</div>
@@ -573,7 +574,9 @@ function BehaviorTracker() {
                   const done = !!h.log[iso];
                   const isToday = iso === todayISO;
                   return (
-                    <button key={iso} onClick={() => toggleDay(h.id, iso)} style={{
+                    <button key={iso} onClick={() => toggleDay(h.id, iso)}
+                      data-tutorial={h.id === "tutorial_habit_1" && isToday ? "tutorial-habit-checkbox" : undefined}
+                      style={{
                       width: 24, height: 24, borderRadius: isToday ? 4 : "50%",
                       border: `2px solid ${done ? h.color : isToday ? "var(--line)" : "rgba(255,255,255,0.08)"}`,
                       background: done ? h.color : "transparent",

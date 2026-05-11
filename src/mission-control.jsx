@@ -5,7 +5,22 @@ function getObjectives(proj) {
   return [{ id: "obj1", title: proj.objective || "", period: "", krs: proj.krs || [] }];
 }
 
-function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, setActiveTaskId, krProgress, setKrProgress, onOpenTask }) {
+function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, setActiveTaskId, krProgress, setKrProgress, onOpenTask, userPovs = [] }) {
+  // Merge hardcoded POVs with user-created custom POVs (from sync or local creation)
+  const allPovs = React.useMemo(() => {
+    const hardcodedIds = new Set(POVS.map(p => p.id));
+    const extras = userPovs.filter(p => !hardcodedIds.has(p.id));
+    // Ensure POV_DATA has entries for synced custom POVs (may not be set if sync ran after page load)
+    extras.forEach(p => {
+      if (!POV_DATA[p.id]) {
+        try {
+          const saved = JSON.parse(LS.getItem("lifeos_pov_data") || "{}");
+          POV_DATA[p.id] = { ...{ mainQuest: { title: "", progress: 0, period: "" }, objective: { title: "", period: "", keyResults: [] }, tasksToday: [] }, ...(saved[p.id] || {}) };
+        } catch { POV_DATA[p.id] = { mainQuest: { title: "", progress: 0, period: "" }, objective: { title: "", period: "", keyResults: [] }, tasksToday: [] }; }
+      }
+    });
+    return [...POVS, ...extras];
+  }, [userPovs]);
   const [view, setView] = React.useState({ type: "list" });
   const [mcFilter, setMcFilter] = React.useState("alle");
   const [freeOpen, setFreeOpen] = React.useState(false);
@@ -58,7 +73,7 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
   const [mqDraft, setMqDraft] = React.useState({});
 
   // Which MainQuest sections are expanded
-  const [openMQs, setOpenMQs] = React.useState(() => new Set(POVS.map(p => p.id)));
+  const [openMQs, setOpenMQs] = React.useState(() => new Set(allPovs.map(p => p.id)));
   const toggleMQ = (povId) => setOpenMQs(prev => {
     const n = new Set(prev); n.has(povId) ? n.delete(povId) : n.add(povId); return n;
   });
@@ -102,7 +117,7 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
 
   // Free tasks (dashboard tasks not in any project)
   const rawFreeTasks = React.useMemo(() => {
-    const povIds = mcFilter === "alle" ? POVS.map(p => p.id) : [mcFilter];
+    const povIds = mcFilter === "alle" ? allPovs.map(p => p.id) : [mcFilter];
     const result = [];
     for (const povId of povIds) {
       const data = POV_DATA[povId] || {};
@@ -178,7 +193,7 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
   const allProjects = [...PROJECTS, ...customProjects];
   const activeProjects = allProjects.filter(p => !archivedIds.has(p.id));
   const archivedProjects = allProjects.filter(p => archivedIds.has(p.id));
-  const displayPovs = mcFilter === "alle" ? POVS.map(p => p.id) : [mcFilter];
+  const displayPovs = mcFilter === "alle" ? allPovs.map(p => p.id) : [mcFilter];
 
   return (
     <div style={{ flex: 1, overflow: "auto", padding: "20px 28px" }}>
@@ -193,7 +208,9 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
         defaultPov: wizardDefaultPov,
         customProjects: customProjects,
         onClose: () => { setShowWizard(false); setWizardDefaultPov(null); },
-        onSave: handleWizardSave,
+        onSave: (project, mode) => { handleWizardSave(project, mode); window.TUTORIAL?.onAction?.('project-saved'); },
+        initialDraft: window.TUTORIAL?.active ? window.TUTORIAL.getPrefill?.() : null,
+        "data-tutorial": "wizard-container",
       })}
 
       {/* Header */}
@@ -224,7 +241,7 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
           color: mcFilter === "alle" ? "var(--text)" : "var(--text-faint)",
           background: "transparent", fontWeight: 700, fontSize: 10.5, letterSpacing: "0.16em", cursor: "pointer",
         }}>ALLE</button>
-        {POVS.map(p => {
+        {allPovs.map(p => {
           const active = mcFilter === p.id;
           return (
             <button key={p.id} onClick={() => setMcFilter(active ? "alle" : p.id)} style={{
@@ -242,7 +259,7 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
         <div>
           <div className="uppercase-label" style={{ marginBottom: 16, color: "var(--text-faint)" }}>Archivierte Projekte</div>
           {archivedProjects.filter(p => mcFilter === "alle" || p.pov === mcFilter).map(p => {
-            const povColor = POVS.find(x => x.id === p.pov)?.color || "var(--accent)";
+            const povColor = allPovs.find(x => x.id === p.pov)?.color || "var(--accent)";
             return (
               <div key={p.id} style={{
                 background: "var(--panel)", border: "1px solid var(--line-soft)",
@@ -302,7 +319,7 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
                     const isActive = activeTaskId === t.id;
                     const elapsed = taskTimes[t.id] ?? t.elapsed ?? 0;
                     const isDone = isDoneTask(t.id, t._pov);
-                    const povColor = POVS.find(x => x.id === t._pov)?.color || "var(--accent)";
+                    const povColor = allPovs.find(x => x.id === t._pov)?.color || "var(--accent)";
                     return (
                       <div key={`${t._pov}_${t.id}_${_fi}`}
                         draggable
@@ -357,7 +374,7 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
 
           {/* MainQuest sections */}
           {displayPovs.map(povId => {
-            const povColor = POVS.find(p => p.id === povId)?.color || "var(--accent)";
+            const povColor = allPovs.find(p => p.id === povId)?.color || "var(--accent)";
             const mqData = getMQData(povId);
             const mqProgress = getMQProgress(povId);
             const isOpen = openMQs.has(povId);
@@ -487,7 +504,8 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
                   {!isEditing && (
                     <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--line-soft)" }}>
                       <button
-                        onClick={() => { setWizardDefaultPov(povId); setShowWizard(true); }}
+                        data-tutorial="new-project-btn"
+                        onClick={() => { setWizardDefaultPov(povId); setShowWizard(true); window.TUTORIAL?.onAction?.('wizard-opened'); }}
                         style={{
                           padding: "9px 20px", background: "transparent",
                           border: "1px solid var(--accent-line)",

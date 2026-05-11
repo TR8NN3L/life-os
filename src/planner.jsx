@@ -206,6 +206,7 @@ function Planner() {
       });
     }
     setShowModal(false);
+    if (!editId) window.TUTORIAL?.onAction?.('block-created');
   };
 
   const deleteBlock = id => {
@@ -558,7 +559,7 @@ function Planner() {
 
           {/* Grid */}
           <div style={{ padding:"8px 12px 24px", position:"relative" }}>
-            <div ref={gridRef} style={{ position:"relative", height:GRID_H, userSelect:"none" }}
+            <div data-tutorial="timeline" ref={gridRef} style={{ position:"relative", height:GRID_H, userSelect:"none" }}
               onMouseMove={e=>{
                 if (dragRef.current) return;
                 const y = getGridY(e.clientY);
@@ -678,7 +679,7 @@ function Planner() {
         </div>
 
         {/* ── Right: Task suggestions ──────────────────────────────────────── */}
-        <div style={{ overflow:"auto", padding:"20px 24px" }}>
+        <div data-tutorial="task-suggestions" style={{ overflow:"auto", padding:"20px 24px" }}>
           {!selBlock ? (
             <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100%", color:"var(--text-faint)", textAlign:"center" }}>
               <div style={{ fontSize:48, marginBottom:14, opacity:0.12 }}>◎</div>
