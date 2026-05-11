@@ -270,7 +270,11 @@ function Planner() {
       const dr = dragRef.current;
       if (!dr) return;
       if (!dr.moved) {
-        setSelBlockId(id => id===dr.blockId ? null : dr.blockId);
+        setSelBlockId(id => {
+          const next = id===dr.blockId ? null : dr.blockId;
+          if (next !== null) window.TUTORIAL?.onAction?.('block-selected');
+          return next;
+        });
       } else {
         const { blockId, liveStartMins, liveEndMins, isRecurring } = dr;
         const newStart = strFromMins(liveStartMins);
@@ -345,7 +349,9 @@ function Planner() {
   const toggleTaskSel = (blockId, taskKey) => {
     setBlockSelections(prev => {
       const cur = new Set(prev[blockId]||[]);
-      cur.has(taskKey) ? cur.delete(taskKey) : cur.add(taskKey);
+      const adding = !cur.has(taskKey);
+      adding ? cur.add(taskKey) : cur.delete(taskKey);
+      if (adding) window.TUTORIAL?.onAction?.('task-assigned');
       return { ...prev, [blockId]:[...cur] };
     });
   };

@@ -191,6 +191,14 @@ const TUT_STEPS = [
     hint: "Name eingeben → Speichern klicken.", position: "right", blockClicks: false,
   },
   {
+    id: "planner-assign", route: "planner", selector: "[data-tutorial='planner-content-area']", type: "do",
+    waitFor: "task-assigned",
+    title: "Tasks dem Block zuweisen",
+    body: "Klick auf den Block den du erstellt hast — rechts erscheinen passende Task-Vorschläge. Hake einen an um ihn dem Block zuzuweisen.",
+    hint: "Block anklicken → rechts Task anhaken.",
+    position: "corner-left", blockClicks: false,
+  },
+  {
     id: "done", route: null, selector: null, type: "celebrate", position: "center", blockClicks: false,
   },
 ];

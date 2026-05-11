@@ -572,7 +572,7 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
                 }}>
               <div style={{
                 display: "grid",
-                gridTemplateColumns: "32px 1fr auto auto auto",
+                gridTemplateColumns: "32px 1fr auto auto auto auto",
                 alignItems: "center",
                 gap: 18, padding: "16px 0",
               }}>
@@ -665,10 +665,10 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
                     opacity: isDone ? 0.3 : 1,
                   }}
                 >{isDone ? "DONE" : isActive ? "PAUSE" : "START →"}</button>
-                {t.custom && (
+                {t.custom ? (
                   <button onClick={() => deleteCustomTask(t.id)} title="Task löschen"
                     style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 14, padding: "0 4px", lineHeight: 1 }}>×</button>
-                )}
+                ) : <span />}
               </div>
               </div>
             );
