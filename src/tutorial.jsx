@@ -21,6 +21,8 @@ function injectTutorialSeedData() {
       ]));
     }
   } catch {}
+  // Notify Dashboard to re-read tasks from LS
+  window.dispatchEvent(new CustomEvent("lifeos-tasks-updated", { detail: { pov: "personal" } }));
 }
 
 function getTutorialPrefill() {
@@ -55,7 +57,15 @@ const TUT_STEPS = [
   {
     id: "pov-section", route: "dashboard", selector: "[data-tutorial='pov-section']", type: "explain",
     title: "Deine Lebensbereiche (POVs)",
-    body: "POVs sind die 4 Säulen deines Lebens — Personal, Professional, Education, Health. Alles in Life OS gehört zu einem Bereich. Klick auf einen POV um den Kontext zu wechseln.",
+    body: () => {
+      try {
+        const povs = JSON.parse(LS.getItem("lifeos_user_povs") || "[]");
+        const names = povs.length > 0
+          ? povs.map(p => p.label).join(", ")
+          : "Personal, Business, Education, Health";
+        return `Deine Bereiche: ${names}. Alles in Life OS gehört zu einem davon. Klick auf einen POV um den Kontext zu wechseln.`;
+      } catch { return "Deine POVs sind die Säulen deines Systems. Klick auf einen um den Kontext zu wechseln."; }
+    },
     position: "right", blockClicks: false,
   },
   {
@@ -284,7 +294,7 @@ function TutCard({ step, idx, total, onNext, onSkip }) {
         </div>
       )}
       <div style={{ fontSize: 15.5, fontWeight: 700, color: "var(--text)", marginBottom: 10, lineHeight: 1.3 }}>{step.title}</div>
-      <div style={{ fontSize: 13, color: "var(--text-dim)", lineHeight: 1.65, marginBottom: step.hint ? 14 : 20 }}>{step.body}</div>
+      <div style={{ fontSize: 13, color: "var(--text-dim)", lineHeight: 1.65, marginBottom: step.hint ? 14 : 20 }}>{typeof step.body === "function" ? step.body() : step.body}</div>
       {step.hint && (
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8, background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.2)", borderRadius: 8, padding: "10px 12px", marginBottom: 20 }}>
           <span style={{ fontSize: 14, marginTop: 1 }}>👆</span>

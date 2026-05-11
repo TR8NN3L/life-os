@@ -80,6 +80,15 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
   React.useEffect(() => {
     try { setCustomTasks(JSON.parse(LS.getItem(`lifeos_tasks_${pov}`) || "[]")); } catch { setCustomTasks([]); }
   }, [pov]);
+  React.useEffect(() => {
+    const handler = (e) => {
+      if (!e.detail?.pov || e.detail.pov === pov) {
+        try { setCustomTasks(JSON.parse(LS.getItem(`lifeos_tasks_${pov}`) || "[]")); } catch {}
+      }
+    };
+    window.addEventListener("lifeos-tasks-updated", handler);
+    return () => window.removeEventListener("lifeos-tasks-updated", handler);
+  }, [pov]);
 
   // Tasks from wizard-generated custom projects for this POV
   const loadProjTasks = (povId) => {
