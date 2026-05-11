@@ -83,7 +83,7 @@ const TUT_STEPS = [
   {
     id: "task-overview", route: "dashboard", forcePov: "personal",
     selector: null,
-    spotlightSelector: "[data-tutorial='task-content']",
+    spotlightSelector: "[data-tutorial='tutorial-task-row']",
     positionSelector: "[data-tutorial='task-content']",
     type: "explain",
     title: "Heutige Tasks",
@@ -91,7 +91,11 @@ const TUT_STEPS = [
     position: "right", blockClicks: false,
   },
   {
-    id: "task-list", route: "dashboard", forcePov: "personal", selector: "[data-tutorial='task-start-btn']", type: "explain",
+    id: "task-list", route: "dashboard", forcePov: "personal",
+    selector: null,
+    spotlightSelector: "[data-tutorial='task-start-btn']",
+    positionSelector: "[data-tutorial='task-start-btn']",
+    type: "explain",
     title: "Timer starten",
     body: "Klick auf 'START →' wenn du bereit bist — der Timer startet sofort und der Fokusmodus öffnet sich.",
     position: "bottom", blockClicks: false,
@@ -105,16 +109,10 @@ const TUT_STEPS = [
     position: "bottom", blockClicks: true,
   },
   {
-    id: "focus-intro", route: "focus", selector: null, type: "explain",
-    title: "Fokusmodus — Reality Tracker aktiv",
-    body: "Schwarz, still, eine Aufgabe. Der Timer läuft bereits. So sammelst du echte Daten über deine Arbeitszeit — diese fließen direkt in deine Insights ein. Wenn du fertig bist: PAUSE drücken.",
-    position: "corner", noSpotlight: true, blockClicks: false,
-  },
-  {
     id: "focus-pause", route: "focus", selector: "[data-tutorial='focus-start-btn']", type: "do",
     waitFor: "timer-paused",
-    title: "Timer pausieren",
-    body: "Drück den PAUSE-Button um die Session zu stoppen.",
+    title: "Fokusmodus — Reality Tracker aktiv",
+    body: "Schwarz, still, eine Aufgabe. Der Timer läuft bereits — so sammelst du echte Daten über deine Arbeitszeit, die direkt in deine Insights einfließen. Drück PAUSE wenn du fertig bist.",
     hint: "Großen PAUSE-Button drücken.",
     position: "corner", blockClicks: true,
   },
@@ -130,6 +128,7 @@ const TUT_STEPS = [
     id: "check-task", route: "dashboard", forcePov: "personal",
     selector: "[data-tutorial='tutorial-task-checkbox']",
     spotlightSelector: "[data-tutorial='task-content']",
+    spotlightExtraLeft: 50,
     positionSelector: "[data-tutorial='task-content']",
     type: "do",
     waitFor: "task-checked-tutorial_task_1",
@@ -248,7 +247,7 @@ const TUT_STEPS = [
 ];
 
 // ─── Spotlight ────────────────────────────────────────────────────────────────
-function TutSpotlight({ selector }) {
+function TutSpotlight({ selector, extraLeft = 0 }) {
   const [rect, setRect] = React.useState(null);
   React.useEffect(() => {
     if (!selector) { setRect(null); return; }
@@ -274,8 +273,8 @@ function TutSpotlight({ selector }) {
   return (
     <div style={{
       position: "fixed",
-      left: rect.left - PAD, top: rect.top - PAD,
-      width: rect.width + PAD * 2, height: rect.height + PAD * 2,
+      left: rect.left - PAD - extraLeft, top: rect.top - PAD,
+      width: rect.width + PAD * 2 + extraLeft, height: rect.height + PAD * 2,
       boxShadow: "0 0 0 9999px rgba(0,0,0,0.82)",
       borderRadius: 10,
       border: "2px solid rgba(139,92,246,0.6)",
@@ -473,7 +472,7 @@ function TutorialManager({ onDone, setRoute, setPov }) {
 
   return (
     <>
-      {!step.noSpotlight && <TutSpotlight selector={step.spotlightSelector || step.selector} />}
+      {!step.noSpotlight && <TutSpotlight selector={step.spotlightSelector || step.selector} extraLeft={step.spotlightExtraLeft || 0} />}
       <TutCard step={step} idx={idx} total={TUT_STEPS.length} onNext={advance} onSkip={onDone} />
     </>
   );
