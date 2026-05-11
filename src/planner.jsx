@@ -781,9 +781,9 @@ function Planner() {
                   povGroups[pov]._srcs[src]._objs[obj]._krs[kr].push(t);
                 });
 
-                const TaskRow = ({t, i}) => {
-                  const taskKey = `${t.id}_${t._pov}`;
-                  const isSel   = isTaskSel(selBlock.id, taskKey);
+                const renderTaskRow = (t, i) => {
+                  const taskKey  = `${t.id}_${t._pov}`;
+                  const isSel    = isTaskSel(selBlock.id, taskKey);
                   const povColor = allPovs.find(p=>p.id===(t._pov||t.pov))?.color||"var(--accent)";
                   const flow = (t.flow||"QUICK").toUpperCase();
                   const est  = t.est||30;
@@ -850,7 +850,7 @@ function Planner() {
                                           <span style={{ opacity:0.5 }}>→</span> {krKey}
                                         </div>
                                       )}
-                                      {_krs[krKey].map((t,i) => <TaskRow key={`${t.id}_${i}`} t={t} i={i} />)}
+                                      {_krs[krKey].map((t,i) => renderTaskRow(t, i))}
                                     </div>
                                   ))}
                                 </div>
