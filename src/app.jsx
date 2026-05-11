@@ -431,6 +431,7 @@ function App() {
       {/* Tutorial overlay */}
       {tutorialActive && window.TutorialManager && React.createElement(window.TutorialManager, {
         setRoute,
+        setPov,
         onDone: () => {
           setTutorialActive(false);
           LS.setItem("lifeos_tutorial_done", "1");

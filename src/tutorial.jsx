@@ -59,10 +59,8 @@ const TUT_STEPS = [
     title: "Deine Lebensbereiche (POVs)",
     body: () => {
       try {
-        const povs = JSON.parse(LS.getItem("lifeos_user_povs") || "[]");
-        const names = povs.length > 0
-          ? povs.map(p => p.label).join(", ")
-          : "Personal, Business, Education, Health";
+        const extra = JSON.parse(LS.getItem("lifeos_user_povs") || "[]");
+        const names = ["Personal", ...extra.map(p => p.label)].join(", ");
         return `Deine Bereiche: ${names}. Alles in Life OS gehört zu einem davon. Klick auf einen POV um den Kontext zu wechseln.`;
       } catch { return "Deine POVs sind die Säulen deines Systems. Klick auf einen um den Kontext zu wechseln."; }
     },
@@ -75,13 +73,13 @@ const TUT_STEPS = [
     position: "right", blockClicks: false,
   },
   {
-    id: "task-list", route: "dashboard", selector: "[data-tutorial='task-list']", type: "explain",
+    id: "task-list", route: "dashboard", forcePov: "personal", selector: "[data-tutorial='task-list']", type: "explain",
     title: "Heutige Tasks",
     body: "Hier siehst du was heute ansteht. Tasks aus all deinen Projekten, nach POV geordnet. Eine spezielle Aufgabe wartet schon auf dich.",
     position: "right", blockClicks: false,
   },
   {
-    id: "check-task", route: "dashboard", selector: "[data-tutorial='tutorial-task-checkbox']", type: "do",
+    id: "check-task", route: "dashboard", forcePov: "personal", selector: "[data-tutorial='tutorial-task-checkbox']", type: "do",
     waitFor: "task-checked-tutorial_task_1",
     title: "Life OS installieren – Task erledigt!",
     body: "Das bist du — du hast es gerade getan. Hak die Aufgabe ab. Dein erster echter Fortschritt.",
@@ -321,7 +319,7 @@ function TutCard({ step, idx, total, onNext, onSkip }) {
 }
 
 // ─── Tutorial Manager ─────────────────────────────────────────────────────────
-function TutorialManager({ onDone, setRoute }) {
+function TutorialManager({ onDone, setRoute, setPov }) {
   const [idx, setIdx] = React.useState(0);
   const step = TUT_STEPS[idx];
 
@@ -348,9 +346,10 @@ function TutorialManager({ onDone, setRoute }) {
     return () => { if (window.TUTORIAL) window.TUTORIAL.active = false; };
   }, []); // register once; onAction uses setIdx functional form so it doesn't need idx
 
-  // Force route when step changes
+  // Force route + pov when step changes
   React.useEffect(() => {
     if (step && step.route && setRoute) setRoute(step.route);
+    if (step && step.forcePov && setPov) setPov(step.forcePov);
   }, [step && step.id]);
 
   // Click blocking for "do" steps that require it
