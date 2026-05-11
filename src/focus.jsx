@@ -99,6 +99,7 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
             const willRun = !isRunning;
             setActiveTaskId(isRunning ? null : task.id);
             if (willRun) window.TUTORIAL?.onAction?.('timer-started');
+            else window.TUTORIAL?.onAction?.('timer-paused');
           }}
           style={{
             width: 168, height: 168, borderRadius: "50%",
