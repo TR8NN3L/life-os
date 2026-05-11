@@ -333,69 +333,144 @@ function App() {
   }, [activeTaskId]);
 
   // ── Push Notifications ──────────────────────────────────────────────────────
-  // Runs every 60s: checks planner block starts + timer running too long
-  const pushedBlocks = React.useRef(new Set()); // dedup: don't push same block twice
-  const pushedTimerReminder = React.useRef(false);
+  // Runs every 60s — block lifecycle + timer checks
+  const pushedBlocks   = React.useRef(new Set()); // dedup per event type per block per day
+  const pushedTimerReminder  = React.useRef(false);
+  const pushedEstExceeded    = React.useRef(false);
+  const blockInactiveStart   = React.useRef(null); // timestamp when active block detected without timer
+
   React.useEffect(() => {
     if (!window.Push?.isConfigured()) return;
 
-    const check = () => {
-      const now = new Date();
-      const nowMins = now.getHours() * 60 + now.getMinutes();
-      const todayISO = now.toISOString().slice(0, 10);
+    // Helper: parse "HH:MM" → total minutes
+    const toMins = (str) => { if (!str) return -1; const [h, m] = str.split(":").map(Number); return h * 60 + m; };
 
-      // ── Planner block start ──
+    // Helper: collect all today's blocks (one-off + recurring)
+    const getTodayBlocks = (now) => {
+      const todayDow = now.getDay();
+      const todayISO = now.toISOString().slice(0, 10);
+      const result = [];
       try {
         const allBlocks = JSON.parse(LS.getItem("lifeos_timeblocks_v2") || "{}");
-        // Find today's weekKey — iterate all weeks to find today
         for (const [, dayBlocks] of Object.entries(allBlocks)) {
           if (typeof dayBlocks !== "object") continue;
           for (const [dayIdx, blocks] of Object.entries(dayBlocks)) {
-            if (!Array.isArray(blocks)) continue;
-            for (const block of blocks) {
-              if (!block.start) continue;
-              const [h, m] = block.start.split(":").map(Number);
-              const blockMins = h * 60 + m;
-              const key = `${todayISO}_${block.id || block.start}_${dayIdx}`;
-              // Fire if block starts within the current minute and same day-of-week
-              const todayDow = now.getDay(); // 0=Sun
-              const blockDow = parseInt(dayIdx, 10);
-              if (blockDow === todayDow && Math.abs(blockMins - nowMins) <= 1 && !pushedBlocks.current.has(key)) {
-                pushedBlocks.current.add(key);
-                window.Push.blockStart(block.label || block.title || "Block");
-              }
+            if (!Array.isArray(blocks) || parseInt(dayIdx, 10) !== todayDow) continue;
+            for (const b of blocks) {
+              if (b.start && b.end) result.push({ ...b, _key: `${todayISO}_${b.id || b.start}_${dayIdx}` });
             }
           }
         }
-        // Also check recurring blocks
+      } catch {}
+      try {
         const recurring = JSON.parse(LS.getItem("lifeos_recurring_blocks") || "[]");
-        for (const block of recurring) {
-          if (!block.start || !Array.isArray(block.days)) continue;
-          const todayDow = now.getDay();
-          if (!block.days.includes(todayDow)) continue;
-          const [h, m] = block.start.split(":").map(Number);
-          const blockMins = h * 60 + m;
-          const key = `recurring_${todayISO}_${block.id || block.start}`;
-          if (Math.abs(blockMins - nowMins) <= 1 && !pushedBlocks.current.has(key)) {
-            pushedBlocks.current.add(key);
-            window.Push.blockStart(block.label || block.title || "Block");
-          }
+        for (const b of recurring) {
+          if (!b.start || !b.end || !Array.isArray(b.days) || !b.days.includes(todayDow)) continue;
+          result.push({ ...b, _key: `rec_${todayISO}_${b.id || b.start}` });
         }
       } catch {}
+      return result;
+    };
 
-      // ── Timer running > 2h without break ──
+    const check = () => {
+      const now    = new Date();
+      const nowMins = now.getHours() * 60 + now.getMinutes();
+
+      const blocks = getTodayBlocks(now);
+      let currentBlock = null; // block running right now
+
+      for (const block of blocks) {
+        const name      = block.label || block.name || block.title || "Block";
+        const startMins = toMins(block.start);
+        const endMins   = toMins(block.end);
+        if (startMins < 0 || endMins < 0) continue;
+
+        const diffToStart = startMins - nowMins; // positive = future
+        const diffToEnd   = endMins   - nowMins;
+
+        // ── 30 min vor Start ──
+        const prepKey = `prep_${block._key}`;
+        if (diffToStart === 30 && !pushedBlocks.current.has(prepKey)) {
+          pushedBlocks.current.add(prepKey);
+          window.Push.blockPrepare(name);
+        }
+
+        // ── Start (±1 min) ──
+        const startKey = `start_${block._key}`;
+        if (Math.abs(diffToStart) <= 1 && !pushedBlocks.current.has(startKey)) {
+          pushedBlocks.current.add(startKey);
+          window.Push.blockStart(name);
+        }
+
+        // ── 15 min vor Ende ──
+        const endingSoonKey = `endingsoon_${block._key}`;
+        if (diffToEnd === 15 && !pushedBlocks.current.has(endingSoonKey)) {
+          pushedBlocks.current.add(endingSoonKey);
+          window.Push.blockEndingSoon(name, 15);
+        }
+
+        // ── Ende (±1 min) ──
+        const endKey = `end_${block._key}`;
+        if (Math.abs(diffToEnd) <= 1 && !pushedBlocks.current.has(endKey)) {
+          pushedBlocks.current.add(endKey);
+          window.Push.blockEnded(name);
+        }
+
+        // Track current running block (for inactive check)
+        if (nowMins >= startMins && nowMins < endMins) currentBlock = block;
+      }
+
+      // ── Kein Timer aktiv nach 10 Min in laufendem Block ──
+      if (currentBlock && !activeTaskId) {
+        if (!blockInactiveStart.current) {
+          blockInactiveStart.current = Date.now();
+        } else {
+          const idleMs = Date.now() - blockInactiveStart.current;
+          const inactiveKey = `inactive_${currentBlock._key}`;
+          if (idleMs >= 10 * 60 * 1000 && !pushedBlocks.current.has(inactiveKey)) {
+            pushedBlocks.current.add(inactiveKey);
+            window.Push.inactiveReminder(currentBlock.label || currentBlock.name || currentBlock.title);
+          }
+        }
+      } else {
+        blockInactiveStart.current = null; // reset when timer active or no block
+      }
+
+      // ── Timer > 2h am Stück ──
       if (activeTaskId) {
-        const elapsed = taskTimes[activeTaskId] ?? 0;
-        const minutes = Math.floor(elapsed / 60);
+        const elapsed  = taskTimes[activeTaskId] ?? 0;
+        const minutes  = Math.floor(elapsed / 60);
         if (minutes > 0 && minutes % 120 === 0 && !pushedTimerReminder.current) {
           pushedTimerReminder.current = true;
-          setTimeout(() => { pushedTimerReminder.current = false; }, 65000); // reset after 65s
+          setTimeout(() => { pushedTimerReminder.current = false; }, 65000);
           window.Push.timerReminder(activeTaskId, minutes);
         }
+
+        // ── Zeitschätzung überschritten ──
+        // Tasks in POV_DATA have est in minutes; check taskTimes vs est
+        try {
+          let estMins = null;
+          for (const povKey of Object.keys(POV_DATA)) {
+            const tasks = [...(POV_DATA[povKey].tasksToday || [])];
+            let custom = [];
+            try { custom = JSON.parse(LS.getItem(`lifeos_tasks_${povKey}`) || "[]"); } catch {}
+            const all = [...tasks, ...custom];
+            const t = all.find(t => t.id === activeTaskId);
+            if (t?.est) { estMins = typeof t.est === "number" ? t.est : parseFloat(t.est) * 60; break; }
+          }
+          if (estMins && minutes > estMins && !pushedEstExceeded.current) {
+            pushedEstExceeded.current = true;
+            const over = Math.round(minutes - estMins);
+            window.Push.taskEstExceeded(activeTaskId, over);
+          }
+          if (!activeTaskId) pushedEstExceeded.current = false;
+        } catch {}
+      } else {
+        pushedEstExceeded.current = false;
       }
     };
 
-    check(); // run immediately on mount
+    check();
     const iv = setInterval(check, 60_000);
     return () => clearInterval(iv);
   }, [activeTaskId, taskTimes]);

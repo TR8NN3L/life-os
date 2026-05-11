@@ -93,6 +93,38 @@ window.Push = {
     });
   },
 
+  blockPrepare(blockName) {
+    return this.send({
+      title: "📋 Block in 30 Min",
+      message: `"${blockName || "Dein Block"}" startet bald — kurz vorbereiten!`,
+      tag: "block-prepare",
+    });
+  },
+
+  blockEndingSoon(blockName, minutesLeft) {
+    return this.send({
+      title: "⏳ Block endet in 15 Min",
+      message: `"${blockName || "Dein Block"}" — Wrap-up starten, Timer stoppen.`,
+      tag: "block-ending-soon",
+    });
+  },
+
+  blockEnded(blockName) {
+    return this.send({
+      title: "✅ Block beendet",
+      message: `"${blockName || "Dein Block"}" ist vorbei. Timer stoppen & kurz reflektieren.`,
+      tag: "block-ended",
+    });
+  },
+
+  taskEstExceeded(taskName, minutesOver) {
+    return this.send({
+      title: "⚠️ Zeitschätzung überschritten",
+      message: `"${taskName}" läuft ${minutesOver} Min über der Schätzung — weitermachen oder pausieren?`,
+      tag: "task-est-exceeded",
+    });
+  },
+
   // ── Storage ─────────────────────────────────────────────────────────────────
   _save(sub) {
     try { localStorage.setItem("lifeos_push_sub", JSON.stringify(sub.toJSON ? sub.toJSON() : sub)); } catch {}
