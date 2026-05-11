@@ -95,6 +95,12 @@ const TUT_STEPS = [
     position: "bottom", blockClicks: true,
   },
   {
+    id: "task-timer", route: "dashboard", forcePov: "personal", selector: "[data-tutorial='tutorial-task-row']", type: "explain",
+    title: "Timer & Fokusmodus",
+    body: "Jede Task hat einen eingebauten Timer. Klick auf 'START →' um in den Fokusmodus zu wechseln — volle Konzentration auf eine Sache, mit Live-Stoppuhr. Die gelebten Stunden fließen direkt in deine Insights ein.",
+    position: "bottom", blockClicks: false,
+  },
+  {
     id: "nav-mc", route: "dashboard", selector: "[data-tutorial='nav-missioncontrol']", type: "do",
     waitFor: "route-missioncontrol",
     title: "Mission Control öffnen",
