@@ -312,31 +312,52 @@ function Planner() {
   const getSuggestions = block => {
     if (!block) return [];
     const allTasks = [];
+    const seenIds  = new Set(); // deduplicate
     let customProjs = [];
     try { customProjs = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]"); } catch {}
+
+    // ── POV daily tasks: hardcoded POV_DATA + custom tasks from LS ──
     for (const { id:povId } of allPovs) {
-      if (block.bucket!=="alle" && block.bucket!==povId) continue;
-      (POV_DATA[povId]?.tasksToday||[]).forEach(t => allTasks.push({...t,_pov:povId,_source:"daily"}));
+      if (block.bucket !== "alle" && block.bucket !== povId) continue;
+      (POV_DATA[povId]?.tasksToday || []).forEach(t => {
+        if (!seenIds.has(t.id)) { seenIds.add(t.id); allTasks.push({ ...t, _pov: povId, _source: "daily" }); }
+      });
+      // Custom tasks added via Dashboard (main source for most users)
+      try {
+        JSON.parse(LS.getItem(`lifeos_tasks_${povId}`) || "[]").forEach(t => {
+          if (!seenIds.has(t.id)) { seenIds.add(t.id); allTasks.push({ ...t, _pov: povId, _source: "daily" }); }
+        });
+      } catch {}
     }
+
+    // ── Project KR tasks: saved in project + custom KR tasks from LS ──
     for (const proj of [...PROJECTS, ...customProjs]) {
-      if (block.bucket!=="alle" && block.bucket!==proj.pov) continue;
-      (proj.objectives||[]).forEach((obj, oi) => {
-        (obj.krs||[]).filter(k=>k.status!=="locked").forEach(kr => {
-          (kr.tasks||[]).forEach(t => allTasks.push({
-            ...t,
-            _pov: proj.pov,
-            _source: proj.title,
-            _objective: obj.title,
-            _objIdx: oi,
-            _kr: kr.label,
-          }));
+      if (block.bucket !== "alle" && block.bucket !== proj.pov) continue;
+      let customKRTasks = {};
+      try { customKRTasks = JSON.parse(LS.getItem(`lifeos_proj_tasks_${proj.id}`) || "{}"); } catch {}
+      (proj.objectives || []).forEach((obj, oi) => {
+        (obj.krs || []).filter(k => k.status !== "locked").forEach(kr => {
+          const krTasks = [...(kr.tasks || []), ...(customKRTasks[kr.id] || [])];
+          krTasks.forEach(t => {
+            if (!seenIds.has(t.id)) {
+              seenIds.add(t.id);
+              allTasks.push({ ...t, _pov: proj.pov, _source: proj.title, _objective: obj.title, _objIdx: oi, _kr: kr.label });
+            }
+          });
         });
       });
     }
+
+    // ── Filter by block type (permissiv: tasks ohne flow/est erscheinen überall) ──
     return allTasks.filter(t => {
-      const est=t.est||30, flow=(t.flow||"QUICK").toUpperCase();
-      if (block.type==="deep-work") return flow==="FLOW"||est>=60;
-      if (block.type==="basic")     return flow==="QUICK"||flow==="EASY"||est<=30;
+      const hasFlow = t.flow && t.flow.trim();
+      const hasEst  = t.est != null;
+      const flow    = hasFlow ? t.flow.toUpperCase() : null;
+      const est     = hasEst  ? Number(t.est) : null;
+      if (block.type === "flex") return true; // FLEX: alles anzeigen
+      if (!hasFlow && !hasEst)  return true;  // keine Metadaten → überall anzeigen
+      if (block.type === "deep-work") return flow === "FLOW" || (est != null && est >= 60) || (!hasFlow && est == null);
+      if (block.type === "basic")     return flow === "QUICK" || flow === "EASY" || (est != null && est <= 30) || (!hasEst && flow == null);
       return true;
     });
   };
