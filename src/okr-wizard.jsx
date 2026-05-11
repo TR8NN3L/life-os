@@ -74,9 +74,10 @@ function OKRWizard({ onClose, onSave, defaultPov, customProjects, initialDraft }
   const allPovs = React.useMemo(() => {
     try {
       const custom = JSON.parse(LS.getItem("lifeos_user_povs") || "[]");
-      const seenIds = new Set((POVS || []).map(p => p.id));
-      return [...(POVS || []), ...custom.filter(p => !seenIds.has(p.id))];
-    } catch { return POVS || []; }
+      // Only show Personal + user's own custom POVs — not all hardcoded defaults
+      const personal = POVS.find(p => p.id === "personal") || { id: "personal", label: "Personal", color: "var(--personal)" };
+      return [personal, ...custom];
+    } catch { return [POVS[0]]; }
   }, []);
 
   const [step, setStep] = React.useState(initialDraft ? 1 : 0);

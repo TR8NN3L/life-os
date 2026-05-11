@@ -33,19 +33,21 @@ function injectTutorialSeedData() {
 
 function getTutorialPrefill() {
   const name = (LS.getItem("lifeos_user_name") || "Mein").split(" ")[0];
+  const userPovs = (() => { try { return JSON.parse(LS.getItem("lifeos_user_povs") || "[]"); } catch { return []; } })();
+  const firstPov = userPovs[0] || { id: "personal", label: "Personal" };
   return {
     mode: "new",
-    pov: "personal",
-    projectName: `${name}s erster Plan`,
-    bigGoal: "In meinem wichtigsten Lebensbereich durchstarten und echte Klarheit gewinnen",
-    why1: "Weil ich konkreten Fortschritt sehen und meinen Alltag strukturieren will",
-    why2: "Damit ich langfristig das Leben führe, das ich mir vorstelle",
+    pov: firstPov.id,
+    projectName: `${name}s erstes Life OS Projekt`,
+    bigGoal: `Mein System in Life OS vollständig aufsetzen: Main Quest definieren, meinen wichtigsten Lebensbereich "${firstPov.label}" konkret strukturieren und Life OS täglich als Command-Center nutzen`,
+    why1: "Weil ich kein leeres System will — sondern eines das ab Tag 1 meine echten Ziele und meinen Alltag abbildet",
+    why2: "Damit ich jeden Morgen ohne Nachdenken weiß was als nächstes zu tun ist und wirklich vorwärtskomme",
     motivationTypes: ["learning", "freedom"],
     deadlineWeeks: 6,
     hoursPerWeek: 5,
-    successDefinition: "Ich habe klare Wochenziele, weiß jeden Morgen genau was als nächstes zu tun ist und mache messbar Fortschritte",
+    successDefinition: `Ich habe meinen Main Quest für "${firstPov.label}" definiert, mindestens ein echtes Projekt mit OKRs angelegt und nutze Life OS täglich für Planung und Tracking`,
     obstacles: ["discipline", "unclear"],
-    implementationIntention: "Wenn ich morgens aufstehe, öffne ich als erstes Life OS und plane meinen Tag.",
+    implementationIntention: "Wenn ich morgens aufstehe, öffne ich als erstes Life OS, schaue meinen Main Quest an und plane meinen Tag.",
     complexity: "simple",
     generateTodos: true,
     generateSubtasks: false,
@@ -100,10 +102,10 @@ const TUT_STEPS = [
     hint: "Klick auf 'Mission Control' in der Sidebar.", position: "right", blockClicks: true,
   },
   {
-    id: "mc-overview", route: "missioncontrol", selector: "[data-tutorial='main-quest-edit']", type: "explain",
+    id: "mc-overview", route: "missioncontrol", selector: "[data-tutorial='mc-main-quest-section']", type: "explain",
     title: "Das Mission Control Board",
-    body: "Jeder Bereich zeigt seinen Main Quest und darunter Projekte mit OKRs. Du kannst Hauptziele direkt hier bearbeiten — klick auf das Stift-Symbol neben dem Ziel.",
-    position: "left", blockClicks: false,
+    body: "Jeder Bereich zeigt seinen Main Quest und darunter Projekte mit OKRs. Du kannst dein Hauptziel direkt hier bearbeiten — klick auf das Stift-Symbol neben dem Prozentwert.",
+    position: "bottom", blockClicks: false,
   },
   {
     id: "setup-api", route: "missioncontrol", selector: "[data-tutorial='settings-area']", type: "do",

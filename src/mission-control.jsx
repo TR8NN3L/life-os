@@ -386,7 +386,7 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
               <div key={povId} style={{ marginBottom: 36 }}>
 
                 {/* ── MainQuest Banner ── */}
-                <div style={{
+                <div data-tutorial="mc-main-quest-section" style={{
                   background: "var(--panel)",
                   border: "1px solid var(--line-soft)",
                   borderTop: `3px solid ${povColor}`,
