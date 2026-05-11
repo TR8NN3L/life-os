@@ -215,10 +215,10 @@ function Insights({ taskTimes, pov }) {
 
       {/* ── Hero Stats ─────────────────────────────────────────── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 32 }}>
-        <StatCard label="TOTAL TRACKED" value={secToH(totalTrackedSec)} color="#60a5fa" sub="über alle Tasks" />
-        <StatCard label="IGNORANCE DEBT" value={`−${debt.toFixed(1)}h`} color="var(--danger)" sub="diese Woche" />
-        <StatCard label="SIDE QUEST DRIFT" value={`${sideQuestPct}%`} color="var(--warn)" sub={`${sideQuestCount} Tasks ohne KR`} />
-        <StatCard label="TASKS ERLEDIGT" value={`${allTasks.filter(t => t.done).length} / ${allTasks.length}`} color="var(--good)" sub="gesamt" />
+        <StatCard label="TOTAL TRACKED" value={secToH(totalTrackedSec)} color="var(--accent)" sub="über alle Tasks" />
+        <StatCard label="IGNORANCE DEBT" value={`−${debt.toFixed(1)}h`} color="var(--accent)" sub="diese Woche" />
+        <StatCard label="SIDE QUEST DRIFT" value={`${sideQuestPct}%`} color="var(--accent)" sub={`${sideQuestCount} Tasks ohne KR`} />
+        <StatCard label="TASKS ERLEDIGT" value={`${allTasks.filter(t => t.done).length} / ${allTasks.length}`} color="var(--accent)" sub="gesamt" />
       </div>
 
       {/* ── Efficiency Score (Gauge) ───────────────────────────── */}
