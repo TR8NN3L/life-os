@@ -313,6 +313,7 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs }) {
             <button
               onClick={() => setSettingsOpen(o => !o)}
               title="Einstellungen"
+              data-tutorial="settings-btn"
               style={{
                 background: "none", border: "none", color: settingsOpen ? "var(--accent)" : "var(--text-faint)",
                 fontSize: 16, cursor: "pointer", padding: "4px", lineHeight: 1,

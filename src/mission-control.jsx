@@ -470,6 +470,7 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
                         <button
                           onClick={() => { setMqDraft({ title: mqData.title, period: mqData.period }); setEditingMQ(povId); }}
                           title="Bearbeiten"
+                          data-tutorial="main-quest-edit"
                           style={{
                             background: "none", border: "1px solid var(--line)", color: "var(--text-faint)",
                             width: 32, height: 32, cursor: "pointer", fontSize: 14, display: "flex",

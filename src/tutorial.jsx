@@ -35,7 +35,7 @@ function getTutorialPrefill() {
     why1: "Weil ich konkreten Fortschritt sehen und meinen Alltag strukturieren will",
     why2: "Damit ich langfristig das Leben führe, das ich mir vorstelle",
     motivationTypes: ["learning", "freedom"],
-    deadlineWeeks: 8,
+    deadlineWeeks: 6,
     hoursPerWeek: 5,
     successDefinition: "Ich habe klare Wochenziele, weiß jeden Morgen genau was als nächstes zu tun ist und mache messbar Fortschritte",
     obstacles: ["discipline", "unclear"],
@@ -94,10 +94,21 @@ const TUT_STEPS = [
     hint: "Klick auf 'Mission Control' in der Sidebar.", position: "right", blockClicks: true,
   },
   {
-    id: "mc-overview", route: "missioncontrol", selector: null, type: "explain",
+    id: "mc-overview", route: "missioncontrol", selector: "[data-tutorial='main-quest-edit']", type: "explain",
     title: "Das Mission Control Board",
     body: "Jeder Bereich zeigt seinen Main Quest und darunter Projekte mit OKRs. Du kannst Hauptziele direkt hier bearbeiten — klick auf das Stift-Symbol neben dem Ziel.",
-    position: "center", blockClicks: false,
+    position: "left", blockClicks: false,
+  },
+  {
+    id: "setup-api", route: "missioncontrol", selector: "[data-tutorial='settings-btn']", type: "explain",
+    title: "API Key einrichten",
+    body: () => {
+      const hasKey = !!(localStorage.getItem("lifeos_openai_key") || "").trim();
+      return hasKey
+        ? "✓ API Key gefunden — du bist bereit. Klick auf Weiter."
+        : "Für den OKR Wizard brauchst du einen Anthropic API Key. Klick auf das ⚙-Symbol unten links in der Sidebar → füge deinen Key ein → klick dann hier auf Weiter.";
+    },
+    nextLabel: "Weiter →", position: "right", blockClicks: false,
   },
   {
     id: "new-project", route: "missioncontrol", selector: "[data-tutorial='new-project-btn']", type: "do",
