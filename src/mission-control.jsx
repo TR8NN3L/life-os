@@ -196,7 +196,7 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
   const displayPovs = mcFilter === "alle" ? allPovs.map(p => p.id) : [mcFilter];
 
   return (
-    <div style={{ flex: 1, overflow: "auto", padding: "20px 28px" }}>
+    <div data-tutorial="mc-content-area" style={{ flex: 1, overflow: "auto", padding: "20px 28px" }}>
       {showNewModal && (
         <NewProjectModal
           defaultPov={newModalPov}

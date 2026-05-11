@@ -102,7 +102,7 @@ const TUT_STEPS = [
     hint: "Klick auf 'Mission Control' in der Sidebar.", position: "right", blockClicks: true,
   },
   {
-    id: "mc-page-intro", route: "missioncontrol", selector: null, type: "explain",
+    id: "mc-page-intro", route: "missioncontrol", selector: "[data-tutorial='mc-content-area']", type: "explain",
     title: "Mission Control — Überblick",
     body: "Das ist dein strategisches Cockpit. Jeder Lebensbereich hat einen Main Quest (dein großes Ziel) und darunter OKR-Projekte mit konkreten Key Results. Schau dir kurz an wie alles strukturiert ist.",
     position: "center", blockClicks: false,
@@ -160,7 +160,7 @@ const TUT_STEPS = [
     waitFor: "habit-checked-tutorial_habit_1",
     title: "Erster Behavior Check-in",
     body: "Hak 'Täglicher System-Check' für heute ab. Streak Tag 1 startet jetzt.",
-    hint: "Klick auf die heutige Checkbox im Tracker.", position: "right", blockClicks: true,
+    hint: "Klick auf die heutige Checkbox im Tracker.", position: "corner-left", blockClicks: true,
   },
   {
     id: "nav-planner", route: "insights", selector: "[data-tutorial='nav-planner']", type: "do",
