@@ -483,7 +483,15 @@ function BehaviorTracker() {
   const saveHabits = (arr) => {
     setHabits(arr);
     try { LS.setItem("lifeos_habits", JSON.stringify(arr)); } catch {}
+    window.dispatchEvent(new CustomEvent("lifeos-habits-updated"));
   };
+  React.useEffect(() => {
+    const sync = () => {
+      try { setHabits(JSON.parse(LS.getItem("lifeos_habits") || "[]")); } catch {}
+    };
+    window.addEventListener("lifeos-habits-updated", sync);
+    return () => window.removeEventListener("lifeos-habits-updated", sync);
+  }, []);
   const [adding, setAdding] = React.useState(false);
   const [newName, setNewName] = React.useState("");
 

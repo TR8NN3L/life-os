@@ -132,6 +132,18 @@ const TUT_STEPS = [
     position: "right", blockClicks: true,
   },
   {
+    id: "check-behavior", route: "dashboard", forcePov: "personal",
+    selector: "[data-tutorial='tutorial-habit-checkbox']",
+    spotlightSelector: "[data-tutorial='behavior-strip']",
+    positionSelector: "[data-tutorial='behavior-strip']",
+    type: "do",
+    waitFor: "habit-checked-tutorial_habit_1",
+    title: "Täglicher Behavior Check-in",
+    body: "Unten siehst du den Behavior Strip — dein täglicher Check-in. Hak 'Täglicher System-Check' für heute ab. Streak Tag 1 startet jetzt.",
+    hint: "Klick auf die Checkbox neben der Gewohnheit.",
+    position: "top", blockClicks: true,
+  },
+  {
     id: "nav-mc", route: "dashboard", selector: "[data-tutorial='nav-missioncontrol']", type: "do",
     waitFor: "route-missioncontrol",
     title: "Mission Control öffnen",
@@ -152,22 +164,22 @@ const TUT_STEPS = [
   },
   {
     id: "setup-api", route: "missioncontrol", selector: "[data-tutorial='settings-area']", type: "do",
-    waitFor: "api-key-set",
-    title: "API Key einrichten",
-    body: "Der OKR Wizard braucht deinen Anthropic API Key. Klick unten links auf ⚙ — dann füge deinen Key (sk-ant-...) in das Feld ein.",
+    waitFor: "api-key-set", skippable: true,
+    title: "API Key einrichten (optional)",
+    body: "Der OKR Wizard braucht deinen Anthropic API Key. Klick unten links auf ⚙ — dann füge deinen Key (sk-ant-...) ein. Du kannst diesen Schritt auch jetzt überspringen und den Key später in den Einstellungen eintragen.",
     hint: "⚙ Einstellungen öffnen → Anthropic API Key eingeben.",
     position: "right", blockClicks: true,
   },
   {
     id: "new-project", route: "missioncontrol", selector: "[data-tutorial='new-project-btn']", type: "do",
-    waitFor: "wizard-opened",
-    title: "Ersten Projektplan erstellen",
-    body: "Der OKR-Wizard führt dich durch die Erstellung — mit Wizard-generierten Key Results und konkreten Tasks.",
+    waitFor: "wizard-opened", skippable: true,
+    title: "Ersten Projektplan erstellen (optional)",
+    body: "Der OKR-Wizard führt dich durch die Erstellung — mit Wizard-generierten Key Results und konkreten Tasks. Du kannst ihn auch später jederzeit starten.",
     hint: "Klick auf '⚡ OKR WIZARD — PROJEKT ERSTELLEN'.", position: "right", blockClicks: true,
   },
   {
     id: "wizard-session", route: "missioncontrol", selector: null, type: "do",
-    waitFor: "project-saved", noSpotlight: true,
+    waitFor: "project-saved", noSpotlight: true, skippable: true,
     title: "Wizard: Deinen ersten Plan erstellen",
     body: "Die Felder sind vorausgefüllt. Schau sie durch, passe sie an — und klick am Ende auf 'Generieren', dann unten auf '⚡ PROJEKT STARTEN'.",
     hint: "⚡ PROJEKT STARTEN klicken um deinen Plan zu speichern.",
@@ -188,16 +200,9 @@ const TUT_STEPS = [
   },
   {
     id: "behaviors-section", route: "insights", selector: "[data-tutorial='behaviors-section']", type: "explain",
-    title: "Behavior Change Tracker",
-    body: "Täglich einchecken. Streaks aufbauen. Drift sichtbar machen. Ein erster Behavior wartet schon auf dich.",
+    title: "Behavior Tracker — Wochensicht",
+    body: "Hier siehst du alle 7 Tage auf einen Blick — mit Streaks und Geschichte. Gewohnheiten checkst du täglich direkt im Dashboard-Strip.",
     position: "top", blockClicks: false,
-  },
-  {
-    id: "check-behavior", route: "insights", selector: "[data-tutorial='behaviors-section']", type: "do",
-    waitFor: "habit-checked-tutorial_habit_1",
-    title: "Erster Behavior Check-in",
-    body: "Hak 'Täglicher System-Check' für heute ab. Streak Tag 1 startet jetzt.",
-    hint: "Klick auf die heutige Checkbox im Tracker.", position: "top", blockClicks: true,
   },
   {
     id: "nav-planner", route: "insights", selector: "[data-tutorial='nav-planner']", type: "do",
@@ -387,6 +392,10 @@ function TutCard({ step, idx, total, onNext, onSkip }) {
         {step.type === "explain" ? (
           <button onClick={onNext} style={{ background: "var(--accent)", color: "#fff", border: "none", borderRadius: 7, padding: "10px 22px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
             {step.nextLabel || "Weiter →"}
+          </button>
+        ) : step.skippable ? (
+          <button onClick={onNext} style={{ background: "transparent", border: "1px solid var(--line)", color: "var(--text-dim)", borderRadius: 7, padding: "10px 22px", fontSize: 12, fontWeight: 600, cursor: "pointer", letterSpacing: "0.04em" }}>
+            Schritt überspringen →
           </button>
         ) : (
           <span style={{ fontSize: 11.5, color: "var(--text-faint)", fontStyle: "italic" }}>Führe die Aktion aus…</span>

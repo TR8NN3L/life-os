@@ -789,6 +789,9 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
 
         </div>{/* end scrollable tasks */}
 
+        {/* Behavior Check-in Strip */}
+        <BehaviorStrip />
+
         {/* Truth Loop — fixed at bottom */}
         <div style={{ flexShrink: 0, borderTop: "1px solid var(--line)", maxHeight: "42vh", overflowY: "auto" }}>
           <TruthLoop truthPlan={truthPlan} setTruthPlan={setTruthPlan} />
@@ -805,6 +808,123 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
           zIndex: 9999, pointerEvents: "none",
           animation: "fadeInUp .18s ease",
         }}>{doneToast}</div>
+      )}
+    </div>
+  );
+}
+
+// ─── Behavior Strip ─────────────────────────────────────────────────────────
+function BehaviorStrip() {
+  const todayISO = new Date().toISOString().slice(0, 10);
+
+  const [habits, setHabits] = React.useState(() => {
+    try { return JSON.parse(LS.getItem("lifeos_habits") || "[]"); } catch { return []; }
+  });
+
+  const saveHabits = (arr) => {
+    setHabits(arr);
+    try { LS.setItem("lifeos_habits", JSON.stringify(arr)); } catch {}
+    window.dispatchEvent(new CustomEvent("lifeos-habits-updated"));
+  };
+
+  React.useEffect(() => {
+    const sync = () => {
+      try { setHabits(JSON.parse(LS.getItem("lifeos_habits") || "[]")); } catch {}
+    };
+    window.addEventListener("lifeos-habits-updated", sync);
+    return () => window.removeEventListener("lifeos-habits-updated", sync);
+  }, []);
+
+  const getStreak = (log) => {
+    let streak = 0;
+    const d = new Date();
+    while (true) {
+      const iso = d.toISOString().slice(0, 10);
+      if (!log[iso]) break;
+      streak++;
+      d.setDate(d.getDate() - 1);
+    }
+    return streak;
+  };
+
+  const toggleHabit = (habitId) => {
+    const arr = habits.map(h => {
+      if (h.id !== habitId) return h;
+      const log = { ...h.log };
+      const checked = !log[todayISO];
+      checked ? (log[todayISO] = true) : delete log[todayISO];
+      if (checked) window.TUTORIAL?.onAction?.('habit-checked-' + habitId);
+      return { ...h, log };
+    });
+    saveHabits(arr);
+  };
+
+  const checkedCount = habits.filter(h => !!h.log[todayISO]).length;
+
+  return (
+    <div data-tutorial="behavior-strip" style={{
+      flexShrink: 0,
+      borderTop: "1px solid var(--accent-line)",
+      borderBottom: "1px solid var(--line-soft)",
+      background: "rgba(47,139,255,0.04)",
+      padding: "10px 28px",
+      display: "flex", alignItems: "center", gap: 20,
+      overflowX: "auto", minHeight: 52,
+    }}>
+      {/* label */}
+      <div style={{ flexShrink: 0, marginRight: 4 }}>
+        <div style={{ fontSize: 8, letterSpacing: "0.18em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 1 }}>
+          HEUTE CHECK-IN
+        </div>
+        <div style={{ fontSize: 10, color: habits.length > 0 ? (checkedCount === habits.length ? "var(--good)" : "var(--text-dim)") : "var(--text-faint)" }}>
+          {habits.length > 0 ? `${checkedCount} / ${habits.length}` : "Kein Habit"}
+        </div>
+      </div>
+
+      {/* divider */}
+      <div style={{ width: 1, height: 32, background: "var(--line-soft)", flexShrink: 0 }} />
+
+      {habits.length === 0 ? (
+        <div style={{ fontSize: 11, color: "var(--text-faint)", fontStyle: "italic", letterSpacing: "0.04em" }}>
+          Keine Habits aktiv — in <span style={{ color: "var(--accent)", cursor: "pointer", textDecoration: "underline" }}>Insights</span> hinzufügen.
+        </div>
+      ) : (
+        habits.map(h => {
+          const done = !!h.log[todayISO];
+          const streak = getStreak(h.log);
+          return (
+            <div key={h.id} style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
+              <button
+                onClick={() => toggleHabit(h.id)}
+                data-tutorial={h.id === "tutorial_habit_1" ? "tutorial-habit-checkbox" : undefined}
+                title={done ? "Abhaken rückgängig machen" : "Heute erledigt"}
+                style={{
+                  width: 22, height: 22, borderRadius: 4, cursor: "pointer",
+                  background: done ? h.color : "transparent",
+                  border: `2px solid ${done ? h.color : "var(--line)"}`,
+                  color: "#0a0a0c", fontSize: 11, fontWeight: 700,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "all .15s", padding: 0, flexShrink: 0,
+                }}
+              >{done ? "✓" : ""}</button>
+              <span style={{
+                fontSize: 12, fontWeight: 600,
+                color: done ? h.color : "var(--text-dim)",
+                whiteSpace: "nowrap",
+                textDecoration: done ? "none" : "none",
+              }}>{h.name}</span>
+              {streak > 0 && (
+                <span style={{
+                  fontSize: 10, fontWeight: 700,
+                  color: streak >= 7 ? "var(--good)" : streak >= 3 ? "var(--warn)" : "var(--text-faint)",
+                  letterSpacing: "0.02em", flexShrink: 0,
+                }}>
+                  {streak >= 3 ? "🔥" : ""}{streak}
+                </span>
+              )}
+            </div>
+          );
+        })
       )}
     </div>
   );
