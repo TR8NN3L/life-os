@@ -163,7 +163,9 @@ const TUT_STEPS = [
     position: "bottom", blockClicks: false,
   },
   {
-    id: "setup-api", route: "missioncontrol", selector: "[data-tutorial='settings-area']", type: "do",
+    id: "setup-api", route: "missioncontrol", selector: "[data-tutorial='settings-btn']",
+    spotlightSelector: "[data-tutorial='settings-modal']",
+    type: "do",
     waitFor: "api-key-set", skippable: true,
     title: "API Key einrichten (optional)",
     body: "Der OKR Wizard braucht deinen Anthropic API Key. Klick unten links auf ⚙, wechsle zum Tab 'KI' und füge deinen Key (sk-ant-...) ein. Du kannst diesen Schritt auch jetzt überspringen.",

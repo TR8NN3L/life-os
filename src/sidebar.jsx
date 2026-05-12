@@ -124,8 +124,9 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
       background: "rgba(0,0,0,0.7)",
       display: "flex", alignItems: "center", justifyContent: "center",
     }}>
-      <div onClick={e => e.stopPropagation()} style={{
-        width: 580, maxWidth: "calc(100vw - 40px)", maxHeight: "calc(100vh - 60px)",
+      <div onClick={e => e.stopPropagation()} data-tutorial="settings-modal" style={{
+        width: 580, maxWidth: "calc(100vw - 40px)",
+        height: 520, maxHeight: "calc(100vh - 60px)",
         background: "var(--panel)", border: "1px solid var(--line)",
         display: "flex", flexDirection: "column",
       }}>
