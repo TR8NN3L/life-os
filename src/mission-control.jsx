@@ -437,8 +437,8 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
               </button>
               {inboxExpanded && (
                 <div>
-                  {inbox.slice(0, 5).map((item, idx) => (
-                    <div key={item.id || idx} style={{
+                  {[...inbox].reverse().slice(0, 10).map((item) => (
+                    <div key={item.id} style={{
                       padding: "14px 20px", borderBottom: "1px solid var(--line-soft)",
                       display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12,
                     }}>
@@ -449,18 +449,18 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
                         {item.sub && <div style={{ fontSize: 11.5, color: "var(--text-faint)", marginTop: 3 }}>{item.sub}</div>}
                       </div>
                       {setInbox && (
-                        <button onClick={() => setInbox(prev => prev.filter((_, i) => i !== idx))} style={{
+                        <button onClick={() => setInbox(prev => prev.filter(x => x.id !== item.id))} style={{
                           background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 16, padding: "0 4px", flexShrink: 0,
                         }}>×</button>
                       )}
                     </div>
                   ))}
-                  {inbox.length > 5 && (
+                  {inbox.length > 10 && (
                     <div style={{ padding: "10px 20px", borderTop: "1px solid var(--line-soft)" }}>
                       <button onClick={() => setView({ type: "inbox" })} style={{
                         background: "transparent", border: "none", color: "var(--accent)",
                         fontSize: 10.5, letterSpacing: "0.14em", fontWeight: 700, cursor: "pointer",
-                      }}>+ {inbox.length - 5} WEITERE ANZEIGEN →</button>
+                      }}>+ {inbox.length - 10} WEITERE ANZEIGEN →</button>
                     </div>
                   )}
                 </div>
