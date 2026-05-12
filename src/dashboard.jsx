@@ -124,6 +124,33 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
 
   const tasksToday = [...data.tasksToday, ...customTasks, ...projTasks];
 
+  // Retroactive time editing
+  const [editingTimeId, setEditingTimeId] = React.useState(null);
+  const [editTimeVal, setEditTimeVal]     = React.useState("");
+
+  const startEditTime = (t) => {
+    const sec = elapsedFor(t);
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    setEditTimeVal(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);
+    setEditingTimeId(t.id);
+  };
+  const commitEditTime = (taskId) => {
+    const raw = editTimeVal.trim();
+    let totalSec = 0;
+    if (/^\d+$/.test(raw)) {
+      totalSec = parseInt(raw) * 60; // just minutes
+    } else if (/^\d+:\d{2}$/.test(raw)) {
+      const [hh, mm] = raw.split(":").map(Number);
+      totalSec = hh * 3600 + mm * 60;
+    } else if (/^\d+:\d{2}:\d{2}$/.test(raw)) {
+      const [hh, mm, ss] = raw.split(":").map(Number);
+      totalSec = hh * 3600 + mm * 60 + ss;
+    }
+    if (totalSec >= 0) setTaskTimes(prev => ({ ...prev, [taskId]: totalSec }));
+    setEditingTimeId(null);
+  };
+
   // Add-task form state
   const [adding, setAdding] = React.useState(false);
   const [newTitle, setNewTitle] = React.useState("");
@@ -639,10 +666,33 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
                     </div>
                   )}
                 </div>
-                <span className="mono" style={{
-                  fontSize: 22, fontWeight: 500,
-                  color: isActive ? "var(--accent)" : "var(--text-faint)",
-                }}>{fmtTime(elapsedFor(t))}</span>
+                {editingTimeId === t.id ? (
+                  <input
+                    autoFocus
+                    className="mono"
+                    value={editTimeVal}
+                    onChange={e => setEditTimeVal(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") commitEditTime(t.id); if (e.key === "Escape") setEditingTimeId(null); }}
+                    onBlur={() => commitEditTime(t.id)}
+                    style={{
+                      width: 90, fontSize: 20, fontWeight: 500, textAlign: "center",
+                      background: "var(--panel-2)", border: "1px solid var(--accent-line)",
+                      color: "var(--accent)", padding: "4px 8px", outline: "none",
+                      fontFamily: "'JetBrains Mono',monospace",
+                    }}
+                  />
+                ) : (
+                  <span
+                    className="mono"
+                    title={isActive ? undefined : "Klicken zum Bearbeiten"}
+                    onClick={() => !isActive && startEditTime(t)}
+                    style={{
+                      fontSize: 22, fontWeight: 500,
+                      color: isActive ? "var(--accent)" : "var(--text-faint)",
+                      cursor: isActive ? "default" : "pointer",
+                    }}
+                  >{fmtTime(elapsedFor(t))}</span>
+                )}
                 {isActive ? (
                   <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, color: "var(--accent)", letterSpacing: "0.12em", fontWeight: 600 }}>
                     <span style={{ width: 6, height: 6, background: "var(--accent)", borderRadius: "50%", boxShadow: "0 0 8px var(--accent)" }} />
