@@ -864,7 +864,7 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
   );
 }
 
-// ─── Behavior Strip ─────────────────────────────────────────────────────────
+// ─── Habit Strip ─────────────────────────────────────────────────────────────
 function BehaviorStrip() {
   const todayISO = new Date().toISOString().slice(0, 10);
 
@@ -934,6 +934,9 @@ function BehaviorStrip() {
   }, [allDone]);
 
   const masterColor = allDone ? "var(--good)" : isOverride ? "var(--warn)" : "var(--line)";
+  const getHabitColor = (h) => h.bucket ? `var(--${h.bucket})` : (h.color || "var(--accent)");
+  const getHabitSoft  = (h) => h.bucket ? `var(--${h.bucket}-soft)` : "var(--accent-soft)";
+  const getHabitLine  = (h) => h.bucket ? `var(--${h.bucket}-line)` : "var(--accent-line)";
 
   return (
     <div data-tutorial="behavior-strip" style={{ flexShrink: 0, borderTop: "1px solid var(--line-soft)", background: "var(--panel)" }}>
@@ -978,7 +981,7 @@ function BehaviorStrip() {
             {habits.map(h => (
               <div key={h.id} style={{
                 width: 8, height: 8, borderRadius: 2,
-                background: h.log[todayISO] ? h.color : "var(--line)",
+                background: h.log[todayISO] ? getHabitColor(h) : "var(--line)",
                 transition: "background .2s",
               }} />
             ))}
@@ -1000,7 +1003,7 @@ function BehaviorStrip() {
         }}>
           {habits.length === 0 ? (
             <div style={{ fontSize: 11, color: "var(--text-faint)", fontStyle: "italic", gridColumn: "1/-1" }}>
-              Noch keine Habits — unter Insights → Behavior Tracker hinzufügen.
+              Noch keine Habits — unter Insights → Habit Tracker hinzufügen.
             </div>
           ) : habits.map(h => {
             const done = !!h.log[todayISO];
@@ -1013,20 +1016,20 @@ function BehaviorStrip() {
                 style={{
                   display: "flex", alignItems: "center", gap: 10,
                   padding: "10px 14px",
-                  background: done ? h.color + "18" : "var(--panel-2)",
-                  border: `1px solid ${done ? h.color + "60" : "var(--line-soft)"}`,
+                  background: done ? getHabitSoft(h) : "var(--panel-2)",
+                  border: `1px solid ${done ? getHabitLine(h) : "var(--line-soft)"}`,
                   cursor: "pointer", transition: "all .15s",
                 }}
               >
                 <div style={{
                   width: 20, height: 20, borderRadius: 4, flexShrink: 0,
-                  background: done ? h.color : "transparent",
-                  border: `2px solid ${done ? h.color : "var(--line)"}`,
+                  background: done ? getHabitColor(h) : "transparent",
+                  border: `2px solid ${done ? getHabitColor(h) : "var(--line)"}`,
                   color: "#0a0a0c", fontSize: 10, fontWeight: 700,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   transition: "all .15s",
                 }}>{done ? "✓" : ""}</div>
-                <span style={{ fontSize: 12, fontWeight: 600, color: done ? h.color : "var(--text-dim)", flex: 1 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: done ? getHabitColor(h) : "var(--text-dim)", flex: 1 }}>
                   {h.name}
                 </span>
                 {streak > 0 && (

@@ -379,7 +379,7 @@ function Insights({ taskTimes, pov }) {
         </div>
       )}
 
-      {/* ── Behavior Change Tracker ─────────────────────────────── */}
+      {/* ── Habit Tracker ─────────────────────────────────────── */}
       <BehaviorTracker />
 
       {/* ── Wochen-Delta (Truth Loop — Time Series Chart) ──────── */}
@@ -494,8 +494,13 @@ function BehaviorTracker() {
   }, []);
   const [adding, setAdding] = React.useState(false);
   const [newName, setNewName] = React.useState("");
+  const [newBucket, setNewBucket] = React.useState(() => LS.getItem("lifeos_pov") || "personal");
 
-  const COLORS = ["var(--accent)", "var(--good)", "var(--warn)", "#06b6d4", "#ec4899", "var(--danger)"];
+  // Derive habit color from bucket (POV), fall back to stored color for old habits
+  const getHabitColor = (h) => h.bucket ? `var(--${h.bucket})` : (h.color || "var(--accent)");
+  const getHabitSoft  = (h) => h.bucket ? `var(--${h.bucket}-soft)` : "var(--accent-soft)";
+  const getHabitLine  = (h) => h.bucket ? `var(--${h.bucket}-line)` : "var(--accent-line)";
+
   const todayISO = new Date().toISOString().slice(0, 10);
   const last7 = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(); d.setDate(d.getDate() - (6 - i));
@@ -529,16 +534,17 @@ function BehaviorTracker() {
     if (!newName.trim()) return;
     saveHabits([...habits, {
       id: `h_${Date.now()}`, name: newName.trim(),
-      color: COLORS[habits.length % COLORS.length], log: {},
+      bucket: newBucket, log: {},
     }]);
     setNewName(""); setAdding(false);
+    setNewBucket(LS.getItem("lifeos_pov") || "personal");
   };
 
   return (
     <div data-tutorial="behaviors-section" style={{ background: "var(--panel)", border: "1px solid var(--line-soft)", padding: "20px 24px", marginBottom: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: habits.length > 0 ? 16 : 0 }}>
         <div>
-          <div className="uppercase-label" style={{ marginBottom: 3 }}>Behavior Change Tracker</div>
+          <div className="uppercase-label" style={{ marginBottom: 3 }}>Habit Tracker</div>
           <div style={{ fontSize: 11, color: "var(--text-faint)" }}>Täglich einchecken · Streaks aufbauen · Drift sichtbar machen</div>
         </div>
         <button onClick={() => setAdding(v => !v)} style={{
@@ -577,7 +583,7 @@ function BehaviorTracker() {
             const streakColor = streak >= 14 ? "var(--good)" : streak >= 7 ? "var(--accent)" : streak >= 3 ? "var(--warn)" : "var(--text-faint)";
             return (
               <div key={h.id} style={{ display: "grid", gridTemplateColumns: "1fr repeat(7, 30px) 56px 28px", gap: 6, alignItems: "center", padding: "10px 0", borderBottom: "1px solid var(--line-soft)" }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: h.color }}>{h.name}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: getHabitColor(h) }}>{h.name}</span>
                 {last7.map(iso => {
                   const done = !!h.log[iso];
                   const isToday = iso === todayISO;
@@ -586,8 +592,8 @@ function BehaviorTracker() {
                       data-tutorial={h.id === "tutorial_habit_1" && isToday ? "tutorial-habit-checkbox" : undefined}
                       style={{
                       width: 24, height: 24, borderRadius: isToday ? 4 : "50%",
-                      border: `2px solid ${done ? h.color : isToday ? "var(--line)" : "rgba(255,255,255,0.08)"}`,
-                      background: done ? h.color : "transparent",
+                      border: `2px solid ${done ? getHabitColor(h) : isToday ? "var(--line)" : "rgba(255,255,255,0.08)"}`,
+                      background: done ? getHabitColor(h) : "transparent",
                       cursor: "pointer", margin: "0 auto", display: "flex",
                       alignItems: "center", justifyContent: "center",
                       fontSize: 10, color: "#0a0a0c",
@@ -611,13 +617,28 @@ function BehaviorTracker() {
       )}
 
       {adding && (
-        <div style={{ display: "flex", gap: 10, marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--line-soft)", alignItems: "center" }}>
-          <input autoFocus value={newName} onChange={e => setNewName(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter") addHabit(); if (e.key === "Escape") { setAdding(false); setNewName(""); } }}
-            placeholder="z.B. 1h Lernen · Kein Zucker · 10.000 Schritte · Kein Social Media…"
-            style={{ flex: 1, background: "var(--panel-2)", border: "1px solid var(--accent-line)", color: "var(--text)", padding: "9px 14px", fontSize: 13, fontFamily: "inherit", outline: "none" }} />
-          <button onClick={addHabit} style={{ padding: "9px 18px", background: "var(--accent)", color: "#0a0a0c", border: "none", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", cursor: "pointer" }}>HINZUFÜGEN ✓</button>
-          <button onClick={() => { setAdding(false); setNewName(""); }} style={{ padding: "9px 14px", background: "transparent", border: "1px solid var(--line)", color: "var(--text-faint)", fontSize: 11, cursor: "pointer" }}>ABBRECHEN</button>
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--line-soft)" }}>
+          {/* POV bucket selector */}
+          <div style={{ display: "flex", gap: 6, marginBottom: 10, alignItems: "center" }}>
+            <span style={{ fontSize: 9, letterSpacing: "0.14em", color: "var(--text-faint)", fontWeight: 700, marginRight: 4 }}>POV</span>
+            {POVS.map(p => (
+              <button key={p.id} onClick={() => setNewBucket(p.id)} style={{
+                padding: "4px 12px", fontSize: 9.5, fontWeight: 700, letterSpacing: "0.1em",
+                background: newBucket === p.id ? p.color : "transparent",
+                border: `1px solid ${newBucket === p.id ? p.color : "var(--line)"}`,
+                color: newBucket === p.id ? "#0a0a0c" : "var(--text-faint)",
+                cursor: "pointer", transition: "all .15s",
+              }}>{p.label.toUpperCase()}</button>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <input autoFocus value={newName} onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") addHabit(); if (e.key === "Escape") { setAdding(false); setNewName(""); } }}
+              placeholder="z.B. 1h Lernen · Kein Zucker · 10.000 Schritte · Kein Social Media"
+              style={{ flex: 1, background: "var(--panel-2)", border: `1px solid var(--${newBucket}-line)`, color: "var(--text)", padding: "9px 14px", fontSize: 13, fontFamily: "inherit", outline: "none" }} />
+            <button onClick={addHabit} style={{ padding: "9px 18px", background: `var(--${newBucket})`, color: "#0a0a0c", border: "none", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", cursor: "pointer" }}>HINZUFÜGEN ✓</button>
+            <button onClick={() => { setAdding(false); setNewName(""); }} style={{ padding: "9px 14px", background: "transparent", border: "1px solid var(--line)", color: "var(--text-faint)", fontSize: 11, cursor: "pointer" }}>ABBRECHEN</button>
+          </div>
         </div>
       )}
     </div>

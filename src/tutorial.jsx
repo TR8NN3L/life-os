@@ -138,8 +138,8 @@ const TUT_STEPS = [
     positionSelector: "[data-tutorial='behavior-strip']",
     type: "do",
     waitFor: "habit-checked-tutorial_habit_1",
-    title: "Täglicher Behavior Check-in",
-    body: "Unten siehst du den Behavior Strip — dein täglicher Check-in. Hak 'Täglicher System-Check' für heute ab. Streak Tag 1 startet jetzt.",
+    title: "Täglicher Habit Check-in",
+    body: "Unten siehst du den Habit Tracker — dein täglicher Check-in. Hak 'Täglicher System-Check' für heute ab. Streak Tag 1 startet jetzt.",
     hint: "Klick auf die Checkbox neben der Gewohnheit.",
     position: "top", blockClicks: true,
   },
@@ -197,12 +197,12 @@ const TUT_STEPS = [
   {
     id: "insights-page-intro", route: "insights", selector: "[data-tutorial='insights-content-area']", type: "explain",
     title: "Insights — Überblick",
-    body: "Hier siehst du alles auf einen Blick: geplante vs. gelebte Stunden, KR-Fortschritt nach POV, Behavior Streaks. Mit jedem Tag füllst du dieses Dashboard mit echten Daten.",
+    body: "Hier siehst du alles auf einen Blick: geplante vs. gelebte Stunden, KR-Fortschritt nach POV, Habit Streaks. Mit jedem Tag füllst du dieses Dashboard mit echten Daten.",
     position: "center", blockClicks: false,
   },
   {
     id: "behaviors-section", route: "insights", selector: "[data-tutorial='behaviors-section']", type: "explain",
-    title: "Behavior Tracker — Wochensicht",
+    title: "Habit Tracker — Wochensicht",
     body: "Hier siehst du alle 7 Tage auf einen Blick — mit Streaks und Geschichte. Gewohnheiten checkst du täglich direkt im Dashboard-Strip.",
     position: "top", blockClicks: false,
   },
@@ -332,7 +332,7 @@ function TutProgress({ idx, total }) {
 function TutCelebrate({ onDone }) {
   const items = [
     { icon: "✓",  label: "Ersten Task abgehakt & im Fokusmodus gearbeitet" },
-    { icon: "🔥", label: "Ersten Behavior Streak gestartet" },
+    { icon: "🔥", label: "Ersten Habit Streak gestartet" },
     { icon: "🎯", label: "OKR-Projekt mit dem Wizard erstellt" },
     { icon: "📅", label: "Ersten Zeitblock im Planner geplant" },
     { icon: "🔔", label: "Push Notifications: ⚙ → Notifications → Aktivieren" },
