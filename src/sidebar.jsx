@@ -83,17 +83,39 @@ function PovModal({ initial, onSave, onDelete, onClose }) {
 
 // ── Settings Modal ────────────────────────────────────────────────────────────
 function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, pushStatus, setPushStatus, pushLoading, setPushLoading, signOut, resetAllData }) {
-  const [editingName, setEditingName] = React.useState(false);
-  const [nameInput,   setNameInput]   = React.useState(userName);
-  const [activeTab,   setActiveTab]   = React.useState("profile"); // profile | ai | notifications | kalender | system
-  const [calUserId,   setCalUserId]   = React.useState(null);
-  const [calCopied,   setCalCopied]   = React.useState(false);
+  const [editingName,    setEditingName]    = React.useState(false);
+  const [nameInput,      setNameInput]      = React.useState(userName);
+  const [activeTab,      setActiveTab]      = React.useState("profile"); // profile | ai | notifications | kalender | system
+  const [calUserId,      setCalUserId]      = React.useState(null);
+  const [calCopied,      setCalCopied]      = React.useState(false);
+  const [userEmail,      setUserEmail]      = React.useState(null);
+  const [pwResetSent,    setPwResetSent]    = React.useState(false);
+  const [pwResetLoading, setPwResetLoading] = React.useState(false);
+  const [pwResetError,   setPwResetError]   = React.useState(null);
 
   React.useEffect(() => {
     window._supabase?.auth?.getSession().then(({ data }) => {
       if (data?.session?.user?.id) setCalUserId(data.session.user.id);
+      if (data?.session?.user?.email) setUserEmail(data.session.user.email);
     });
   }, []);
+
+  const sendPasswordReset = async () => {
+    if (!userEmail || pwResetLoading) return;
+    setPwResetLoading(true);
+    setPwResetError(null);
+    try {
+      const { error } = await window._supabase.auth.resetPasswordForEmail(userEmail, {
+        redirectTo: window.location.origin + window.location.pathname,
+      });
+      if (error) throw error;
+      setPwResetSent(true);
+    } catch (e) {
+      setPwResetError(e.message || "Fehler beim Senden.");
+    } finally {
+      setPwResetLoading(false);
+    }
+  };
 
   const calUrl = calUserId
     ? `https://life-os-wine-eight.vercel.app/api/calendar?uid=${calUserId}`
@@ -177,23 +199,45 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
 
             {/* ── PROFIL ── */}
             {activeTab === "profile" && renderSection("Profil",
-              renderRow("Dein Name", "Wird im Interface angezeigt.",
-                editingName ? (
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <input autoFocus value={nameInput}
-                      onChange={e => setNameInput(e.target.value)}
-                      onKeyDown={e => { if (e.key === "Enter") saveName(); if (e.key === "Escape") setEditingName(false); }}
-                      style={{ flex: 1, background: "var(--panel-2)", border: "1px solid var(--accent-line)", color: "var(--text)", padding: "8px 10px", fontSize: 13, outline: "none", fontFamily: "inherit" }} />
-                    <button onClick={saveName} style={{ background: "var(--accent)", border: "none", color: "#0a0a0c", padding: "8px 14px", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}>✓</button>
+              <div>
+                {renderRow("Dein Name", "Wird im Interface angezeigt.",
+                  editingName ? (
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <input autoFocus value={nameInput}
+                        onChange={e => setNameInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") saveName(); if (e.key === "Escape") setEditingName(false); }}
+                        style={{ flex: 1, background: "var(--panel-2)", border: "1px solid var(--accent-line)", color: "var(--text)", padding: "8px 10px", fontSize: 13, outline: "none", fontFamily: "inherit" }} />
+                      <button onClick={saveName} style={{ background: "var(--accent)", border: "none", color: "#0a0a0c", padding: "8px 14px", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}>✓</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => { setNameInput(userName); setEditingName(true); }} style={{
+                      width: "100%", textAlign: "left", background: "var(--panel-2)",
+                      border: "1px solid var(--line)", color: userName ? "var(--text)" : "var(--text-faint)",
+                      padding: "8px 12px", fontSize: 13, cursor: "pointer", fontFamily: "inherit",
+                    }}>{userName || "Name eingeben…"}</button>
+                  )
+                )}
+                {renderRow("E-Mail", "Dein Account.",
+                  <div style={{ padding: "8px 12px", background: "var(--panel-2)", border: "1px solid var(--line)", fontSize: 13, color: "var(--text-dim)", wordBreak: "break-all" }}>
+                    {userEmail || "—"}
                   </div>
-                ) : (
-                  <button onClick={() => { setNameInput(userName); setEditingName(true); }} style={{
-                    width: "100%", textAlign: "left", background: "var(--panel-2)",
-                    border: "1px solid var(--line)", color: userName ? "var(--text)" : "var(--text-faint)",
-                    padding: "8px 12px", fontSize: 13, cursor: "pointer", fontFamily: "inherit",
-                  }}>{userName || "Name eingeben…"}</button>
-                )
-              )
+                )}
+                {renderRow("Passwort", "Reset-Link an deine E-Mail senden.",
+                  pwResetSent ? (
+                    <div style={{ fontSize: 12, color: "var(--good)", padding: "8px 0" }}>✓ Reset-Link gesendet an {userEmail}</div>
+                  ) : (
+                    <div>
+                      <button onClick={sendPasswordReset} disabled={!userEmail || pwResetLoading} style={{
+                        width: "100%", padding: "8px 12px", background: "transparent",
+                        border: "1px solid var(--line)", color: pwResetLoading ? "var(--text-faint)" : "var(--text-dim)",
+                        fontSize: 12, letterSpacing: "0.1em", fontWeight: 600, cursor: userEmail ? "pointer" : "default",
+                        fontFamily: "inherit", transition: "all .15s",
+                      }}>{pwResetLoading ? "WIRD GESENDET…" : "PASSWORT ZURÜCKSETZEN"}</button>
+                      {pwResetError && <div style={{ fontSize: 11, color: "var(--danger)", marginTop: 6 }}>{pwResetError}</div>}
+                    </div>
+                  )
+                )}
+              </div>
             )}
 
             {/* ── KI ── */}
