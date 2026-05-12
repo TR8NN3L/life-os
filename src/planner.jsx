@@ -418,14 +418,10 @@ function Planner() {
     return allTasks.filter(t => {
       if (t._tutorial) return false;
       if (doneSets[t._pov]?.has(t.id)) return false;
-      const hasFlow = t.flow && t.flow.trim();
-      const hasEst  = t.est != null;
-      const flow    = hasFlow ? t.flow.toUpperCase() : null;
-      const est     = hasEst  ? Number(t.est) : null;
-      if (block.type === "flex") return true;
-      if (!hasFlow && !hasEst)  return true;
-      if (block.type === "deep-work") return flow === "FLOW" || (est != null && est >= 60) || (!hasFlow && est == null);
-      if (block.type === "basic")     return flow === "QUICK" || flow === "EASY" || (est != null && est <= 30) || (!hasEst && flow == null);
+      const flow = t.flow ? t.flow.trim().toUpperCase() : null;
+      if (block.type === "flex")      return true;
+      if (block.type === "deep-work") return flow === "FLOW";
+      if (block.type === "basic")     return flow === "QUICK" || flow === "EASY";
       return true;
     });
   };
@@ -1003,11 +999,18 @@ function Planner() {
                 </div>
               )}
 
-              {suggestions.length>0&&(
-                <div style={{ fontSize:9, letterSpacing:"0.14em", color:"var(--text-faint)", marginBottom:12, fontWeight:600 }}>
-                  {suggestions.filter(t=>!selTaskKeys.includes(`${t.id}_${t._pov}`)).length} OFFENE AUFGABEN — ANHAKEN ZUM ZUTEILEN
-                </div>
-              )}
+              {(() => {
+                const filterHint = selBlock.type === "deep-work" ? "nur FLOW" : selBlock.type === "basic" ? "nur QUICK & EASY" : "alle";
+                const openCount = suggestions.filter(t=>!selTaskKeys.includes(`${t.id}_${t._pov}`)).length;
+                return (
+                  <div style={{ fontSize:9, letterSpacing:"0.14em", color:"var(--text-faint)", marginBottom:12, fontWeight:600 }}>
+                    {openCount} OFFENE AUFGABEN — ANHAKEN ZUM ZUTEILEN
+                    <span style={{ marginLeft:10, color: selBlock.type==="deep-work"?"var(--accent)":selBlock.type==="basic"?"var(--text-dim)":"var(--warn)", background: selBlock.type==="deep-work"?"var(--accent-soft)":selBlock.type==="basic"?"rgba(255,255,255,0.05)":"rgba(212,162,60,0.1)", padding:"1px 7px", borderRadius:3 }}>
+                      FILTER: {filterHint.toUpperCase()}
+                    </span>
+                  </div>
+                );
+              })()}
               {(() => {
                 // Only show unselected tasks in the grouped view
                 const unselSuggestions = suggestions.filter(t => !selTaskKeys.includes(`${t.id}_${t._pov}`));
