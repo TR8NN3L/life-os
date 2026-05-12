@@ -702,7 +702,8 @@ function App() {
           <MissionControl pov={pov} setPov={setPov} taskTimes={taskTimes} setTaskTimes={setTaskTimes}
             activeTaskId={activeTaskId} setActiveTaskId={setActiveTaskId}
             krProgress={krProgress} setKrProgress={setKrProgress}
-            onOpenTask={setGlobalTask} userPovs={userPovs} />
+            onOpenTask={setGlobalTask} userPovs={userPovs}
+            inbox={inbox} setInbox={setInbox} />
         )}
         {route === "planner" && <Planner />}
         {route === "insights" && <Insights taskTimes={taskTimes} pov={pov} />}

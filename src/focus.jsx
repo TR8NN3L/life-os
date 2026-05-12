@@ -35,8 +35,11 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
   const isRunning = activeTaskId === task.id;
   const elapsed = taskTimes[task.id] ?? task.elapsed;
 
-  // big-mode line breaks: title/subtitle styling
-  const titleParts = task.title.split(" ");
+  // Smart title split: colon-based (first part big, after colon smaller) — else unified gray
+  const colonIdx = task.title.indexOf(":");
+  const hasColon = colonIdx > 0 && colonIdx < task.title.length - 1;
+  const mainPart = hasColon ? task.title.slice(0, colonIdx + 1) : task.title;
+  const subPart  = hasColon ? task.title.slice(colonIdx + 1).trim() : "";
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "var(--bg)" }}>
@@ -86,13 +89,15 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
           }}
         >
           <h1 style={{
-            margin: 0, fontSize: 84, fontWeight: 800, letterSpacing: "-0.02em",
-            color: "var(--text)", lineHeight: 0.95,
-          }}>{titleParts[0].toUpperCase()}</h1>
-          <h1 style={{
-            margin: "4px 0 0", fontSize: 52, fontWeight: 800, letterSpacing: "0.04em",
-            color: "var(--text-faint)", lineHeight: 1,
-          }}>{titleParts.slice(1).join(" ").toUpperCase()}</h1>
+            margin: 0, fontSize: hasColon ? 72 : 64, fontWeight: 800, letterSpacing: "-0.02em",
+            color: hasColon ? "var(--text)" : "var(--text-dim)", lineHeight: 0.95,
+          }}>{mainPart.toUpperCase()}</h1>
+          {subPart && (
+            <h1 style={{
+              margin: "4px 0 0", fontSize: 44, fontWeight: 700, letterSpacing: "0.02em",
+              color: "var(--text-faint)", lineHeight: 1,
+            }}>{subPart.toUpperCase()}</h1>
+          )}
           <div style={{
             margin: "20px auto 0", width: 96, height: 1, background: "var(--accent)",
           }} />

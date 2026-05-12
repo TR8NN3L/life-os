@@ -5,7 +5,7 @@ function getObjectives(proj) {
   return [{ id: "obj1", title: proj.objective || "", period: "", krs: proj.krs || [] }];
 }
 
-function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, setActiveTaskId, krProgress, setKrProgress, onOpenTask, userPovs = [] }) {
+function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, setActiveTaskId, krProgress, setKrProgress, onOpenTask, userPovs = [], inbox = [], setInbox }) {
   // Merge hardcoded POVs with user-created custom POVs (from sync or local creation)
   const allPovs = React.useMemo(() => {
     const hardcodedIds = new Set(POVS.map(p => p.id));
@@ -22,6 +22,7 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
     return [...POVS, ...extras];
   }, [userPovs]);
   const [view, setView] = React.useState({ type: "list" });
+  const [inboxExpanded, setInboxExpanded] = React.useState(false);
   const [mcFilter, setMcFilter] = React.useState("alle");
   const [freeOpen, setFreeOpen] = React.useState(false);
   const [showNewModal, setShowNewModal] = React.useState(false);
@@ -168,6 +169,54 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
   };
 
   // --- View guards ---
+  if (view.type === "inbox") {
+    return (
+      <div style={{ flex: 1, overflow: "auto", padding: "20px 28px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20, fontSize: 11, color: "var(--text-faint)", letterSpacing: "0.05em" }}>
+          <button onClick={() => setView({ type: "list" })} style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", padding: 0, fontSize: 11, letterSpacing: "0.16em", fontWeight: 600 }}>
+            MISSION CONTROL
+          </button>
+          <span>›</span>
+          <span style={{ color: "var(--text)" }}>INBOX</span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <div className="uppercase-label">Inbox — Alle {inbox.length} Items</div>
+          {inbox.length > 0 && setInbox && (
+            <button onClick={() => { if (window.confirm("Alle Inbox-Items loeschen?")) setInbox([]); }} style={{
+              padding: "7px 16px", background: "transparent", border: "1px solid var(--danger)",
+              color: "var(--danger)", fontSize: 9.5, letterSpacing: "0.14em", fontWeight: 700, cursor: "pointer",
+            }}>ALLE LOESCHEN</button>
+          )}
+        </div>
+        {inbox.length === 0 ? (
+          <div style={{ padding: "48px 0", textAlign: "center", color: "var(--text-faint)", fontSize: 13 }}>
+            Inbox ist leer — gut gemacht.
+          </div>
+        ) : (
+          <div style={{ border: "1px solid var(--line)" }}>
+            {inbox.map((item, idx) => (
+              <div key={item.id || idx} style={{
+                padding: "18px 24px", borderBottom: "1px solid var(--line-soft)",
+                display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16,
+              }}>
+                <div style={{ flex: 1 }}>
+                  {item.pov && <POVChip pov={item.pov} />}
+                  <div style={{ fontSize: 14.5, fontWeight: 600, marginTop: item.pov ? 8 : 0 }}>{item.title}</div>
+                  {item.sub && <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 4 }}>{item.sub}</div>}
+                  {item.kr && <div style={{ fontSize: 10.5, color: "var(--accent)", marginTop: 6, letterSpacing: "0.08em" }}>→ {item.kr}</div>}
+                </div>
+                {setInbox && (
+                  <button onClick={() => setInbox(prev => prev.filter((_, i) => i !== idx))} style={{
+                    background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 16, padding: "0 4px", flexShrink: 0,
+                  }}>×</button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
   if (view.type === "project") {
     const proj = [...PROJECTS, ...customProjects].find(p => p.id === view.id);
     if (!proj) return null;
@@ -293,6 +342,59 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
       {/* --- MAIN VIEW: MainQuest grouped --- */}
       {!showArchived && (
         <div>
+          {/* Inbox Card */}
+          {inbox.length > 0 && (
+            <div style={{ marginBottom: 28, border: "1px solid var(--line)", background: "var(--panel)" }}>
+              <button onClick={() => setInboxExpanded(o => !o)} style={{
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                background: "transparent", border: "none", borderBottom: inboxExpanded ? "1px solid var(--line-soft)" : "none",
+                padding: "14px 20px", cursor: "pointer", textAlign: "left",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ fontSize: 9.5, letterSpacing: "0.18em", fontWeight: 700, color: "var(--text-dim)" }}>INBOX</span>
+                  <span style={{ padding: "2px 10px", background: "var(--accent-soft)", border: "1px solid var(--accent-line)", fontSize: 9.5, fontWeight: 700, color: "var(--accent)" }}>{inbox.length}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <button onClick={(e) => { e.stopPropagation(); setView({ type: "inbox" }); }} style={{
+                    padding: "5px 14px", background: "transparent", border: "1px solid var(--line)",
+                    color: "var(--text-faint)", fontSize: 9.5, letterSpacing: "0.14em", fontWeight: 700, cursor: "pointer",
+                  }}>OEFFNEN</button>
+                  <span style={{ fontSize: 11, color: "var(--text-faint)", transform: inboxExpanded ? "rotate(90deg)" : "none", transition: "transform .15s", display: "inline-block" }}>▶</span>
+                </div>
+              </button>
+              {inboxExpanded && (
+                <div>
+                  {inbox.slice(0, 5).map((item, idx) => (
+                    <div key={item.id || idx} style={{
+                      padding: "14px 20px", borderBottom: "1px solid var(--line-soft)",
+                      display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12,
+                    }}>
+                      <div style={{ flex: 1 }}>
+                        {item.pov && <span style={{ fontSize: 9, letterSpacing: "0.16em", fontWeight: 700, color: `var(--${item.pov})`, marginRight: 8 }}>{item.pov.toUpperCase()}</span>}
+                        <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)" }}>{item.title}</span>
+                        {item.kr && <span style={{ marginLeft: 10, fontSize: 10, color: "var(--accent)", letterSpacing: "0.08em" }}>→ {item.kr}</span>}
+                        {item.sub && <div style={{ fontSize: 11.5, color: "var(--text-faint)", marginTop: 3 }}>{item.sub}</div>}
+                      </div>
+                      {setInbox && (
+                        <button onClick={() => setInbox(prev => prev.filter((_, i) => i !== idx))} style={{
+                          background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 16, padding: "0 4px", flexShrink: 0,
+                        }}>×</button>
+                      )}
+                    </div>
+                  ))}
+                  {inbox.length > 5 && (
+                    <div style={{ padding: "10px 20px", borderTop: "1px solid var(--line-soft)" }}>
+                      <button onClick={() => setView({ type: "inbox" })} style={{
+                        background: "transparent", border: "none", color: "var(--accent)",
+                        fontSize: 10.5, letterSpacing: "0.14em", fontWeight: 700, cursor: "pointer",
+                      }}>+ {inbox.length - 5} WEITERE ANZEIGEN →</button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Freie Tasks */}
           {freeTasks.length > 0 && (
             <div style={{ marginBottom: 32 }}>

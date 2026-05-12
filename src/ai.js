@@ -102,6 +102,16 @@
       );
     },
 
+    async generateDayPlan({ pov, povLabel, energy, focus, availableTime, goal, mode, dayStr }) {
+      const energyDesc = energy <= 2 ? "niedrig (einfache, routinierte Aufgaben)" : energy >= 4 ? "hoch (Deep Work, komplexe Aufgaben)" : "mittel (ausgewogener Mix)";
+      const focusDesc  = focus  <= 2 ? "niedrig (kurze Bloecke, viele Pausen)" : focus  >= 4 ? "hoch (lange Bloecke, wenig Pausen)" : "mittel";
+      return callAI(
+        `Du bist ein Tagesplaner-Experte. Generiere einen optimalen Tagesplan als Zeitbloecke. Antworte NUR mit validem JSON: { "blocks": [{ "name": "...", "start": "HH:MM", "end": "HH:MM", "type": "deep-work|basic|flex", "bucket": "founder|personal|student|athlete" }] }. Alle Zeiten im Format HH:MM. Keine Bloecke ausserhalb 06:00-23:00.`,
+        `POV: ${povLabel}\nEnergie: ${energyDesc}\nMentale Fokus-Kapazitaet: ${focusDesc}\nVerfuegbare Zeit: ${availableTime}\n${goal ? `Tagesziel: ${goal}\n` : ""}${dayStr ? `Datum: ${dayStr}\n` : ""}Modus: ${mode === "fill" ? "Bestehendes Tagesgefuehl auffuellen" : "Neuen kompletten Tagesplan erstellen"}\n\nGeneriere passende Zeitbloecke fuer diesen Tag. Deep-Work fuer komplexe Aufgaben, Basic fuer einfache Tasks, Flex fuer flexible Zeit. Pausen zwischen Bloecken einplanen.`,
+        { maxTokens: 800 }
+      );
+    },
+
     async generateOKRProject(d) {
       const MOTIVATION_LABELS = {
         income: "Einkommen/Geld", growth: "Wachstum/Skalierung", recognition: "Anerkennung/Status",

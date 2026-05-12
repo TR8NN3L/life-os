@@ -134,6 +134,50 @@ function Planner() {
     .sort((a, b) => a.start.localeCompare(b.start));
   const selBlock = dayBlocks.find(b => b.id === selBlockId) || null;
 
+  // ── Mission Generator ─────────────────────────────────────────────────────
+  const [showMissionGen, setShowMissionGen] = React.useState(false);
+  const [mgMode,    setMgMode]    = React.useState("new");
+  const [mgEnergy,  setMgEnergy]  = React.useState(3);
+  const [mgFocus,   setMgFocus]   = React.useState(3);
+  const [mgTime,    setMgTime]    = React.useState("4h");
+  const [mgPov,     setMgPov]     = React.useState(() => LS.getItem("lifeos_pov") || "founder");
+  const [mgGoal,    setMgGoal]    = React.useState("");
+  const [mgLoading, setMgLoading] = React.useState(false);
+  const [mgError,   setMgError]   = React.useState(null);
+
+  const runMissionGen = async () => {
+    if (!window.AI) { setMgError("AI nicht verfuegbar"); return; }
+    setMgLoading(true); setMgError(null);
+    try {
+      const povLabel = allPovs.find(p => p.id === mgPov)?.label || mgPov;
+      const dayStr = dispWeek.days[selDay]?.dateStr || "";
+      const result = await window.AI.generateDayPlan({
+        pov: mgPov, povLabel, energy: mgEnergy, focus: mgFocus,
+        availableTime: mgTime, goal: mgGoal, mode: mgMode, dayStr,
+      });
+      const blocks = result.blocks || [];
+      if (blocks.length === 0) { setMgError("Keine Bloecke generiert. Bitte nochmal versuchen."); setMgLoading(false); return; }
+      const newBlocks = blocks.map((b, i) => ({
+        id: `mg_${Date.now()}_${i}`,
+        name: b.name || b.title || "Block",
+        start: b.start || "09:00",
+        end: b.end || "10:00",
+        type: b.type || "deep-work",
+        bucket: b.bucket || mgPov,
+      }));
+      if (mgMode === "new") {
+        setWeekBlocks(prev => ({ ...prev, [selDay]: [...(prev[selDay] || []), ...newBlocks] }));
+      } else {
+        setWeekBlocks(prev => ({ ...prev, [selDay]: [...(prev[selDay] || []), ...newBlocks] }));
+      }
+      setShowMissionGen(false);
+    } catch(e) {
+      setMgError(e.message || "Fehler beim Generieren");
+    } finally {
+      setMgLoading(false);
+    }
+  };
+
   // ── Modal ──────────────────────────────────────────────────────────────────
   const [showModal, setShowModal] = React.useState(false);
   const [editId,    setEditId]    = React.useState(null);
@@ -395,6 +439,113 @@ function Planner() {
   return (
     <div data-tutorial="planner-content-area" style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
 
+      {/* ── Mission Generator Modal ───────────────────────────────────────── */}
+      {showMissionGen && (
+        <div style={{ position:"fixed", inset:0, zIndex:120, background:"rgba(0,0,0,0.75)", display:"flex", alignItems:"center", justifyContent:"center" }}
+          onClick={e=>e.target===e.currentTarget&&setShowMissionGen(false)}>
+          <div style={{ background:"var(--panel)", border:"1px solid var(--accent-line)", padding:32, width:520, maxHeight:"90vh", overflowY:"auto", boxShadow:"0 0 80px rgba(109,40,217,0.3)" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
+              <div>
+                <div className="uppercase-label" style={{ color:"var(--accent)", marginBottom:4 }}>Missions-Generator</div>
+                <div style={{ fontSize:12, color:"var(--text-faint)" }}>{dispWeek.days[selDay]?.dateStr} — {DAY_KEYS[selDay]}</div>
+              </div>
+              <button onClick={()=>setShowMissionGen(false)} style={{ background:"none", border:"none", color:"var(--text-faint)", cursor:"pointer", fontSize:20, padding:0 }}>x</button>
+            </div>
+
+            <div style={{ marginBottom:20 }}>
+              <div style={{ fontSize:9.5, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>MODUS</div>
+              <div style={{ display:"flex", gap:8 }}>
+                {[{id:"new",label:"Neue Bloecke anlegen"},{id:"fill",label:"Bestehende auffuellen"}].map(m=>(
+                  <button key={m.id} onClick={()=>setMgMode(m.id)} style={{
+                    flex:1, padding:"9px 14px", background:"transparent",
+                    border:`1px solid ${mgMode===m.id?"var(--accent)":"var(--line)"}`,
+                    color:mgMode===m.id?"var(--accent)":"var(--text-faint)",
+                    fontSize:10.5, fontWeight:700, letterSpacing:"0.1em", cursor:"pointer",
+                  }}>{m.label}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom:20 }}>
+              <div style={{ fontSize:9.5, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>ENERGIE {mgEnergy}/5</div>
+              <div style={{ display:"flex", gap:6 }}>
+                {[1,2,3,4,5].map(v=>(
+                  <button key={v} onClick={()=>setMgEnergy(v)} style={{
+                    flex:1, padding:"9px 0", background:mgEnergy>=v?"var(--accent-soft)":"transparent",
+                    border:`1px solid ${mgEnergy>=v?"var(--accent-line)":"var(--line)"}`,
+                    color:mgEnergy>=v?"var(--accent)":"var(--text-faint)",
+                    fontSize:11, fontWeight:700, cursor:"pointer",
+                  }}>{v}</button>
+                ))}
+              </div>
+              <div style={{ fontSize:10, color:"var(--text-faint)", marginTop:5 }}>
+                {mgEnergy<=2?"Niedrig — einfache Tasks bevorzugt":mgEnergy>=4?"Hoch — Deep Work moeglich":"Mittel — ausgewogener Mix"}
+              </div>
+            </div>
+
+            <div style={{ marginBottom:20 }}>
+              <div style={{ fontSize:9.5, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>MENTALE FOKUS-KAPAZITAET {mgFocus}/5</div>
+              <div style={{ display:"flex", gap:6 }}>
+                {[1,2,3,4,5].map(v=>(
+                  <button key={v} onClick={()=>setMgFocus(v)} style={{
+                    flex:1, padding:"9px 0", background:mgFocus>=v?"rgba(16,185,129,0.12)":"transparent",
+                    border:`1px solid ${mgFocus>=v?"rgba(16,185,129,0.35)":"var(--line)"}`,
+                    color:mgFocus>=v?"var(--athlete)":"var(--text-faint)",
+                    fontSize:11, fontWeight:700, cursor:"pointer",
+                  }}>{v}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom:20 }}>
+              <div style={{ fontSize:9.5, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>VERFUEGBARE ZEIT</div>
+              <div style={{ display:"flex", gap:6 }}>
+                {["1h","2h","3h","4h","6h","8h"].map(t=>(
+                  <button key={t} onClick={()=>setMgTime(t)} style={{
+                    flex:1, padding:"9px 0", background:mgTime===t?"var(--accent-soft)":"transparent",
+                    border:`1px solid ${mgTime===t?"var(--accent)":"var(--line)"}`,
+                    color:mgTime===t?"var(--accent)":"var(--text-faint)",
+                    fontSize:11, fontWeight:700, letterSpacing:"0.08em", cursor:"pointer",
+                  }}>{t}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom:20 }}>
+              <div style={{ fontSize:9.5, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>POV</div>
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                {allPovs.map(p=>(
+                  <button key={p.id} onClick={()=>setMgPov(p.id)} style={{
+                    padding:"7px 16px", borderRadius:999,
+                    border:`1px solid ${mgPov===p.id?p.color:"var(--line)"}`,
+                    color:mgPov===p.id?p.color:"var(--text-faint)",
+                    background:"transparent", fontWeight:700, fontSize:10.5, cursor:"pointer",
+                  }}>{p.label.toUpperCase()}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom:24 }}>
+              <div style={{ fontSize:9.5, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>TAGESZIEL (optional)</div>
+              <input value={mgGoal} onChange={e=>setMgGoal(e.target.value)}
+                placeholder="Was soll heute erreicht werden?"
+                style={{ width:"100%", background:"var(--panel-2)", border:"1px solid var(--line)", color:"var(--text)", padding:"10px 14px", fontSize:13, outline:"none", fontFamily:"inherit", boxSizing:"border-box" }} />
+            </div>
+
+            {mgError && <div style={{ marginBottom:16, padding:"10px 14px", background:"var(--danger-soft)", border:"1px solid rgba(214,50,74,0.4)", color:"var(--danger)", fontSize:12 }}>{mgError}</div>}
+
+            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+              <button onClick={()=>setShowMissionGen(false)} style={{ padding:"10px 18px", background:"transparent", border:"1px solid var(--line)", color:"var(--text-faint)", fontSize:11, cursor:"pointer" }}>ABBRECHEN</button>
+              <button onClick={runMissionGen} disabled={mgLoading} style={{
+                padding:"10px 24px", background:mgLoading?"var(--panel-2)":"var(--accent)",
+                color:mgLoading?"var(--text-faint)":"#0a0a0c",
+                border:"none", fontSize:11, letterSpacing:"0.16em", fontWeight:700, cursor:mgLoading?"default":"pointer",
+              }}>{mgLoading?"GENERIERE...":"TAG PLANEN"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Modal ─────────────────────────────────────────────────────────── */}
       {showModal && (
         <div style={{ position:"fixed", inset:0, zIndex:100, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center" }}
@@ -534,7 +685,10 @@ function Planner() {
             <button onClick={()=>setWeekOffset(0)} style={{ background:"var(--accent-soft)", border:"1px solid var(--accent-line)", color:"var(--accent)", cursor:"pointer", padding:"4px 12px", fontSize:9.5, letterSpacing:"0.12em", fontWeight:700 }}>HEUTE</button>
           )}
         </div>
-        <button onClick={()=>openAdd()} style={{ padding:"9px 20px", background:"var(--accent)", color:"#0a0a0c", border:"none", fontSize:10.5, fontWeight:700, letterSpacing:"0.16em", cursor:"pointer" }}>+ BLOCK</button>
+        <div style={{ display:"flex", gap:8 }}>
+          <button onClick={()=>setShowMissionGen(true)} style={{ padding:"9px 20px", background:"transparent", color:"var(--accent)", border:"1px solid var(--accent-line)", fontSize:10.5, fontWeight:700, letterSpacing:"0.16em", cursor:"pointer" }}>MISSIONS-GENERATOR</button>
+          <button onClick={()=>openAdd()} style={{ padding:"9px 20px", background:"var(--accent)", color:"#0a0a0c", border:"none", fontSize:10.5, fontWeight:700, letterSpacing:"0.16em", cursor:"pointer" }}>+ BLOCK</button>
+        </div>
       </div>
 
       {/* ── Day tabs ──────────────────────────────────────────────────────── */}
