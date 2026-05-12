@@ -333,62 +333,6 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
       overflow: "auto", display: "flex", flexDirection: "column",
     }}>
 
-      {/* ── INBOX / Quick Capture ── */}
-      {inbox && inbox.length > 0 && (
-        <div style={{ padding: "20px 20px 0", flexShrink: 0 }}>
-          <div className="uppercase-label" style={{ marginBottom: 12, color: "var(--warn)" }}>
-            INBOX · {inbox.length}
-          </div>
-          {inbox.map(item => {
-            const ts = new Date(item.ts);
-            const timeStr = ts.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-            const assign = inboxAssign[item.id] || { pov: item.pov || pov, kr: null };
-            const assignPovColor = POVS.find(p => p.id === assign.pov)?.color || "var(--accent)";
-            const krsForAssignPov = loadProjectsGrouped(assign.pov).flatMap(proj =>
-              proj.objectives.flatMap(o => (o.krs || []).filter(k => k.status !== "locked"))
-            );
-            return (
-              <div key={item.id} style={{ marginBottom: 10, padding: "10px 12px", background: "var(--panel-2)", border: "1px solid var(--line-soft)" }}>
-                <div style={{ fontSize: 12.5, fontWeight: 500, color: "var(--text)", marginBottom: 8, lineHeight: 1.35 }}>{item.text}</div>
-                <div style={{ fontSize: 9, color: "var(--text-faint)", marginBottom: 8, letterSpacing: "0.04em" }}>{timeStr}</div>
-                <div style={{ display: "flex", gap: 3, flexWrap: "wrap", marginBottom: 6 }}>
-                  {POVS.map(p => (
-                    <button key={p.id} onClick={() => setInboxAssign(prev => ({ ...prev, [item.id]: { pov: p.id, kr: null } }))}
-                      style={{ padding: "2px 7px", fontSize: 8.5, fontWeight: 700, letterSpacing: "0.08em",
-                        background: assign.pov === p.id ? p.color : "transparent",
-                        border: "1px solid " + (assign.pov === p.id ? p.color : "var(--line)"),
-                        color: assign.pov === p.id ? "#0a0a0c" : "var(--text-faint)", cursor: "pointer",
-                      }}>{p.label.toUpperCase()}</button>
-                  ))}
-                </div>
-                {krsForAssignPov.length > 0 && (
-                  <select value={assign.kr || ""} onChange={e => setInboxAssign(prev => ({ ...prev, [item.id]: { ...assign, kr: e.target.value || null } }))}
-                    style={{ width: "100%", background: "var(--panel)", border: "1px solid var(--line)", color: assign.kr ? "var(--text)" : "var(--text-faint)", padding: "4px 8px", fontSize: 10.5, fontFamily: "inherit", marginBottom: 8, outline: "none" }}>
-                    <option value="">Kein Key Result</option>
-                    {krsForAssignPov.map(kr => (
-                      <option key={kr.id} value={kr.id}>{kr.label}</option>
-                    ))}
-                  </select>
-                )}
-                <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                  <button onClick={() => {
-                    const task = { id: "custom_" + Date.now(), n: tasksToday.length + 1, title: item.text, sub: "", kr: assign.kr || null, elapsed: 0, pov: assign.pov || pov, custom: true };
-                    const tKey = "lifeos_tasks_" + (assign.pov || pov);
-                    let ex = []; try { ex = JSON.parse(LS.getItem(tKey) || "[]"); } catch {}
-                    LS.setItem(tKey, JSON.stringify([...ex, task]));
-                    if ((assign.pov || pov) === pov) setCustomTasks(prev => [...prev, task]);
-                    setInbox(prev => prev.filter(i => i.id !== item.id));
-                    setInboxAssign(prev => { const n = { ...prev }; delete n[item.id]; return n; });
-                    window.dispatchEvent(new CustomEvent("lifeos-tasks-updated", { detail: { pov: assign.pov || pov } }));
-                  }} style={{ flex: 1, padding: "5px 0", background: assignPovColor, color: "#0a0a0c", border: "none", fontSize: 9.5, fontWeight: 700, letterSpacing: "0.1em", cursor: "pointer" }}>TASK ERSTELLEN</button>
-                  <button onClick={() => setInbox(prev => prev.filter(i => i.id !== item.id))} style={{ padding: "5px 10px", background: "transparent", border: "1px solid var(--line)", color: "var(--text-faint)", fontSize: 14, cursor: "pointer", lineHeight: 1 }}>x</button>
-                </div>
-              </div>
-            );
-          })}
-          <div style={{ borderBottom: "1px solid var(--line-soft)", marginBottom: 0 }} />
-        </div>
-      )}
 
       {/* ── PROJEKTE ── */}
       <div style={{ padding: "20px 20px 0", flex: 1 }}>
@@ -495,76 +439,6 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
         )}
       </div>
 
-      {/* ── MISSION HEUTE ── */}
-      <div style={{ padding: "20px", borderTop: "1px solid var(--line-soft)", flexShrink: 0 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <div style={{ fontSize: 9.5, letterSpacing: "0.16em", fontWeight: 700, color: "var(--accent)" }}>MISSION HEUTE</div>
-          {dailyMission && (
-            <button onClick={() => { setDailyMission(null); LS.removeItem("lifeos_daily_mission_" + pov); setMissionEnergy(null); setMissionTime(null); }}
-              style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 13, padding: 0, lineHeight: 1 }}>↺</button>
-          )}
-        </div>
-
-        {!dailyMission && !missionLoading && (
-          <div>
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 9, letterSpacing: "0.12em", color: "var(--text-faint)", fontWeight: 700, marginBottom: 6 }}>ENERGIE</div>
-              <div style={{ display: "flex", gap: 4 }}>
-                {[1,2,3,4,5].map(n => (
-                  <button key={n} onClick={() => setMissionEnergy(n)} style={{ flex: 1, padding: "5px 0", fontSize: 11, fontWeight: 700,
-                    background: missionEnergy === n ? "var(--accent)" : "transparent",
-                    border: "1px solid " + (missionEnergy === n ? "var(--accent)" : "var(--line)"),
-                    color: missionEnergy === n ? "#0a0a0c" : "var(--text-faint)", cursor: "pointer",
-                  }}>{n}</button>
-                ))}
-              </div>
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 9, letterSpacing: "0.12em", color: "var(--text-faint)", fontWeight: 700, marginBottom: 6 }}>VERFÜGBARE ZEIT</div>
-              <div style={{ display: "flex", gap: 4 }}>
-                {["1h","2h","3h","4h+"].map(t => (
-                  <button key={t} onClick={() => setMissionTime(t)} style={{ flex: 1, padding: "5px 0", fontSize: 10, fontWeight: 700,
-                    background: missionTime === t ? "var(--accent)" : "transparent",
-                    border: "1px solid " + (missionTime === t ? "var(--accent)" : "var(--line)"),
-                    color: missionTime === t ? "#0a0a0c" : "var(--text-faint)", cursor: "pointer",
-                  }}>{t}</button>
-                ))}
-              </div>
-            </div>
-            <button onClick={generateMission} style={{ width: "100%", padding: "9px 0", background: "transparent", border: "1px solid var(--accent-line)", color: "var(--accent)", fontSize: 10, letterSpacing: "0.16em", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>GENERIEREN</button>
-            {missionError && <div style={{ fontSize: 10.5, color: "var(--danger)", marginTop: 8, lineHeight: 1.4 }}>{missionError}</div>}
-          </div>
-        )}
-
-        {missionLoading && <div style={{ fontSize: 11.5, color: "var(--text-faint)", padding: "12px 0", textAlign: "center" }}>Generiere Mission...</div>}
-
-        {dailyMission && (
-          <div>
-            {dailyMission.motivation && (
-              <div style={{ fontSize: 11, color: "var(--accent)", marginBottom: 12, fontStyle: "italic", lineHeight: 1.45, opacity: 0.85 }}>"{dailyMission.motivation}"</div>
-            )}
-            {(dailyMission.tasks || []).map((task, i) => (
-              <div key={i} style={{ marginBottom: 8, padding: "10px 12px", background: "var(--panel-2)", border: "1px solid var(--line-soft)" }}>
-                <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 3, color: "var(--text)", lineHeight: 1.35 }}>{task.title}</div>
-                {task.sub && <div style={{ fontSize: 10.5, color: "var(--text-faint)", marginBottom: 6, lineHeight: 1.4 }}>{task.sub}</div>}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                    {task.krLabel && task.krLabel !== "null" && (
-                      <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", color: "var(--accent)", border: "1px solid var(--accent-line)", padding: "2px 6px" }}>{task.krLabel}</span>
-                    )}
-                    {task.est && <span className="mono" style={{ fontSize: 9.5, color: "var(--text-faint)" }}>{task.est}m</span>}
-                  </div>
-                  <button onClick={() => {
-                    const krId = task.krLabel && task.krLabel !== "null"
-                      ? (allKRsForSelect.find(k => k.label === task.krLabel || k.label?.split(":")[0]?.trim() === task.krLabel)?.id || null) : null;
-                    setCustomTasks(prev => [...prev, { id: "ai_" + Date.now() + "_" + i, n: tasksToday.length + 1 + i, title: task.title, sub: task.sub || "", kr: krId, elapsed: 0, pov, custom: true }]);
-                  }} style={{ padding: "4px 10px", background: "var(--accent)", color: "#0a0a0c", border: "none", fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", cursor: "pointer", fontFamily: "inherit" }}>ÜBERNEHMEN</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   ); };
 

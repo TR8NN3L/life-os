@@ -136,37 +136,53 @@ function Planner() {
 
   // ── Mission Generator ─────────────────────────────────────────────────────
   const [showMissionGen, setShowMissionGen] = React.useState(false);
-  const [mgMode,    setMgMode]    = React.useState("new");
-  const [mgEnergy,  setMgEnergy]  = React.useState(3);
-  const [mgFocus,   setMgFocus]   = React.useState(3);
-  const [mgTime,    setMgTime]    = React.useState("4h");
-  const [mgPov,     setMgPov]     = React.useState(() => LS.getItem("lifeos_pov") || "founder");
-  const [mgGoal,    setMgGoal]    = React.useState("");
-  const [mgLoading, setMgLoading] = React.useState(false);
-  const [mgError,   setMgError]   = React.useState(null);
+  const [mgMode,      setMgMode]      = React.useState("new");
+  const [mgEnergy,    setMgEnergy]    = React.useState(3);
+  const [mgFocus,     setMgFocus]     = React.useState(3);
+  const [mgStartTime, setMgStartTime] = React.useState("08:00");
+  const [mgBlockDur,  setMgBlockDur]  = React.useState(60);  // minutes per block
+  const [mgNumBlocks, setMgNumBlocks] = React.useState(3);
+  const [mgAllPovs,   setMgAllPovs]   = React.useState(false);
+  const [mgPovs,      setMgPovs]      = React.useState(() => [LS.getItem("lifeos_pov") || "founder"]);
+  const [mgGoal,      setMgGoal]      = React.useState("");
+  const [mgLoading,   setMgLoading]   = React.useState(false);
+  const [mgError,     setMgError]     = React.useState(null);
+
+  const toggleMgPov = (povId) => {
+    setMgPovs(prev => prev.includes(povId) ? (prev.length > 1 ? prev.filter(p => p !== povId) : prev) : [...prev, povId]);
+  };
 
   const runMissionGen = async () => {
     if (!window.AI) { setMgError("AI nicht verfuegbar"); return; }
     setMgLoading(true); setMgError(null);
     try {
-      const povLabel = allPovs.find(p => p.id === mgPov)?.label || mgPov;
+      const selectedPovs = mgAllPovs ? allPovs.map(p => p.id) : mgPovs;
+      const povLabels = selectedPovs.map(id => allPovs.find(p => p.id === id)?.label || id).join(", ");
       const dayStr = dispWeek.days[selDay]?.dateStr || "";
+      const totalMins = mgNumBlocks * mgBlockDur;
       const result = await window.AI.generateDayPlan({
-        pov: mgPov, povLabel, energy: mgEnergy, focus: mgFocus,
-        availableTime: mgTime, goal: mgGoal, mode: mgMode, dayStr,
+        pov: selectedPovs[0], povLabel: povLabels,
+        energy: mgEnergy, focus: mgFocus,
+        availableTime: `${Math.round(totalMins/60*10)/10}h`,
+        goal: mgGoal, mode: mgMode, dayStr,
+        startTime: mgStartTime, blockDuration: mgBlockDur, numBlocks: mgNumBlocks,
+        multiPov: selectedPovs.length > 1, povs: selectedPovs,
       });
       const blocks = result.blocks || [];
       if (blocks.length === 0) { setMgError("Keine Bloecke generiert. Bitte nochmal versuchen."); setMgLoading(false); return; }
-      const newBlocks = blocks.map((b, i) => ({
-        id: `mg_${Date.now()}_${i}`,
-        name: b.name || b.title || "Block",
-        start: b.start || "09:00",
-        end: b.end || "10:00",
-        type: b.type || "deep-work",
-        bucket: b.bucket || mgPov,
-      }));
+      // Compute start times from mgStartTime if AI didn't set them properly
+      let cursor = minsFromStr(mgStartTime);
+      const newBlocks = blocks.map((b, i) => {
+        const dur = b.durationMins || mgBlockDur;
+        const start = b.start && b.start.includes(":") ? b.start : strFromMins(clamp(cursor, GRID_START_H*60, GRID_END_H*60 - dur));
+        const startM = minsFromStr(start);
+        const end = b.end && b.end.includes(":") ? b.end : strFromMins(clamp(startM + dur, GRID_START_H*60 + 15, GRID_END_H*60));
+        cursor = minsFromStr(end) + 15; // 15 min pause between blocks
+        const bPov = selectedPovs.length > 1 ? (b.bucket || selectedPovs[i % selectedPovs.length]) : (b.bucket || selectedPovs[0]);
+        return { id: `mg_${Date.now()}_${i}`, name: b.name || b.title || "Block", start, end, type: b.type || "deep-work", bucket: bPov };
+      });
       if (mgMode === "new") {
-        setWeekBlocks(prev => ({ ...prev, [selDay]: [...(prev[selDay] || []), ...newBlocks] }));
+        setWeekBlocks(prev => ({ ...prev, [selDay]: newBlocks }));
       } else {
         setWeekBlocks(prev => ({ ...prev, [selDay]: [...(prev[selDay] || []), ...newBlocks] }));
       }
@@ -392,14 +408,22 @@ function Planner() {
       });
     }
 
-    // ── Filter by block type (permissiv: tasks ohne flow/est erscheinen überall) ──
+    // ── Load done sets per POV (filter out completed tasks) ──
+    const doneSets = {};
+    allPovs.forEach(({ id: pid }) => {
+      try { doneSets[pid] = new Set(JSON.parse(LS.getItem(`lifeos_done_${pid}`) || "[]")); } catch { doneSets[pid] = new Set(); }
+    });
+
+    // ── Filter by block type + exclude done tasks + exclude tutorial tasks ──
     return allTasks.filter(t => {
+      if (t._tutorial) return false;
+      if (doneSets[t._pov]?.has(t.id)) return false;
       const hasFlow = t.flow && t.flow.trim();
       const hasEst  = t.est != null;
       const flow    = hasFlow ? t.flow.toUpperCase() : null;
       const est     = hasEst  ? Number(t.est) : null;
-      if (block.type === "flex") return true; // FLEX: alles anzeigen
-      if (!hasFlow && !hasEst)  return true;  // keine Metadaten → überall anzeigen
+      if (block.type === "flex") return true;
+      if (!hasFlow && !hasEst)  return true;
       if (block.type === "deep-work") return flow === "FLOW" || (est != null && est >= 60) || (!hasFlow && est == null);
       if (block.type === "basic")     return flow === "QUICK" || flow === "EASY" || (est != null && est <= 30) || (!hasEst && flow == null);
       return true;
@@ -497,32 +521,72 @@ function Planner() {
               </div>
             </div>
 
-            <div style={{ marginBottom:20 }}>
-              <div style={{ fontSize:9.5, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>VERFUEGBARE ZEIT</div>
-              <div style={{ display:"flex", gap:6 }}>
-                {["1h","2h","3h","4h","6h","8h"].map(t=>(
-                  <button key={t} onClick={()=>setMgTime(t)} style={{
-                    flex:1, padding:"9px 0", background:mgTime===t?"var(--accent-soft)":"transparent",
-                    border:`1px solid ${mgTime===t?"var(--accent)":"var(--line)"}`,
-                    color:mgTime===t?"var(--accent)":"var(--text-faint)",
-                    fontSize:11, fontWeight:700, letterSpacing:"0.08em", cursor:"pointer",
-                  }}>{t}</button>
-                ))}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12, marginBottom:20 }}>
+              <div>
+                <div style={{ fontSize:9.5, letterSpacing:"0.14em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>START</div>
+                <input type="time" value={mgStartTime} onChange={e=>setMgStartTime(e.target.value)}
+                  style={{ width:"100%", background:"var(--panel-2)", border:"1px solid var(--line)", color:"var(--text)", padding:"9px 10px", fontSize:13, outline:"none", fontFamily:"'JetBrains Mono',monospace", boxSizing:"border-box" }} />
+              </div>
+              <div>
+                <div style={{ fontSize:9.5, letterSpacing:"0.14em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>DAUER/BLOCK</div>
+                <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+                  {[30,45,60,90,120].map(d=>(
+                    <button key={d} onClick={()=>setMgBlockDur(d)} style={{
+                      flex:1, padding:"8px 2px", background:mgBlockDur===d?"var(--accent-soft)":"transparent",
+                      border:`1px solid ${mgBlockDur===d?"var(--accent)":"var(--line)"}`,
+                      color:mgBlockDur===d?"var(--accent)":"var(--text-faint)",
+                      fontSize:9.5, fontWeight:700, cursor:"pointer",
+                    }}>{d}m</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize:9.5, letterSpacing:"0.14em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>ANZAHL BLOECKE</div>
+                <div style={{ display:"flex", gap:4 }}>
+                  {[1,2,3,4,5,6].map(n=>(
+                    <button key={n} onClick={()=>setMgNumBlocks(n)} style={{
+                      flex:1, padding:"8px 0", background:mgNumBlocks===n?"var(--accent-soft)":"transparent",
+                      border:`1px solid ${mgNumBlocks===n?"var(--accent)":"var(--line)"}`,
+                      color:mgNumBlocks===n?"var(--accent)":"var(--text-faint)",
+                      fontSize:11, fontWeight:700, cursor:"pointer",
+                    }}>{n}</button>
+                  ))}
+                </div>
               </div>
             </div>
+            <div style={{ marginBottom:4, fontSize:10, color:"var(--text-faint)", letterSpacing:"0.04em" }}>
+              Gesamt: {mgNumBlocks} x {mgBlockDur}min = ca. {Math.round(mgNumBlocks*mgBlockDur/60*10)/10}h · Start: {mgStartTime}
+            </div>
 
-            <div style={{ marginBottom:20 }}>
-              <div style={{ fontSize:9.5, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>POV</div>
-              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                {allPovs.map(p=>(
-                  <button key={p.id} onClick={()=>setMgPov(p.id)} style={{
-                    padding:"7px 16px", borderRadius:999,
-                    border:`1px solid ${mgPov===p.id?p.color:"var(--line)"}`,
-                    color:mgPov===p.id?p.color:"var(--text-faint)",
-                    background:"transparent", fontWeight:700, fontSize:10.5, cursor:"pointer",
-                  }}>{p.label.toUpperCase()}</button>
-                ))}
+            <div style={{ marginBottom:20, marginTop:16 }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                <div style={{ fontSize:9.5, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)" }}>POV</div>
+                <button onClick={()=>setMgAllPovs(v=>!v)} style={{
+                  padding:"4px 12px", background:mgAllPovs?"var(--accent-soft)":"transparent",
+                  border:`1px solid ${mgAllPovs?"var(--accent)":"var(--line)"}`,
+                  color:mgAllPovs?"var(--accent)":"var(--text-faint)",
+                  fontSize:9, fontWeight:700, letterSpacing:"0.12em", cursor:"pointer",
+                }}>ALLE POVs</button>
               </div>
+              {!mgAllPovs && (
+                <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                  {allPovs.map(p=>(
+                    <button key={p.id} onClick={()=>toggleMgPov(p.id)} style={{
+                      padding:"7px 14px", borderRadius:999,
+                      border:`1px solid ${mgPovs.includes(p.id)?p.color:"var(--line)"}`,
+                      color:mgPovs.includes(p.id)?p.color:"var(--text-faint)",
+                      background:mgPovs.includes(p.id)?"transparent":"transparent",
+                      fontWeight:700, fontSize:10.5, cursor:"pointer",
+                      boxShadow:mgPovs.includes(p.id)?`0 0 0 1px ${p.color}33` :"none",
+                    }}>{p.label.toUpperCase()}</button>
+                  ))}
+                </div>
+              )}
+              {mgAllPovs && (
+                <div style={{ padding:"8px 12px", background:"var(--accent-soft)", border:"1px solid var(--accent-line)", fontSize:11, color:"var(--accent)" }}>
+                  Alle {allPovs.length} POVs werden abgedeckt — Bloecke werden verteilt.
+                </div>
+              )}
             </div>
 
             <div style={{ marginBottom:24 }}>
@@ -902,37 +966,73 @@ function Planner() {
               {suggestions.length===0&&(
                 <div style={{ padding:"48px 0", textAlign:"center", color:"var(--text-faint)" }}>
                   <div style={{ fontSize:12, marginBottom:6 }}>Keine passenden Aufgaben.</div>
-                  <div style={{ fontSize:10.5 }}>Ändere Typ oder füge Tasks in Mission Control hinzu.</div>
+                  <div style={{ fontSize:10.5 }}>Aendere Typ oder fuege Tasks in Mission Control hinzu.</div>
                 </div>
               )}
+
+              {/* ── Selected tasks pinned to top ── */}
+              {selTaskKeys.length>0&&(
+                <div style={{ marginBottom:20 }}>
+                  <div style={{ fontSize:9, letterSpacing:"0.14em", color:"var(--good)", marginBottom:10, fontWeight:700 }}>
+                    AUSGEWAEHLT — {selTaskKeys.length} TASK{selTaskKeys.length!==1?"S":""}
+                  </div>
+                  {selSuggs.map((t,i) => {
+                    const taskKey = `${t.id}_${t._pov}`;
+                    const povColor = allPovs.find(p=>p.id===(t._pov||t.pov))?.color||"var(--accent)";
+                    const flow = (t.flow||"QUICK").toUpperCase();
+                    const est  = t.est||30;
+                    return (
+                      <div key={`sel_${t.id}_${i}`} onClick={()=>toggleTaskSel(selBlock.id,taskKey)} style={{
+                        display:"flex", alignItems:"center", gap:12, padding:"11px 14px", marginBottom:4,
+                        background:"var(--good-soft)", border:"1px solid rgba(58,171,91,0.35)",
+                        borderLeft:"3px solid var(--good)", cursor:"pointer", transition:"all .12s",
+                      }}>
+                        <div style={{ width:16, height:16, borderRadius:3, flexShrink:0, border:"2px solid var(--good)", background:"var(--good)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                          <span style={{ color:"#0a0a0c", fontSize:10, fontWeight:900, lineHeight:1 }}>✓</span>
+                        </div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:13, fontWeight:700, marginBottom:2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", color:"var(--text)" }}>{t.title}</div>
+                          {t.sub && <div style={{ fontSize:10.5, color:"var(--text-faint)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{t.sub}</div>}
+                        </div>
+                        <FlowTag kind={flow} />
+                        <div className="mono" style={{ fontSize:13, fontWeight:700, color:"var(--good)", flexShrink:0 }}>{est}<span style={{ fontSize:8, fontWeight:400 }}>m</span></div>
+                      </div>
+                    );
+                  })}
+                  <div style={{ height:1, background:"var(--line)", margin:"14px 0 16px" }} />
+                </div>
+              )}
+
               {suggestions.length>0&&(
                 <div style={{ fontSize:9, letterSpacing:"0.14em", color:"var(--text-faint)", marginBottom:12, fontWeight:600 }}>
-                  {suggestions.length} VORSCHLÄGE — ANHAKEN ZUM ZUTEILEN
+                  {suggestions.filter(t=>!selTaskKeys.includes(`${t.id}_${t._pov}`)).length} OFFENE AUFGABEN — ANHAKEN ZUM ZUTEILEN
                 </div>
               )}
               {(() => {
+                // Only show unselected tasks in the grouped view
+                const unselSuggestions = suggestions.filter(t => !selTaskKeys.includes(`${t.id}_${t._pov}`));
                 // Group by _pov → _source (project) → _objective → _kr
                 const povOrder = [];
                 const povGroups = {};
-                suggestions.forEach(t => {
-                  const pov = t._pov || "__none__";
-                  if (!povGroups[pov]) { povOrder.push(pov); povGroups[pov] = { _srcOrder: [], _srcs: {} }; }
-                  const src = t._source || "Täglich";
-                  if (!povGroups[pov]._srcs[src]) {
-                    povGroups[pov]._srcOrder.push(src);
-                    povGroups[pov]._srcs[src] = { _objOrder: [], _objs: {} };
+                unselSuggestions.forEach(t => {
+                  const povKey = t._pov || "__none__";
+                  if (!povGroups[povKey]) { povOrder.push(povKey); povGroups[povKey] = { _srcOrder: [], _srcs: {} }; }
+                  const src = t._source || "daily";
+                  if (!povGroups[povKey]._srcs[src]) {
+                    povGroups[povKey]._srcOrder.push(src);
+                    povGroups[povKey]._srcs[src] = { _objOrder: [], _objs: {} };
                   }
                   const obj = t._objective || "__none__";
-                  if (!povGroups[pov]._srcs[src]._objs[obj]) {
-                    povGroups[pov]._srcs[src]._objOrder.push(obj);
-                    povGroups[pov]._srcs[src]._objs[obj] = { _krOrder: [], _krs: {} };
+                  if (!povGroups[povKey]._srcs[src]._objs[obj]) {
+                    povGroups[povKey]._srcs[src]._objOrder.push(obj);
+                    povGroups[povKey]._srcs[src]._objs[obj] = { _krOrder: [], _krs: {} };
                   }
                   const kr = t._kr || "__none__";
-                  if (!povGroups[pov]._srcs[src]._objs[obj]._krs[kr]) {
-                    povGroups[pov]._srcs[src]._objs[obj]._krOrder.push(kr);
-                    povGroups[pov]._srcs[src]._objs[obj]._krs[kr] = [];
+                  if (!povGroups[povKey]._srcs[src]._objs[obj]._krs[kr]) {
+                    povGroups[povKey]._srcs[src]._objs[obj]._krOrder.push(kr);
+                    povGroups[povKey]._srcs[src]._objs[obj]._krs[kr] = [];
                   }
-                  povGroups[pov]._srcs[src]._objs[obj]._krs[kr].push(t);
+                  povGroups[povKey]._srcs[src]._objs[obj]._krs[kr].push(t);
                 });
 
                 const renderTaskRow = (t, i) => {
@@ -978,13 +1078,13 @@ function Planner() {
                         return (
                           <div key={src} style={{ marginBottom:16 }}>
                             {/* Project header */}
-                            {src !== "Täglich" && (
+                            {src !== "daily" && (
                               <div style={{ fontSize:9, letterSpacing:"0.16em", fontWeight:700, color:"var(--accent)", marginBottom:10, display:"flex", alignItems:"center", gap:6 }}>
                                 <span style={{ opacity:0.5 }}>✦</span> {src.toUpperCase()}
                               </div>
                             )}
-                            {src === "Täglich" && (
-                              <div style={{ fontSize:9, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)", marginBottom:10 }}>⚡ TÄGLICH</div>
+                            {src === "daily" && (
+                              <div style={{ fontSize:9, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)", marginBottom:10 }}>TAEGLICH</div>
                             )}
                             {_objOrder.map(objKey => {
                               const { _krOrder, _krs } = _objs[objKey];

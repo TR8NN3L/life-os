@@ -716,6 +716,16 @@ function App() {
         onDone: () => {
           setTutorialActive(false);
           LS.setItem("lifeos_tutorial_done", "1");
+          // Auto-delete tutorial seed tasks + habits
+          try {
+            const tasks = JSON.parse(LS.getItem("lifeos_tasks_personal") || "[]");
+            LS.setItem("lifeos_tasks_personal", JSON.stringify(tasks.filter(t => !t._tutorial)));
+          } catch {}
+          try {
+            const habits = JSON.parse(LS.getItem("lifeos_habits") || "[]");
+            LS.setItem("lifeos_habits", JSON.stringify(habits.filter(h => !h._tutorial)));
+          } catch {}
+          window.dispatchEvent(new CustomEvent("lifeos-tasks-updated", { detail: { pov: "personal" } }));
         },
       })}
 
