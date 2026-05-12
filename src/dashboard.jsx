@@ -871,6 +871,10 @@ function BehaviorStrip() {
   const [habits, setHabits] = React.useState(() => {
     try { return JSON.parse(LS.getItem("lifeos_habits") || "[]"); } catch { return []; }
   });
+  const [expanded, setExpanded]       = React.useState(false);
+  const [manualCheckin, setManualCheckin] = React.useState(() => {
+    try { return !!(JSON.parse(LS.getItem("lifeos_system_checkin") || "{}")[todayISO]); } catch { return false; }
+  });
 
   const saveHabits = (arr) => {
     setHabits(arr);
@@ -885,6 +889,15 @@ function BehaviorStrip() {
     window.addEventListener("lifeos-habits-updated", sync);
     return () => window.removeEventListener("lifeos-habits-updated", sync);
   }, []);
+
+  const saveManualCheckin = (val) => {
+    setManualCheckin(val);
+    try {
+      const log = JSON.parse(LS.getItem("lifeos_system_checkin") || "{}");
+      if (val) log[todayISO] = "manual"; else delete log[todayISO];
+      LS.setItem("lifeos_system_checkin", JSON.stringify(log));
+    } catch {}
+  };
 
   const getStreak = (log) => {
     let streak = 0;
@@ -910,72 +923,122 @@ function BehaviorStrip() {
     saveHabits(arr);
   };
 
-  const checkedCount = habits.filter(h => !!h.log[todayISO]).length;
+  const checkedCount  = habits.filter(h => !!h.log[todayISO]).length;
+  const allDone       = habits.length > 0 && checkedCount === habits.length;
+  const systemDone    = allDone || manualCheckin;
+  const isOverride    = manualCheckin && !allDone;
+
+  // Auto-clear manual flag when all habits are actually done
+  React.useEffect(() => {
+    if (allDone && manualCheckin) saveManualCheckin(false);
+  }, [allDone]);
+
+  const masterColor = allDone ? "var(--good)" : isOverride ? "var(--warn)" : "var(--line)";
 
   return (
-    <div data-tutorial="behavior-strip" style={{
-      flexShrink: 0,
-      borderTop: "1px solid var(--accent-line)",
-      borderBottom: "1px solid var(--line-soft)",
-      background: "rgba(47,139,255,0.04)",
-      padding: "10px 28px",
-      display: "flex", alignItems: "center", gap: 20,
-      overflowX: "auto", minHeight: 52,
-    }}>
-      {/* label */}
-      <div style={{ flexShrink: 0, marginRight: 4 }}>
-        <div style={{ fontSize: 8, letterSpacing: "0.18em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 1 }}>
-          HEUTE CHECK-IN
+    <div data-tutorial="behavior-strip" style={{ flexShrink: 0, borderTop: "1px solid var(--line-soft)", background: "var(--panel)" }}>
+
+      {/* ── Header — always visible ── */}
+      <div
+        onClick={() => setExpanded(e => !e)}
+        style={{
+          display: "flex", alignItems: "center", gap: 12,
+          padding: "10px 28px", cursor: "pointer", userSelect: "none",
+          borderBottom: expanded ? "1px solid var(--line-soft)" : "none",
+        }}
+      >
+        {/* Master checkbox */}
+        <button
+          onClick={e => { e.stopPropagation(); if (!allDone) saveManualCheckin(!manualCheckin); }}
+          title={allDone ? "Automatisch ✓ — alle Habits erledigt" : isOverride ? "Manuell gesetzt — klicken zum Zurücksetzen" : "Manuell als erledigt markieren"}
+          style={{
+            width: 22, height: 22, borderRadius: 4, flexShrink: 0,
+            background: systemDone ? masterColor : "transparent",
+            border: `2px solid ${masterColor}`,
+            color: "#0a0a0c", fontSize: 11, fontWeight: 700,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: allDone ? "default" : "pointer",
+            transition: "all .2s", padding: 0,
+          }}
+        >{systemDone ? "✓" : ""}</button>
+
+        {/* Label + count */}
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.16em", color: systemDone ? (allDone ? "var(--good)" : "var(--warn)") : "var(--text-faint)" }}>
+            DAILY SYSTEM CHECK-IN{isOverride ? " · OVERRIDE" : ""}
+          </div>
+          <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 1 }}>
+            {habits.length === 0 ? "Keine Habits — in Insights hinzufügen" : `${checkedCount} / ${habits.length} Habits erledigt`}
+          </div>
         </div>
-        <div style={{ fontSize: 10, color: habits.length > 0 ? (checkedCount === habits.length ? "var(--good)" : "var(--text-dim)") : "var(--text-faint)" }}>
-          {habits.length > 0 ? `${checkedCount} / ${habits.length}` : "Kein Habit"}
-        </div>
+
+        {/* Progress dots */}
+        {habits.length > 0 && (
+          <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
+            {habits.map(h => (
+              <div key={h.id} style={{
+                width: 8, height: 8, borderRadius: 2,
+                background: h.log[todayISO] ? h.color : "var(--line)",
+                transition: "background .2s",
+              }} />
+            ))}
+          </div>
+        )}
+
+        <span style={{ fontSize: 9, color: "var(--text-faint)", flexShrink: 0, marginLeft: 4 }}>
+          {expanded ? "▲" : "▼"}
+        </span>
       </div>
 
-      {/* divider */}
-      <div style={{ width: 1, height: 32, background: "var(--line-soft)", flexShrink: 0 }} />
-
-      {habits.length === 0 ? (
-        <div style={{ fontSize: 11, color: "var(--text-faint)", fontStyle: "italic", letterSpacing: "0.04em" }}>
-          Keine Habits aktiv — in <span style={{ color: "var(--accent)", cursor: "pointer", textDecoration: "underline" }}>Insights</span> hinzufügen.
-        </div>
-      ) : (
-        habits.map(h => {
-          const done = !!h.log[todayISO];
-          const streak = getStreak(h.log);
-          return (
-            <div key={h.id} style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
-              <button
+      {/* ── Expanded habit grid ── */}
+      {expanded && (
+        <div style={{
+          padding: "12px 28px 16px",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
+          gap: 8,
+        }}>
+          {habits.length === 0 ? (
+            <div style={{ fontSize: 11, color: "var(--text-faint)", fontStyle: "italic", gridColumn: "1/-1" }}>
+              Noch keine Habits — unter Insights → Behavior Tracker hinzufügen.
+            </div>
+          ) : habits.map(h => {
+            const done = !!h.log[todayISO];
+            const streak = getStreak(h.log);
+            return (
+              <div
+                key={h.id}
                 onClick={() => toggleHabit(h.id)}
                 data-tutorial={h.id === "tutorial_habit_1" ? "tutorial-habit-checkbox" : undefined}
-                title={done ? "Abhaken rückgängig machen" : "Heute erledigt"}
                 style={{
-                  width: 22, height: 22, borderRadius: 4, cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "10px 14px",
+                  background: done ? h.color + "18" : "var(--panel-2)",
+                  border: `1px solid ${done ? h.color + "60" : "var(--line-soft)"}`,
+                  cursor: "pointer", transition: "all .15s",
+                }}
+              >
+                <div style={{
+                  width: 20, height: 20, borderRadius: 4, flexShrink: 0,
                   background: done ? h.color : "transparent",
                   border: `2px solid ${done ? h.color : "var(--line)"}`,
-                  color: "#0a0a0c", fontSize: 11, fontWeight: 700,
+                  color: "#0a0a0c", fontSize: 10, fontWeight: 700,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  transition: "all .15s", padding: 0, flexShrink: 0,
-                }}
-              >{done ? "✓" : ""}</button>
-              <span style={{
-                fontSize: 12, fontWeight: 600,
-                color: done ? h.color : "var(--text-dim)",
-                whiteSpace: "nowrap",
-                textDecoration: done ? "none" : "none",
-              }}>{h.name}</span>
-              {streak > 0 && (
-                <span style={{
-                  fontSize: 10, fontWeight: 700,
-                  color: streak >= 7 ? "var(--good)" : streak >= 3 ? "var(--warn)" : "var(--text-faint)",
-                  letterSpacing: "0.02em", flexShrink: 0,
-                }}>
-                  {streak >= 3 ? "🔥" : ""}{streak}
+                  transition: "all .15s",
+                }}>{done ? "✓" : ""}</div>
+                <span style={{ fontSize: 12, fontWeight: 600, color: done ? h.color : "var(--text-dim)", flex: 1 }}>
+                  {h.name}
                 </span>
-              )}
-            </div>
-          );
-        })
+                {streak > 0 && (
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, flexShrink: 0,
+                    color: streak >= 7 ? "var(--good)" : streak >= 3 ? "var(--warn)" : "var(--text-faint)",
+                  }}>{streak >= 3 ? "🔥" : ""}{streak}</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );
