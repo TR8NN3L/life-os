@@ -84,13 +84,20 @@
       );
     },
 
-    async generateDailyMission(mainQuestTitle, keyResults, povLabel, userName) {
+    async generateDailyMission(mainQuestTitle, keyResults, povLabel, userName, energy, availableTime) {
       const krText = keyResults && keyResults.length > 0
         ? keyResults.map((kr, i) => `${kr.label || `KR${i + 1}`}: ${kr.title || kr}`).join("\n")
         : "(noch keine Key Results — basiere Tasks direkt auf dem Hauptziel)";
+      const energyDesc = energy ? `Energie-Level heute: ${energy}/5 (${energy <= 2 ? "niedrig — einfache, routinierte Aufgaben bevorzugen" : energy >= 4 ? "hoch — tiefe Arbeit und komplexe Aufgaben möglich" : "mittel — ausgewogene Mischung"})` : "";
+      const timeDesc = availableTime ? `Verfügbare Zeit: ${availableTime}` : "";
+      const energyGuide = energy && energy <= 2
+        ? "WICHTIG: Energie niedrig. Waehle einfache, mechanische Aufgaben (keine komplexen Entscheidungen, kein Deep Work). Zeitaufwaendige aber einfache Tasks bevorzugen."
+        : energy && energy >= 4
+        ? "WICHTIG: Energie hoch. Nutze das fuer Deep Work, komplexe Analyse, kreative Aufgaben. Herausfordernde Tasks bevorzugen."
+        : "";
       return callAI(
-        `Du bist ein Produktivitäts-Coach. Generiere genau 3 konkrete Aufgaben für heute. Aufgaben müssen in 15-90 min machbar sein und das Hauptziel direkt voranbringen. Antworte NUR mit validem JSON ohne zusätzlichen Text: { "tasks": [{ "title": "...", "sub": "...", "krLabel": "KR1 oder null", "est": 30 }], "motivation": "Ein motivierender Satz auf Deutsch." }`,
-        `${userName ? `Name: ${userName}\n` : ""}POV: ${povLabel}\nHauptziel: ${mainQuestTitle}\n\nKey Results:\n${krText}\n\nGeneriere 3 Aufgaben für heute auf Deutsch. Konkret, umsetzbar, kein Fuzzy.`,
+        `Du bist ein Produktivitaets-Coach. Generiere genau 3 konkrete Aufgaben fuer heute passend zum Energie-Level. Aufgaben muessen realistisch in der verfuegbaren Zeit machbar sein. Antworte NUR mit validem JSON ohne zusaetzlichen Text: { "tasks": [{ "title": "...", "sub": "...", "krLabel": "KR1 oder null", "est": 30 }], "motivation": "Ein kurzer motivierender Satz auf Deutsch." }`,
+        `${userName ? `Name: ${userName}\n` : ""}POV: ${povLabel}\nHauptziel: ${mainQuestTitle}\n${energyDesc ? energyDesc + "\n" : ""}${timeDesc ? timeDesc + "\n" : ""}\nKey Results:\n${krText}\n\n${energyGuide}\n\nGeneriere 3 passende Aufgaben fuer heute auf Deutsch. Konkret, umsetzbar. Est in Minuten anpassen an verfuegbare Zeit.`,
         { maxTokens: 500 }
       );
     },

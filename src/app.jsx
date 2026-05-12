@@ -280,13 +280,23 @@ function App() {
     applyPovTheme(pov, override);
   }, [pov, tweaks.accent, userPovs]);
 
-  // When POV changes, drop active task if it doesn't belong to the new POV.
+  // When POV changes, drop active task only if it doesn't belong to the new POV (includes project tasks).
   React.useEffect(() => {
+    if (!activeTaskId) return;
     const povData = POV_DATA[pov] || { tasksToday: [] };
     let custom = [];
     try { custom = JSON.parse(LS.getItem(`lifeos_tasks_${pov}`) || "[]"); } catch {}
-    const ids = [...povData.tasksToday, ...custom].map(t => t.id);
-    if (activeTaskId && !ids.includes(activeTaskId)) setActiveTaskId(null);
+    let projIds = [];
+    try {
+      const projs = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]");
+      projIds = projs.filter(p => p.pov === pov).flatMap(p =>
+        (p.objectives || []).flatMap(o =>
+          (o.krs || []).flatMap(kr => (kr.tasks || []).map(t => t.id))
+        )
+      );
+    } catch {}
+    const ids = new Set([...povData.tasksToday.map(t => t.id), ...custom.map(t => t.id), ...projIds]);
+    if (!ids.has(activeTaskId)) setActiveTaskId(null);
   }, [pov]);
 
   // Session tracking — log start/end whenever activeTaskId changes

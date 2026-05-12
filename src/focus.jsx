@@ -1,11 +1,22 @@
 // Focus mode — full-bleed black, single task, big start button + reality timer.
 
 function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes, focusTaskId, onOpenTask }) {
-  // Merge hardcoded + custom tasks so custom tasks survive pause/resume
+  // Merge hardcoded + custom + project tasks — search across ALL POVs so active task is always found
   const hardcoded = (POV_DATA[pov] || POV_DATA.founder).tasksToday;
   let custom = [];
   try { custom = JSON.parse(LS.getItem(`lifeos_tasks_${pov}`) || "[]"); } catch {}
-  const tasksToday = [...hardcoded, ...custom];
+  let projTasks = [];
+  try {
+    const projs = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]");
+    projTasks = projs.flatMap(p =>
+      (p.objectives || []).flatMap(o =>
+        (o.krs || []).filter(k => k.status !== "locked").flatMap(kr =>
+          (kr.tasks || []).map(t => ({ ...t, kr: kr.id, pov: p.pov, _fromProject: true }))
+        )
+      )
+    );
+  } catch {}
+  const tasksToday = [...hardcoded, ...custom, ...projTasks];
 
   // Use focusTaskId (from App) as the authoritative "last started task"
   const displayId = activeTaskId || focusTaskId;
