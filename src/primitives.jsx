@@ -220,14 +220,44 @@ function TaskDetail({ task, onBack, taskTimes, setTaskTimes, activeTaskId, setAc
   };
   const doneCount = subtasks.filter(s => s.done).length;
 
-  // Work sessions (read-only, written by app.jsx)
+  // Work sessions
   const [sessions, setSessions] = React.useState(() => {
     try { return JSON.parse(LS.getItem("lifeos_sessions") || "{}")[task.id] || []; } catch { return []; }
   });
-  // Refresh sessions when task becomes active/inactive
   React.useEffect(() => {
     try { setSessions(JSON.parse(LS.getItem("lifeos_sessions") || "{}")[task.id] || []); } catch {}
   }, [task.id]);
+
+  const saveSessions = (arr) => {
+    setSessions(arr);
+    try {
+      const all = JSON.parse(LS.getItem("lifeos_sessions") || "{}");
+      all[task.id] = arr;
+      LS.setItem("lifeos_sessions", JSON.stringify(all));
+    } catch {}
+  };
+
+  const [addingSession, setAddingSession] = React.useState(false);
+  const [manualDur, setManualDur]         = React.useState("");
+
+  const addManualSession = () => {
+    const raw = manualDur.trim();
+    let dur = 0;
+    if (/^\d+$/.test(raw))           dur = parseInt(raw) * 60;
+    else if (/^\d+:\d{2}$/.test(raw))      { const [h,m]   = raw.split(":").map(Number); dur = h*3600 + m*60; }
+    else if (/^\d+:\d{2}:\d{2}$/.test(raw)) { const [h,m,s] = raw.split(":").map(Number); dur = h*3600 + m*60 + s; }
+    if (dur <= 0) return;
+    const updated = [...sessions, { ts: new Date().toISOString(), dur, manual: true }];
+    saveSessions(updated);
+    if (setTaskTimes) setTaskTimes(prev => ({ ...prev, [task.id]: (prev[task.id] ?? 0) + dur }));
+    setManualDur(""); setAddingSession(false);
+  };
+
+  const deleteSession = (idx) => {
+    const s = sessions[idx];
+    saveSessions(sessions.filter((_, i) => i !== idx));
+    if (setTaskTimes) setTaskTimes(prev => ({ ...prev, [task.id]: Math.max(0, (prev[task.id] ?? 0) - s.dur) }));
+  };
 
   // KR override for side quests
   const [krOverride, setKrOverride] = React.useState(() => {
@@ -501,31 +531,85 @@ function TaskDetail({ task, onBack, taskTimes, setTaskTimes, activeTaskId, setAc
       </div>
 
       {/* ── Work Log ──────────────────────────────────────────────────────── */}
-      {sessions.length > 0 && (
-        <div style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "18px 22px", marginTop: 16 }}>
-          <div className="uppercase-label" style={{ marginBottom: 14 }}>Arbeitsvorgänge</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {[...sessions].reverse().map((s, i) => {
-              const d = new Date(s.ts);
-              const DE_DAYS = ["So","Mo","Di","Mi","Do","Fr","Sa"];
-              const dateStr = `${DE_DAYS[d.getDay()]}, ${d.getDate()}.${d.getMonth()+1}. · ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")} Uhr`;
-              return (
-                <div key={i} style={{
-                  display: "flex", justifyContent: "space-between", alignItems: "center",
-                  padding: "9px 14px", background: "var(--panel-2)",
-                  borderLeft: `2px solid ${i === 0 ? "var(--accent)" : "var(--line)"}`,
-                }}>
-                  <span style={{ fontSize: 11.5, color: "var(--text-faint)", fontFamily: "'JetBrains Mono',monospace" }}>{dateStr}</span>
-                  <span className="mono" style={{ fontSize: 13, color: i === 0 ? "var(--accent)" : "var(--text-dim)", fontWeight: 600 }}>{fmtTime(s.dur)}</span>
-                </div>
-              );
-            })}
+      <div style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "18px 22px", marginTop: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: sessions.length > 0 || addingSession ? 14 : 0 }}>
+          <div className="uppercase-label">Arbeitsvorgänge</div>
+          {!addingSession && (
+            <button onClick={() => setAddingSession(true)} style={{
+              background: "none", border: "1px dashed var(--line)", color: "var(--accent)",
+              padding: "3px 12px", fontSize: 9.5, letterSpacing: "0.12em", fontWeight: 700, cursor: "pointer",
+            }}>+ BLOCK</button>
+          )}
+        </div>
+
+        {addingSession && (
+          <div style={{ marginBottom: 14, padding: "12px 14px", background: "var(--panel-2)", border: "1px solid var(--accent-line)" }}>
+            <div style={{ fontSize: 9.5, letterSpacing: "0.14em", fontWeight: 700, color: "var(--accent)", marginBottom: 10 }}>
+              ARBEITSBLOCK HINZUFÜGEN
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                autoFocus
+                value={manualDur}
+                onChange={e => setManualDur(e.target.value)}
+                placeholder="30 min · 1:30 · 01:30:00"
+                onKeyDown={e => { if (e.key === "Enter") addManualSession(); if (e.key === "Escape") { setAddingSession(false); setManualDur(""); } }}
+                style={{
+                  flex: 1, background: "var(--bg)", border: "1px solid var(--line)",
+                  color: "var(--text)", padding: "8px 12px", fontSize: 13,
+                  fontFamily: "'JetBrains Mono',monospace", outline: "none",
+                }}
+              />
+              <button onClick={addManualSession} style={{
+                padding: "8px 16px", background: "var(--accent)", color: "#0a0a0c",
+                border: "none", fontWeight: 700, fontSize: 10, letterSpacing: "0.12em", cursor: "pointer",
+              }}>✓</button>
+              <button onClick={() => { setAddingSession(false); setManualDur(""); }} style={{
+                padding: "8px 10px", background: "transparent", border: "1px solid var(--line)",
+                color: "var(--text-faint)", fontSize: 12, cursor: "pointer",
+              }}>✕</button>
+            </div>
           </div>
+        )}
+
+        {sessions.length === 0 && !addingSession && (
+          <div style={{ fontSize: 11.5, color: "var(--text-faint)", fontStyle: "italic" }}>
+            Noch keine Blöcke. + BLOCK klicken um Zeit manuell einzutragen.
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {[...sessions].reverse().map((s, ri) => {
+            const realIdx = sessions.length - 1 - ri;
+            const d = new Date(s.ts);
+            const DE_DAYS = ["So","Mo","Di","Mi","Do","Fr","Sa"];
+            const dateStr = `${DE_DAYS[d.getDay()]}, ${d.getDate()}.${d.getMonth()+1}. · ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")} Uhr`;
+            return (
+              <div key={realIdx} style={{
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                padding: "9px 14px", background: "var(--panel-2)",
+                borderLeft: `2px solid ${ri === 0 ? "var(--accent)" : "var(--line)"}`,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {s.manual && <span title="Manuell" style={{ fontSize: 9, color: "var(--text-faint)", letterSpacing: "0.1em" }}>✎</span>}
+                  <span style={{ fontSize: 11.5, color: "var(--text-faint)", fontFamily: "'JetBrains Mono',monospace" }}>{dateStr}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span className="mono" style={{ fontSize: 13, color: ri === 0 ? "var(--accent)" : "var(--text-dim)", fontWeight: 600 }}>{fmtTime(s.dur)}</span>
+                  <button onClick={() => deleteSession(realIdx)} title="Löschen"
+                    style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 14, padding: "0 4px", opacity: 0.5, lineHeight: 1 }}>×</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {sessions.length > 0 && (
           <div style={{ marginTop: 10, fontSize: 9.5, color: "var(--text-faint)", letterSpacing: "0.08em" }}>
             Gesamt: <span style={{ color: "var(--text-dim)", fontFamily: "'JetBrains Mono',monospace" }}>{fmtTime(sessions.reduce((a, s) => a + s.dur, 0))}</span>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
