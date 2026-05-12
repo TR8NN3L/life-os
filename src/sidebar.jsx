@@ -85,7 +85,27 @@ function PovModal({ initial, onSave, onDelete, onClose }) {
 function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, pushStatus, setPushStatus, pushLoading, setPushLoading, signOut, resetAllData }) {
   const [editingName, setEditingName] = React.useState(false);
   const [nameInput,   setNameInput]   = React.useState(userName);
-  const [activeTab,   setActiveTab]   = React.useState("profile"); // profile | ai | notifications | system
+  const [activeTab,   setActiveTab]   = React.useState("profile"); // profile | ai | notifications | kalender | system
+  const [calUserId,   setCalUserId]   = React.useState(null);
+  const [calCopied,   setCalCopied]   = React.useState(false);
+
+  React.useEffect(() => {
+    window._supabase?.auth?.getSession().then(({ data }) => {
+      if (data?.session?.user?.id) setCalUserId(data.session.user.id);
+    });
+  }, []);
+
+  const calUrl = calUserId
+    ? `https://life-os.vercel.app/api/calendar/${calUserId}.ics`
+    : null;
+
+  const copyCalUrl = () => {
+    if (!calUrl) return;
+    navigator.clipboard.writeText(calUrl).then(() => {
+      setCalCopied(true);
+      setTimeout(() => setCalCopied(false), 2500);
+    });
+  };
 
   const saveName = () => {
     const v = nameInput.trim();
@@ -97,7 +117,8 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
   const tabs = [
     { id: "profile",       label: "Profil" },
     { id: "ai",            label: "KI" },
-    { id: "notifications", label: "Notifications" },
+    { id: "notifications", label: "Push" },
+    { id: "kalender",      label: "Kalender" },
     { id: "system",        label: "System" },
   ];
 
@@ -236,6 +257,93 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
                 {renderRow("PWA Status", "Für Hintergrund-Pushs auf iOS/Android: App zum Homescreen hinzufügen.",
                   <div style={{ fontSize: 12, color: window.Push?.isPWA?.() ? "var(--good)" : "var(--text-faint)", fontWeight: window.Push?.isPWA?.() ? 600 : 400 }}>
                     {window.Push?.isPWA?.() ? "✓ Läuft als PWA" : "Nicht installiert"}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── KALENDER ── */}
+            {activeTab === "kalender" && (
+              <div>
+                {renderSection("Kalender-Abo",
+                  <div>
+                    <div style={{ fontSize: 12.5, color: "var(--text-dim)", lineHeight: 1.7, marginBottom: 18 }}>
+                      Abonniere deine Planner-Blöcke als iCal-Feed — funktioniert in jedem Kalender: Apple, Google, Outlook, Samsung und mehr. Die URL bleibt immer gleich, Änderungen synchronisieren sich automatisch.
+                    </div>
+
+                    {calUrl ? (
+                      <div>
+                        {/* URL Box */}
+                        <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+                          <div style={{
+                            flex: 1, padding: "9px 12px", background: "var(--panel-2)",
+                            border: "1px solid var(--line)", fontSize: 10.5,
+                            color: "var(--text-faint)", fontFamily: "monospace",
+                            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                            letterSpacing: "0.02em",
+                          }}>{calUrl}</div>
+                          <button onClick={copyCalUrl} style={{
+                            padding: "9px 16px", background: calCopied ? "var(--good)" : "var(--accent-soft)",
+                            border: `1px solid ${calCopied ? "var(--good)" : "var(--accent-line)"}`,
+                            color: calCopied ? "#0a0a0c" : "var(--accent)",
+                            fontSize: 11, letterSpacing: "0.1em", fontWeight: 700,
+                            cursor: "pointer", fontFamily: "inherit", flexShrink: 0,
+                            transition: "all .2s",
+                          }}>{calCopied ? "✓ KOPIERT" : "KOPIEREN"}</button>
+                        </div>
+
+                        {/* Platform instructions */}
+                        <div style={{ fontSize: 11, color: "var(--text-faint)", letterSpacing: "0.12em", fontWeight: 700, marginBottom: 12 }}>
+                          ANLEITUNG — KALENDER WÄHLEN:
+                        </div>
+
+                        {[
+                          {
+                            name: "🍎  Apple Kalender (Mac)",
+                            steps: ["Kalender-App öffnen", "Menü: Ablage → Neues Kalenderabonnement…", "URL einfügen → Abonnieren klicken"],
+                          },
+                          {
+                            name: "📱  Apple Kalender (iPhone / iPad)",
+                            steps: ["Einstellungen → Kalender → Accounts → Account hinzufügen", "Andere → Kalenderabo hinzufügen", "URL einfügen → Weiter → Sichern"],
+                          },
+                          {
+                            name: "🔵  Google Calendar",
+                            steps: ["calendar.google.com öffnen", "Linke Spalte: + neben „Weitere Kalender" → Per URL", "URL einfügen → Kalender hinzufügen"],
+                          },
+                          {
+                            name: "🟦  Outlook (Web / Desktop)",
+                            steps: ["Kalender öffnen", "Kalender hinzufügen → Aus dem Internet abonnieren", "URL einfügen → Importieren"],
+                          },
+                          {
+                            name: "🟢  Samsung / Android",
+                            steps: ["Google Calendar installieren (falls nicht vorhanden)", "Dann wie Google Calendar oben"],
+                          },
+                        ].map(platform => (
+                          <div key={platform.name} style={{
+                            marginBottom: 14, padding: "12px 14px",
+                            background: "var(--panel-2)", border: "1px solid var(--line-soft)",
+                          }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 8 }}>
+                              {platform.name}
+                            </div>
+                            {platform.steps.map((s, i) => (
+                              <div key={i} style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+                                <span style={{ fontSize: 11, color: "var(--accent)", fontWeight: 700, flexShrink: 0 }}>{i + 1}.</span>
+                                <span style={{ fontSize: 11, color: "var(--text-dim)", lineHeight: 1.5 }}>{s}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+
+                        <div style={{ fontSize: 11, color: "var(--text-faint)", lineHeight: 1.6, marginTop: 8 }}>
+                          ⚠ Kalender-Apps synchronisieren den Feed alle paar Stunden automatisch. Auf dem Mac: Menü → Ablage → Alle Accounts aktualisieren für sofortiges Update.
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 12, color: "var(--text-faint)", fontStyle: "italic" }}>
+                        Lade Benutzerdaten…
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
