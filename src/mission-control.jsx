@@ -221,7 +221,7 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
           <div style={{ padding: "48px 0", textAlign: "center", color: "var(--text-faint)", fontSize: 13 }}>
             Inbox ist leer.
           </div>
-        ) : inbox.map((item, idx) => {
+        ) : [...inbox].reverse().map((item, idx) => {
           const assign = inboxAssign[item.id] || { pov: item.pov || null, kr: null };
           const assignPov = allPovs.find(p => p.id === assign.pov);
           const povColor = assignPov?.color || null;
