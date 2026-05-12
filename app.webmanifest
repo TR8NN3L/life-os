@@ -1,6 +1,6 @@
 {
-  "name": "Life OS",
-  "short_name": "Life OS",
+  "name": "Hormetic",
+  "short_name": "Hormetic",
   "description": "Your personal operating system for life.",
   "start_url": "/",
   "display": "standalone",
