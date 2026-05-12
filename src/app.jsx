@@ -181,12 +181,7 @@ function App() {
         }
         setAuthStatus(done ? "ready" : "onboarding");
       } else {
-        if (LS.getItem("lifeos_guest") === "1") {
-          // Guests always restart with onboarding so tutorial can be tested fresh
-          localStorage.removeItem("lifeos_onboarding_done");
-          localStorage.removeItem("lifeos_tutorial_done");
-          setAuthStatus("onboarding");
-        } else setAuthStatus("login");
+        setAuthStatus("login");
       }
     })();
 
