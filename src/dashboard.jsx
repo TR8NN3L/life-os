@@ -316,9 +316,13 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
   // Reset KR filter when POV changes
   React.useEffect(() => { setActiveKR(null); }, [pov]);
 
-  const filteredTasks = activeKR
+  const allFilteredTasks = activeKR
     ? orderedTasksToday.filter(t => t.kr === activeKR)
     : orderedTasksToday;
+  // Split open vs done — done tasks move to archive section
+  const filteredTasks = allFilteredTasks.filter(t => !doneTasks.has(t.id));
+  const donedTasks    = allFilteredTasks.filter(t => doneTasks.has(t.id));
+  const [showDone, setShowDone] = React.useState(false);
 
   const active = tasksToday.find(t => t.id === activeTaskId);
   const elapsedFor = (t) => taskTimes[t.id] ?? t.elapsed;
@@ -658,9 +662,46 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
             );
           })}
 
-          {filteredTasks.length === 0 && activeKR && (
+          {filteredTasks.length === 0 && !donedTasks.length && activeKR && (
             <div style={{ padding: "40px 0", textAlign: "center", color: "var(--text-faint)", fontSize: 13 }}>
-              Keine Tasks für dieses Key Result. Füge welche hinzu.
+              Keine Tasks fuer dieses Key Result.
+            </div>
+          )}
+
+          {/* ── Erledigt-Archiv ── */}
+          {donedTasks.length > 0 && (
+            <div style={{ borderTop: "1px solid var(--line-soft)", marginTop: 8 }}>
+              <button onClick={() => setShowDone(v => !v)} style={{
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                background: "transparent", border: "none", padding: "12px 0",
+                cursor: "pointer", textAlign: "left",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 9, letterSpacing: "0.18em", fontWeight: 700, color: "var(--text-faint)" }}>ERLEDIGT</span>
+                  <span style={{ padding: "1px 8px", background: "var(--good-soft)", border: "1px solid rgba(58,171,91,0.3)", fontSize: 9, fontWeight: 700, color: "var(--good)" }}>{donedTasks.length}</span>
+                </div>
+                <span style={{ fontSize: 10, color: "var(--text-faint)", transform: showDone ? "rotate(90deg)" : "none", transition: "transform .15s", display: "inline-block" }}>▶</span>
+              </button>
+              {showDone && donedTasks.map(t => (
+                <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderTop: "1px solid var(--line-soft)", opacity: 0.45 }}>
+                  <button onClick={() => {
+                    setDoneTasks(prev => { const n = new Set(prev); n.delete(t.id); return n; });
+                  }} style={{
+                    width: 16, height: 16, borderRadius: 3, flexShrink: 0,
+                    background: "var(--good)", border: "2px solid var(--good)",
+                    color: "#0a0a0c", fontSize: 9, fontWeight: 700, cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
+                  }}>✓</button>
+                  <span style={{ flex: 1, fontSize: 13, color: "var(--text-dim)", textDecoration: "line-through", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</span>
+                  <button onClick={() => {
+                    const key = `lifeos_tasks_${t.pov || pov}`;
+                    let ex = []; try { ex = JSON.parse(LS.getItem(key) || "[]"); } catch {}
+                    LS.setItem(key, JSON.stringify(ex.filter(x => x.id !== t.id)));
+                    setCustomTasks(prev => prev.filter(x => x.id !== t.id));
+                    setDoneTasks(prev => { const n = new Set(prev); n.delete(t.id); return n; });
+                  }} title="Loeschen" style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 14, padding: "0 4px", lineHeight: 1, flexShrink: 0 }}>×</button>
+                </div>
+              ))}
             </div>
           )}
 

@@ -23,6 +23,31 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
   }, [userPovs]);
   const [view, setView] = React.useState({ type: "list" });
   const [inboxExpanded, setInboxExpanded] = React.useState(false);
+  const [inboxAssign, setInboxAssign] = React.useState({});
+
+  // Load all KRs for a given POV from custom projects
+  const getKRsForPov = (povId) => {
+    let projs = [];
+    try { projs = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]"); } catch {}
+    return [...PROJECTS, ...projs]
+      .filter(p => p.pov === povId)
+      .flatMap(proj => (proj.objectives || []).flatMap(o =>
+        (o.krs || []).filter(k => k.status !== "locked").map(k => ({ ...k, _projId: proj.id, _projTitle: proj.title }))
+      ));
+  };
+
+  const createTaskFromInbox = (item, idx) => {
+    const assign = inboxAssign[item.id] || { pov: item.pov || (pov || "personal"), kr: null };
+    const targetPov = assign.pov;
+    const taskId = "inbox_" + Date.now();
+    const task = { id: taskId, title: item.text, sub: "", kr: assign.kr || null, elapsed: 0, pov: targetPov, custom: true };
+    const tKey = `lifeos_tasks_${targetPov}`;
+    let ex = []; try { ex = JSON.parse(LS.getItem(tKey) || "[]"); } catch {}
+    LS.setItem(tKey, JSON.stringify([...ex, task]));
+    if (setInbox) setInbox(prev => prev.filter(x => x.id !== item.id));
+    setInboxAssign(prev => { const n = { ...prev }; delete n[item.id]; return n; });
+    window.dispatchEvent(new CustomEvent("lifeos-tasks-updated", { detail: { pov: targetPov } }));
+  };
   const [mcFilter, setMcFilter] = React.useState("alle");
   const [freeOpen, setFreeOpen] = React.useState(false);
   const [showNewModal, setShowNewModal] = React.useState(false);
@@ -180,9 +205,12 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
           <span style={{ color: "var(--text)" }}>INBOX</span>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <div className="uppercase-label">Inbox — Alle {inbox.length} Items</div>
+          <div>
+            <div className="uppercase-label">Quick Capture · {inbox.length} Item{inbox.length !== 1 ? "s" : ""}</div>
+            <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 4 }}>POV und Key Result zuweisen, dann Task erstellen.</div>
+          </div>
           {inbox.length > 0 && setInbox && (
-            <button onClick={() => { if (window.confirm("Alle Inbox-Items loeschen?")) setInbox([]); }} style={{
+            <button onClick={() => { if (window.confirm("Alle Items loeschen?")) setInbox([]); }} style={{
               padding: "7px 16px", background: "transparent", border: "1px solid var(--danger)",
               color: "var(--danger)", fontSize: 9.5, letterSpacing: "0.14em", fontWeight: 700, cursor: "pointer",
             }}>ALLE LOESCHEN</button>
@@ -190,30 +218,70 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
         </div>
         {inbox.length === 0 ? (
           <div style={{ padding: "48px 0", textAlign: "center", color: "var(--text-faint)", fontSize: 13 }}>
-            Inbox ist leer — gut gemacht.
+            Inbox ist leer.
           </div>
-        ) : (
-          <div style={{ border: "1px solid var(--line)" }}>
-            {inbox.map((item, idx) => (
-              <div key={item.id || idx} style={{
-                padding: "18px 24px", borderBottom: "1px solid var(--line-soft)",
-                display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16,
-              }}>
-                <div style={{ flex: 1 }}>
-                  {item.pov && <POVChip pov={item.pov} />}
-                  <div style={{ fontSize: 14.5, fontWeight: 600, marginTop: item.pov ? 8 : 0 }}>{item.title}</div>
-                  {item.sub && <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 4 }}>{item.sub}</div>}
-                  {item.kr && <div style={{ fontSize: 10.5, color: "var(--accent)", marginTop: 6, letterSpacing: "0.08em" }}>→ {item.kr}</div>}
+        ) : inbox.map((item, idx) => {
+          const assign = inboxAssign[item.id] || { pov: item.pov || (pov || "personal"), kr: null };
+          const assignPov = allPovs.find(p => p.id === assign.pov);
+          const povColor = assignPov?.color || "var(--accent)";
+          const krsForPov = getKRsForPov(assign.pov);
+          const ts = item.ts ? new Date(item.ts).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : "";
+          return (
+            <div key={item.id || idx} style={{ marginBottom: 12, background: "var(--panel)", border: "1px solid var(--line-soft)", borderLeft: `3px solid ${povColor}` }}>
+              <div style={{ padding: "16px 20px 12px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                  <div style={{ flex: 1, marginRight: 12 }}>
+                    <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--text)", lineHeight: 1.4 }}>{item.text}</div>
+                    {ts && <div style={{ fontSize: 9.5, color: "var(--text-faint)", marginTop: 4 }}>{ts}</div>}
+                  </div>
+                  {setInbox && (
+                    <button onClick={() => setInbox(prev => prev.filter(x => x.id !== item.id))} style={{
+                      background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 16, padding: "0 4px", lineHeight: 1,
+                    }}>×</button>
+                  )}
                 </div>
-                {setInbox && (
-                  <button onClick={() => setInbox(prev => prev.filter((_, i) => i !== idx))} style={{
-                    background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 16, padding: "0 4px", flexShrink: 0,
-                  }}>×</button>
+                {/* POV Auswahl */}
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 8.5, letterSpacing: "0.14em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 6 }}>POV</div>
+                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                    {allPovs.map(p => (
+                      <button key={p.id} onClick={() => setInboxAssign(prev => ({ ...prev, [item.id]: { pov: p.id, kr: null } }))} style={{
+                        padding: "4px 10px", fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", cursor: "pointer",
+                        background: assign.pov === p.id ? p.color : "transparent",
+                        border: `1px solid ${assign.pov === p.id ? p.color : "var(--line)"}`,
+                        color: assign.pov === p.id ? "#0a0a0c" : "var(--text-faint)",
+                      }}>{p.label.toUpperCase()}</button>
+                    ))}
+                  </div>
+                </div>
+                {/* KR Auswahl */}
+                {krsForPov.length > 0 && (
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 8.5, letterSpacing: "0.14em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 6 }}>KEY RESULT (optional)</div>
+                    <select value={assign.kr || ""} onChange={e => setInboxAssign(prev => ({ ...prev, [item.id]: { ...assign, kr: e.target.value || null } }))}
+                      style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: assign.kr ? "var(--text)" : "var(--text-faint)", padding: "6px 10px", fontSize: 11, fontFamily: "inherit", outline: "none" }}>
+                      <option value="">Kein Key Result</option>
+                      {krsForPov.map(kr => (
+                        <option key={kr.id} value={kr.id}>{kr._projTitle ? `${kr._projTitle} · ` : ""}{kr.label}: {kr.title}</option>
+                      ))}
+                    </select>
+                  </div>
                 )}
+                {/* Action buttons */}
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  <button onClick={() => createTaskFromInbox(item, idx)} style={{
+                    flex: 1, padding: "8px 0", background: povColor, color: "#0a0a0c",
+                    border: "none", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", cursor: "pointer",
+                  }}>TASK ERSTELLEN → {assignPov?.label?.toUpperCase() || assign.pov?.toUpperCase()}</button>
+                  <button onClick={() => { if (setInbox) setInbox(prev => prev.filter(x => x.id !== item.id)); }} style={{
+                    padding: "8px 14px", background: "transparent", border: "1px solid var(--line)",
+                    color: "var(--text-faint)", fontSize: 10, cursor: "pointer",
+                  }}>IGNORIEREN</button>
+                </div>
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          );
+        })}
       </div>
     );
   }
@@ -371,7 +439,7 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
                     }}>
                       <div style={{ flex: 1 }}>
                         {item.pov && <span style={{ fontSize: 9, letterSpacing: "0.16em", fontWeight: 700, color: `var(--${item.pov})`, marginRight: 8 }}>{item.pov.toUpperCase()}</span>}
-                        <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)" }}>{item.title}</span>
+                        <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)" }}>{item.text}</span>
                         {item.kr && <span style={{ marginLeft: 10, fontSize: 10, color: "var(--accent)", letterSpacing: "0.08em" }}>→ {item.kr}</span>}
                         {item.sub && <div style={{ fontSize: 11.5, color: "var(--text-faint)", marginTop: 3 }}>{item.sub}</div>}
                       </div>
