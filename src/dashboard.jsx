@@ -228,7 +228,8 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
     setMissionError(null);
     try {
       const povLabel = POVS.find(p => p.id === pov)?.label || pov;
-      const userName = LS.getItem("lifeos_user_name") || "";
+      const _rawName = LS.getItem("lifeos_user_name") || "";
+      const userName = (() => { try { const p = JSON.parse(_rawName); return typeof p === "string" ? p : _rawName; } catch { return _rawName; } })();
       const mqTitle = (POV_DATA[pov]?.mainQuest?.title) || "";
       const krs = (objective.keyResults || []).filter(k => k.status !== "locked");
       const result = await window.AI.generateDailyMission(mqTitle, krs, povLabel, userName);

@@ -94,7 +94,12 @@
             }
           }
         }
-        localStorage.setItem(row.key, JSON.stringify(row.value));
+        // Strings stay as plain strings — only objects/arrays need JSON.stringify
+        if (typeof row.value === "string") {
+          localStorage.setItem(row.key, row.value);
+        } else {
+          localStorage.setItem(row.key, JSON.stringify(row.value));
+        }
       }
     } catch (e) { console.warn("[LS] syncDown:", e.message); }
   }

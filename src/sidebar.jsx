@@ -278,7 +278,10 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
 function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs }) {
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [povModal, setPovModal]         = React.useState(null); // null | "add" | {id,...}
-  const [userName, setUserName]         = React.useState(() => LS.getItem("lifeos_user_name") || "");
+  const [userName, setUserName]         = React.useState(() => {
+    const raw = LS.getItem("lifeos_user_name") || "";
+    try { const p = JSON.parse(raw); return typeof p === "string" ? p : raw; } catch { return raw; }
+  });
   const [apiKey, setApiKey]             = React.useState(() => LS.getItem("lifeos_openai_key") || "");
   const [pushStatus, setPushStatus]     = React.useState(() => window.Push?.permissionState?.() || "default");
   const [pushLoading, setPushLoading]   = React.useState(false);
