@@ -96,7 +96,7 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
   }, []);
 
   const calUrl = calUserId
-    ? `https://life-os.vercel.app/api/calendar/${calUserId}.ics`
+    ? `https://life-os-wine-eight.vercel.app/api/calendar?uid=${calUserId}`
     : null;
 
   const copyCalUrl = () => {

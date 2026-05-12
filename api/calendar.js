@@ -1,4 +1,4 @@
-// GET /api/calendar/:userId.ics
+// GET /api/calendar?uid=USER_ID
 // Returns an iCalendar (.ics) feed of all planner blocks for the given user.
 // Subscribe in Apple Calendar, Google Calendar, Outlook, etc.
 
@@ -46,9 +46,7 @@ function foldLine(line) {
 }
 
 export default async function handler(req, res) {
-  // Strip .ics suffix if present
-  const rawUserId = Array.isArray(req.query.userId) ? req.query.userId[0] : req.query.userId;
-  const userId = rawUserId?.replace(/\.ics$/, "");
+  const userId = Array.isArray(req.query.uid) ? req.query.uid[0] : req.query.uid;
 
   if (!userId) return res.status(400).send("Missing userId");
 
