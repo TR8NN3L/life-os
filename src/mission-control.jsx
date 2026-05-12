@@ -37,8 +37,9 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
   };
 
   const createTaskFromInbox = (item, idx) => {
-    const assign = inboxAssign[item.id] || { pov: item.pov || (pov || "personal"), kr: null };
+    const assign = inboxAssign[item.id] || { pov: item.pov || null, kr: null };
     const targetPov = assign.pov;
+    if (!targetPov) return; // POV must be selected first
     const taskId = "inbox_" + Date.now();
     const task = { id: taskId, title: item.text, sub: "", kr: assign.kr || null, elapsed: 0, pov: targetPov, custom: true };
     const tKey = `lifeos_tasks_${targetPov}`;
@@ -221,13 +222,13 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
             Inbox ist leer.
           </div>
         ) : inbox.map((item, idx) => {
-          const assign = inboxAssign[item.id] || { pov: item.pov || (pov || "personal"), kr: null };
+          const assign = inboxAssign[item.id] || { pov: item.pov || null, kr: null };
           const assignPov = allPovs.find(p => p.id === assign.pov);
-          const povColor = assignPov?.color || "var(--accent)";
+          const povColor = assignPov?.color || null;
           const krsForPov = getKRsForPov(assign.pov);
           const ts = item.ts ? new Date(item.ts).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : "";
           return (
-            <div key={item.id || idx} style={{ marginBottom: 12, background: "var(--panel)", border: "1px solid var(--line-soft)", borderLeft: `3px solid ${povColor}` }}>
+            <div key={item.id || idx} style={{ marginBottom: 12, background: "var(--panel)", border: "1px solid var(--line-soft)", borderLeft: `3px solid ${povColor || "var(--line)"}` }}>
               <div style={{ padding: "16px 20px 12px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
                   <div style={{ flex: 1, marginRight: 12 }}>
@@ -269,10 +270,14 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
                 )}
                 {/* Action buttons */}
                 <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                  <button onClick={() => createTaskFromInbox(item, idx)} style={{
-                    flex: 1, padding: "8px 0", background: povColor, color: "#0a0a0c",
-                    border: "none", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", cursor: "pointer",
-                  }}>TASK ERSTELLEN → {assignPov?.label?.toUpperCase() || assign.pov?.toUpperCase()}</button>
+                  <button onClick={() => assign.pov && createTaskFromInbox(item, idx)} style={{
+                    flex: 1, padding: "8px 0",
+                    background: assign.pov ? povColor : "var(--panel-2)",
+                    color: assign.pov ? "#0a0a0c" : "var(--text-faint)",
+                    border: assign.pov ? "none" : "1px solid var(--line)",
+                    fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
+                    cursor: assign.pov ? "pointer" : "not-allowed", opacity: assign.pov ? 1 : 0.6,
+                  }}>{assign.pov ? `TASK ERSTELLEN → ${assignPov?.label?.toUpperCase() || assign.pov.toUpperCase()}` : "← POV AUSWÄHLEN"}</button>
                   <button onClick={() => { if (setInbox) setInbox(prev => prev.filter(x => x.id !== item.id)); }} style={{
                     padding: "8px 14px", background: "transparent", border: "1px solid var(--line)",
                     color: "var(--text-faint)", fontSize: 10, cursor: "pointer",

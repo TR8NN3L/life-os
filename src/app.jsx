@@ -635,7 +635,7 @@ function App() {
   const saveCapture = () => {
     const t = captureText.trim();
     if (!t) return;
-    setInbox(prev => [...prev, { id: `inbox_${Date.now()}`, text: t, ts: new Date().toISOString(), pov }]);
+    setInbox(prev => [...prev, { id: `inbox_${Date.now()}`, text: t, ts: new Date().toISOString(), pov: null }]);
     setCaptureText(""); setCaptureOpen(false);
   };
 
