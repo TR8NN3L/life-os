@@ -294,28 +294,28 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
 
                         {/* Platform instructions */}
                         <div style={{ fontSize: 11, color: "var(--text-faint)", letterSpacing: "0.12em", fontWeight: 700, marginBottom: 12 }}>
-                          ANLEITUNG — KALENDER WÄHLEN:
+                          ANLEITUNG - KALENDER WAHLEN:
                         </div>
 
                         {[
                           {
-                            name: "🍎  Apple Kalender (Mac)",
-                            steps: ["Kalender-App öffnen", "Menü: Ablage → Neues Kalenderabonnement…", "URL einfügen → Abonnieren klicken"],
+                            name: "Apple Kalender (Mac)",
+                            steps: ["Kalender-App oeffnen", "Menue: Ablage > Neues Kalenderabonnement", "URL einfuegen > Abonnieren klicken"],
                           },
                           {
-                            name: "📱  Apple Kalender (iPhone / iPad)",
-                            steps: ["Einstellungen → Kalender → Accounts → Account hinzufügen", "Andere → Kalenderabo hinzufügen", "URL einfügen → Weiter → Sichern"],
+                            name: "Apple Kalender (iPhone / iPad)",
+                            steps: ["Einstellungen > Kalender > Accounts > Account hinzufuegen", "Andere > Kalenderabo hinzufuegen", "URL einfuegen > Weiter > Sichern"],
                           },
                           {
-                            name: "🔵  Google Calendar",
-                            steps: ["calendar.google.com öffnen", "Linke Spalte: + neben „Weitere Kalender" → Per URL", "URL einfügen → Kalender hinzufügen"],
+                            name: "Google Calendar",
+                            steps: ["calendar.google.com oeffnen", "Linke Spalte: + neben 'Weitere Kalender' > Per URL", "URL einfuegen > Kalender hinzufuegen"],
                           },
                           {
-                            name: "🟦  Outlook (Web / Desktop)",
-                            steps: ["Kalender öffnen", "Kalender hinzufügen → Aus dem Internet abonnieren", "URL einfügen → Importieren"],
+                            name: "Outlook (Web / Desktop)",
+                            steps: ["Kalender oeffnen", "Kalender hinzufuegen > Aus dem Internet abonnieren", "URL einfuegen > Importieren"],
                           },
                           {
-                            name: "🟢  Samsung / Android",
+                            name: "Samsung / Android",
                             steps: ["Google Calendar installieren (falls nicht vorhanden)", "Dann wie Google Calendar oben"],
                           },
                         ].map(platform => (
@@ -336,7 +336,7 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
                         ))}
 
                         <div style={{ fontSize: 11, color: "var(--text-faint)", lineHeight: 1.6, marginTop: 8 }}>
-                          ⚠ Kalender-Apps synchronisieren den Feed alle paar Stunden automatisch. Auf dem Mac: Menü → Ablage → Alle Accounts aktualisieren für sofortiges Update.
+                          Kalender-Apps synchronisieren alle paar Stunden automatisch. Mac: Ablage &gt; Alle Accounts aktualisieren fuer sofortiges Update.
                         </div>
                       </div>
                     ) : (
