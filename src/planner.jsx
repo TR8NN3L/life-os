@@ -431,6 +431,42 @@ function Planner() {
   });
   React.useEffect(() => { LS.setItem("lifeos_block_selections", JSON.stringify(blockSelections)); }, [blockSelections]);
 
+  // ── Truth Loop distribution (per-project, per-day weights) ─────────────────
+  const DIST_DEF = [0.2, 0.2, 0.2, 0.2, 0.2, 0, 0];
+  const [projDayWeights, setProjDayWeights] = React.useState(() => {
+    try { return JSON.parse(LS.getItem("lifeos_proj_day_weights") || "{}"); } catch { return {}; }
+  });
+  React.useEffect(() => { LS.setItem("lifeos_proj_day_weights", JSON.stringify(projDayWeights)); }, [projDayWeights]);
+  const [showDistModal, setShowDistModal] = React.useState(false);
+
+  const getProjWeights = (projId) => projDayWeights[projId] || DIST_DEF;
+  const setProjWeight  = (projId, dayIdx, val) => {
+    setProjDayWeights(prev => {
+      const cur  = [...(prev[projId] || DIST_DEF)];
+      cur[dayIdx] = Math.max(0, Math.min(1, val));
+      return { ...prev, [projId]: cur };
+    });
+  };
+  const resetProjWeights = (projId) => {
+    setProjDayWeights(prev => ({ ...prev, [projId]: [...DIST_DEF] }));
+  };
+
+  // Active non-archived projects for Truth Loop
+  const distProjs = React.useMemo(() => {
+    try {
+      const projs    = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]");
+      const archived = new Set(JSON.parse(LS.getItem("lifeos_archived_projects") || "[]"));
+      return projs.filter(p => !archived.has(p.id) && (p.hoursPerWeek || 0) > 0);
+    } catch { return []; }
+  }, [showDistModal]); // refresh when modal opens
+
+  // Plan hours per day = sum over projects of hoursPerWeek * weight[dayIdx]
+  const planHoursPerDay = React.useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) =>
+      distProjs.reduce((s, p) => s + p.hoursPerWeek * getProjWeights(p.id)[i], 0)
+    );
+  }, [projDayWeights, distProjs]);
+
   const toggleTaskSel = (blockId, taskKey) => {
     setBlockSelections(prev => {
       const cur = new Set(prev[blockId]||[]);
@@ -458,6 +494,90 @@ function Planner() {
 
   return (
     <div data-tutorial="planner-content-area" style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
+
+      {/* ── TAGE VERTEILEN Modal ─────────────────────────────────────────── */}
+      {showDistModal && (
+        <div style={{ position:"fixed", inset:0, zIndex:900, background:"rgba(0,0,0,0.82)", display:"flex", alignItems:"center", justifyContent:"center" }}
+          onClick={e=>e.target===e.currentTarget&&setShowDistModal(false)}>
+          <div style={{ background:"var(--panel)", border:"1px solid var(--line)", width:"min(96vw,900px)", maxHeight:"85vh", display:"flex", flexDirection:"column", boxShadow:"0 0 80px rgba(0,0,0,0.6)" }}>
+            {/* Header */}
+            <div style={{ padding:"18px 24px 14px", borderBottom:"1px solid var(--line)", display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0 }}>
+              <div>
+                <div className="uppercase-label" style={{ color:"var(--accent)", marginBottom:3 }}>Tage verteilen</div>
+                <div style={{ fontSize:12, color:"var(--text-faint)" }}>Wochenpensum je Projekt auf Tage aufteilen</div>
+              </div>
+              <button onClick={()=>setShowDistModal(false)} style={{ background:"none", border:"none", color:"var(--text-faint)", cursor:"pointer", fontSize:18 }}>✕</button>
+            </div>
+            {/* Body */}
+            <div style={{ overflowY:"auto", padding:"20px 24px", flex:1 }}>
+              {distProjs.length === 0 && (
+                <div style={{ textAlign:"center", color:"var(--text-faint)", fontSize:12, padding:40 }}>Keine aktiven Projekte mit Wochenpensum vorhanden.</div>
+              )}
+              {distProjs.map(proj => {
+                const weights  = getProjWeights(proj.id);
+                const total    = weights.reduce((s,w)=>s+w,0);
+                const overBudget = total > 1.02;
+                const daysLabel= ["MO","DI","MI","DO","FR","SA","SO"];
+                return (
+                  <div key={proj.id} style={{ marginBottom:20, padding:"14px 16px", background:"var(--panel-2)", border:"1px solid var(--line-soft)" }}>
+                    {/* Project row header */}
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+                      <span style={{ fontSize:11.5, fontWeight:700, color:"var(--text)" }}>{proj.title}</span>
+                      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                        <span style={{ fontSize:10, fontFamily:"'JetBrains Mono',monospace", color:overBudget?"var(--danger)":Math.abs(total-1)<0.02?"var(--good)":"var(--text-faint)" }}>
+                          {(total*100).toFixed(0)}% von {proj.hoursPerWeek}h/Wo
+                        </span>
+                        <button onClick={()=>resetProjWeights(proj.id)} style={{ background:"transparent", border:"1px solid var(--line)", color:"var(--text-faint)", fontSize:9, letterSpacing:"0.1em", fontWeight:600, cursor:"pointer", padding:"3px 8px" }}>RESET</button>
+                      </div>
+                    </div>
+                    {/* Sliders */}
+                    <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:6 }}>
+                      {daysLabel.map((dk, di) => {
+                        const w   = weights[di];
+                        const hrs = (proj.hoursPerWeek * w);
+                        const hrsLabel = hrs < 0.05 ? "–" : (hrs % 1 === 0 ? hrs.toFixed(0) : hrs.toFixed(1)) + "h";
+                        return (
+                          <div key={dk} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+                            <span style={{ fontSize:9, letterSpacing:"0.1em", fontWeight:700, color:"var(--text-faint)" }}>{dk}</span>
+                            <input
+                              type="range" min={0} max={1} step={0.05} value={w}
+                              onChange={e=>setProjWeight(proj.id, di, parseFloat(e.target.value))}
+                              style={{ width:"100%", accentColor:"var(--accent)", cursor:"pointer" }}
+                            />
+                            <span style={{ fontSize:9.5, fontFamily:"'JetBrains Mono',monospace", color:w>0?"var(--accent)":"var(--text-faint)" }}>{hrsLabel}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+              {/* Daily totals */}
+              {distProjs.length > 0 && (
+                <div style={{ padding:"12px 16px", background:"var(--bg)", border:"1px solid var(--line-soft)", marginTop:4 }}>
+                  <div style={{ fontSize:9, letterSpacing:"0.14em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>GESAMT / TAG</div>
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:6 }}>
+                    {["MO","DI","MI","DO","FR","SA","SO"].map((dk,di)=>(
+                      <div key={dk} style={{ textAlign:"center" }}>
+                        <span style={{ display:"block", fontSize:9, letterSpacing:"0.1em", color:"var(--text-faint)", marginBottom:2 }}>{dk}</span>
+                        <span style={{ fontSize:11, fontFamily:"'JetBrains Mono',monospace", fontWeight:700, color:planHoursPerDay[di]>0?"var(--text)":"var(--text-faint)" }}>
+                          {planHoursPerDay[di]>0?(planHoursPerDay[di]%1===0?planHoursPerDay[di].toFixed(0):planHoursPerDay[di].toFixed(1))+"h":"–"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            {/* Footer */}
+            <div style={{ padding:"14px 24px", borderTop:"1px solid var(--line)", display:"flex", justifyContent:"flex-end", flexShrink:0 }}>
+              <button onClick={()=>setShowDistModal(false)} style={{ padding:"10px 28px", background:"var(--accent)", color:"#0a0a0c", border:"none", fontSize:11, letterSpacing:"0.16em", fontWeight:700, cursor:"pointer" }}>
+                ÜBERNEHMEN ✓
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Mission Generator Modal ───────────────────────────────────────── */}
       {showMissionGen && (
@@ -746,6 +866,7 @@ function Planner() {
           )}
         </div>
         <div style={{ display:"flex", gap:8 }}>
+          <button onClick={()=>setShowDistModal(true)} style={{ padding:"9px 20px", background:"transparent", color:"var(--text-faint)", border:"1px solid var(--line)", fontSize:10.5, fontWeight:700, letterSpacing:"0.16em", cursor:"pointer" }}>⊞ TAGE VERTEILEN</button>
           <button onClick={()=>setShowMissionGen(true)} style={{ padding:"9px 20px", background:"transparent", color:"var(--accent)", border:"1px solid var(--accent-line)", fontSize:10.5, fontWeight:700, letterSpacing:"0.16em", cursor:"pointer" }}>MISSIONS-GENERATOR</button>
           <button onClick={()=>openAdd()} style={{ padding:"9px 20px", background:"var(--accent)", color:"#0a0a0c", border:"none", fontSize:10.5, fontWeight:700, letterSpacing:"0.16em", cursor:"pointer" }}>+ BLOCK</button>
         </div>
@@ -779,6 +900,9 @@ function Planner() {
               </span>
               {total>0&&<span style={{ display:"block", fontSize:7.5, letterSpacing:0, marginTop:1, color:isSel?"var(--accent)":"var(--text-faint)" }}>
                 {rec>0&&<span title="Wiederkehrend">↻{rec} </span>}{specific>0&&`✦${specific}`}
+              </span>}
+              {planHoursPerDay[i]>0&&<span style={{ display:"block", fontSize:7, letterSpacing:0, marginTop:2, color:isSel?"rgba(16,185,129,0.8)":"var(--text-faint)", fontFamily:"'JetBrains Mono',monospace" }}>
+                {planHoursPerDay[i]%1===0?planHoursPerDay[i].toFixed(0):planHoursPerDay[i].toFixed(1)}h
               </span>}
             </button>
           );

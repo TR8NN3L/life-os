@@ -639,6 +639,51 @@ function App() {
     prevKrProgress.current = { ...krProgress };
   }, [krProgress]);
 
+  // ── Sunday Weekly Check ──────────────────────────────────────────────────────
+  React.useEffect(() => {
+    if (!window.Push?.isConfigured()) return;
+    const today = new Date();
+    if (today.getDay() !== 0) return; // nur Sonntags
+    const weekKey  = getWeekKey(WEEK.mon);
+    const checkKey = `lifeos_sunday_check_${weekKey}`;
+    if (LS.getItem(checkKey)) return; // diese Woche schon gefeuert
+
+    try {
+      const projs    = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]");
+      const archived = new Set(JSON.parse(LS.getItem("lifeos_archived_projects") || "[]"));
+      const pdw      = (() => { try { return JSON.parse(LS.getItem("lifeos_proj_day_weights") || "{}"); } catch { return {}; } })();
+      const DEF_W    = [0.2, 0.2, 0.2, 0.2, 0.2, 0, 0];
+      const active   = projs.filter(p => !archived.has(p.id) && (p.hoursPerWeek || 0) > 0);
+      const behind   = [];
+
+      for (const proj of active) {
+        const taskIds = new Set((proj.objectives || []).flatMap(o =>
+          (o.krs || []).flatMap(kr => (kr.tasks || []).map(t => t.id))
+        ));
+        let weeklySecs = 0;
+        for (let i = 0; i < 7; i++) {
+          const d   = new Date(WEEK.mon);
+          d.setDate(WEEK.mon.getDate() + i);
+          const dk  = `lifeos_daily_${d.toISOString().slice(0, 10)}`;
+          try {
+            const log = JSON.parse(LS.getItem(dk) || "{}");
+            weeklySecs += [...taskIds].reduce((s, id) => s + (log[id] || 0), 0);
+          } catch {}
+        }
+        const actualH = weeklySecs / 3600;
+        const targetH = proj.hoursPerWeek;
+        if (actualH < targetH * 0.9)
+          behind.push({ title: proj.title || proj.id, actual: actualH.toFixed(1), target: targetH });
+      }
+
+      if (behind.length > 0) {
+        const names = behind.map(p => `${p.title} (${p.actual}h/${p.target}h)`).join(", ");
+        window.Push.send({ title: "⚠ Wochenziel nicht erreicht", message: `${names} — Pensum erhöhen oder Ziel anpassen?`, tag: "sunday-check" });
+        LS.setItem(checkKey, "1");
+      }
+    } catch {}
+  }, []);
+
   // Keyboard: ESC exits focus, SPACE toggles active timer in focus
   React.useEffect(() => {
     const onKey = (e) => {
