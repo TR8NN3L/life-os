@@ -181,14 +181,14 @@ const TUT_STEPS = [
     title: "API Key einrichten (optional)",
     body: "Der OKR Wizard braucht deinen Anthropic API Key. Klick unten links auf ⚙, wechsle zum Tab 'KI' und füge deinen Key (sk-ant-...) ein. Du kannst diesen Schritt auch jetzt überspringen.",
     hint: "⚙ klicken → Tab 'KI' → API Key eingeben.",
-    position: "right", blockClicks: true,
+    position: "corner", blockClicks: true,
   },
   {
     id: "new-project", route: "missioncontrol", selector: "[data-tutorial='new-project-btn']", type: "do",
     waitFor: "wizard-opened", skippable: true,
     title: "Ersten Projektplan erstellen (optional)",
     body: "Der OKR-Wizard führt dich durch die Erstellung — mit Wizard-generierten Key Results und konkreten Tasks. Du kannst ihn auch später jederzeit starten.",
-    hint: "Klick auf '⚡ OKR WIZARD — PROJEKT ERSTELLEN'.", position: "right", blockClicks: true,
+    hint: "Klick auf '⚡ OKR WIZARD — PROJEKT ERSTELLEN'.", position: "corner", blockClicks: true,
   },
   {
     id: "wizard-session", route: "missioncontrol", selector: null, type: "do",
