@@ -575,14 +575,17 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
 
         {/* Quick Start banner — fixed */}
         {(() => {
-          // Quick debt: project daily targets vs actual today
-          let projs = []; try { projs = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]"); } catch {}
-          let archivedIds = new Set(); try { archivedIds = new Set(JSON.parse(LS.getItem("lifeos_archived_projects") || "[]")); } catch {}
-          const todayKey = new Date().toISOString().slice(0, 10);
-          let todayLog = {}; try { todayLog = JSON.parse(LS.getItem(`lifeos_daily_${todayKey}`) || "{}"); } catch {}
-          const activeProjs = projs.filter(p => !archivedIds.has(p.id) && (p.hoursPerWeek || 0) > 0);
-          const dailySollH  = activeProjs.reduce((s, p) => s + (p.hoursPerWeek || 8) / 5, 0);
-          const dailyIstH   = Object.values(todayLog).reduce((s, v) => s + v, 0) / 3600;
+          // Quick debt: per-project plan (today slot) vs actual today
+          let projs2 = []; try { projs2 = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]"); } catch {}
+          let archived2 = new Set(); try { archived2 = new Set(JSON.parse(LS.getItem("lifeos_archived_projects") || "[]")); } catch {}
+          let pdw2 = {}; try { pdw2 = JSON.parse(LS.getItem("lifeos_proj_day_weights") || "{}"); } catch {}
+          const todayKey2 = new Date().toISOString().slice(0, 10);
+          let todayLog2 = {}; try { todayLog2 = JSON.parse(LS.getItem(`lifeos_daily_${todayKey2}`) || "{}"); } catch {}
+          const dow2 = (() => { const d = new Date().getDay(); return d === 0 ? 6 : d - 1; })();
+          const DEF2 = [0.2, 0.2, 0.2, 0.2, 0.2, 0, 0];
+          const activeP = projs2.filter(p => !archived2.has(p.id) && (p.hoursPerWeek || 0) > 0);
+          const dailySollH = activeP.reduce((s, p) => s + (p.hoursPerWeek || 8) * ((pdw2[p.id] || DEF2)[dow2] || 0), 0);
+          const dailyIstH  = Object.values(todayLog2).reduce((s, v) => s + v, 0) / 3600;
           const debt = dailySollH - dailyIstH;
           return (
             <div style={{
@@ -1168,19 +1171,33 @@ function StatsPanel({ taskTimes, pov }) {
       });
   }, [tick, weekStart]);
 
-  // ── Weekly budget & per-day plan ─────────────────────────────────────────
-  // planWeights[i] = fraction of weekly budget for day i (sum <= 1)
+  // ── Per-project per-day weights ──────────────────────────────────────────
+  // { [projId]: [w0..w6] } where wi = fraction of that project's weekly hours
   const weeklyBudget = ringProjects.reduce((s, p) => s + p.hoursPerWeek, 0);
-  const DEFAULT_WEIGHTS = [0.2, 0.2, 0.2, 0.2, 0.2, 0, 0]; // Mon-Fri equal
-  const [planWeights, setPlanWeights] = React.useState(() => {
-    try { return JSON.parse(LS.getItem("lifeos_plan_weights") || "null") || DEFAULT_WEIGHTS; } catch { return DEFAULT_WEIGHTS; }
+  const DEFAULT_PROJ_WEIGHTS = [0.2, 0.2, 0.2, 0.2, 0.2, 0, 0]; // Mon–Fri equal
+  const [projDayWeights, setProjDayWeights] = React.useState(() => {
+    try { return JSON.parse(LS.getItem("lifeos_proj_day_weights") || "{}"); } catch { return {}; }
   });
-  React.useEffect(() => { LS.setItem("lifeos_plan_weights", JSON.stringify(planWeights)); }, [planWeights]);
+  React.useEffect(() => { LS.setItem("lifeos_proj_day_weights", JSON.stringify(projDayWeights)); }, [projDayWeights]);
 
-  const planPerDay = planWeights.map(w => weeklyBudget * w); // hours per day
-  const planTotal  = planPerDay.reduce((s, v) => s + v, 0);
+  const getProjWeights = (projId) => projDayWeights[projId] || DEFAULT_PROJ_WEIGHTS;
+  const setProjWeight = (projId, dayIdx, pct) => {
+    const v = Math.max(0, Math.min(1, pct));
+    setProjDayWeights(prev => {
+      const cur = prev[projId] || [...DEFAULT_PROJ_WEIGHTS];
+      const next = [...cur]; next[dayIdx] = v;
+      return { ...prev, [projId]: next };
+    });
+  };
+  const resetProjWeights = (projId) => setProjDayWeights(prev => ({ ...prev, [projId]: [...DEFAULT_PROJ_WEIGHTS] }));
 
-  // Debt = planned this week so far vs actual this week so far
+  // planPerDay: sum of all project daily allocations
+  const planPerDay = DAYS_LABEL.map((_, i) =>
+    ringProjects.reduce((s, p) => s + p.hoursPerWeek * getProjWeights(p.id)[i], 0)
+  );
+  const planTotal = planPerDay.reduce((s, v) => s + v, 0);
+
+  // Debt = plan so far this week vs actual so far
   const debtSoFar = planPerDay.slice(0, todayDowIdx + 1).reduce((s, v) => s + v, 0)
                   - realityPerDay.slice(0, todayDowIdx + 1).reduce((s, v) => s + v, 0);
   const debtOk = debtSoFar <= 0.05;
@@ -1197,12 +1214,7 @@ function StatsPanel({ taskTimes, pov }) {
   const [editMode, setEditMode] = React.useState(false);
   const [areaHover, setAreaHover] = React.useState(false);
 
-  const setWeight = (i, val) => {
-    const v = Math.max(0, Math.min(1, parseFloat(val) || 0));
-    setPlanWeights(prev => { const n = [...prev]; n[i] = v; return n; });
-  };
-
-  const maxChart = Math.max(10, ...planPerDay, ...realityPerDay) * 1.15;
+  const maxChart = Math.max(6, ...planPerDay, ...realityPerDay) * 1.2;
   const W = 420, H = 110, padL = 28, padR = 6, padT = 12, padB = 20;
   const innerW = W - padL - padR;
   const innerH = H - padT - padB;
@@ -1233,7 +1245,7 @@ function StatsPanel({ taskTimes, pov }) {
       </div>
 
       {/* ── Main row: rings | table | debt ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr 148px", gap: "0 20px", alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr 148px", gap: "0 24px", alignItems: "start" }}>
 
         {/* ── Rings ── */}
         <svg width={SVG_SIZE} height={SVG_SIZE} viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`} style={{ flexShrink: 0 }}>
@@ -1245,8 +1257,8 @@ function StatsPanel({ taskTimes, pov }) {
           ) : ringProjects.map((proj, i) => {
             const r = baseRadius - i * (RING_W + GAP);
             if (r < RING_W / 2) return null;
-            const dailyTarget = (proj.hoursPerWeek / 5) * 3600;
-            const prog = Math.min(1, proj.todaySecs / dailyTarget);
+            const dailyTargetSecs = proj.hoursPerWeek * getProjWeights(proj.id)[todayDowIdx] * 3600;
+            const prog = dailyTargetSecs > 0 ? Math.min(1, proj.todaySecs / dailyTargetSecs) : 0;
             const circ = 2 * Math.PI * r;
             const offset = circ * (1 - prog);
             return (
@@ -1288,13 +1300,14 @@ function StatsPanel({ taskTimes, pov }) {
                 ))}
               </div>
               {ringProjects.map((proj, i) => {
-                const dailyTarget  = (proj.hoursPerWeek / 5) * 3600;
-                const todayPlanH   = planPerDay[todayDowIdx]; // total planned today (all projects combined)
-                const ds = (dailyTarget / 3600).toFixed(1);
+                // HEUTE SOLL = this project's allocation for today from per-project weights
+                const projWeights   = getProjWeights(proj.id);
+                const dailyTargetH  = proj.hoursPerWeek * projWeights[todayDowIdx];
+                const ds = dailyTargetH.toFixed(1);
                 const di = (proj.todaySecs / 3600).toFixed(1);
                 const ws = proj.hoursPerWeek.toFixed(1);
                 const wi = (proj.weeklySecs / 3600).toFixed(1);
-                const dayOk  = proj.todaySecs  >= dailyTarget;
+                const dayOk  = proj.todaySecs / 3600 >= dailyTargetH - 0.05;
                 const weekOk = proj.weeklySecs >= proj.weeklyTarget;
                 return (
                   <div key={proj.id} style={{
@@ -1305,7 +1318,7 @@ function StatsPanel({ taskTimes, pov }) {
                   }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
                       <div style={{ width: 6, height: 6, borderRadius: "50%", background: proj.color, flexShrink: 0 }} />
-                      <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 130 }}>{proj.title}</span>
+                      <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.title}</span>
                     </div>
                     <div className="mono" style={{ fontSize: 10.5, color: "var(--text-faint)", textAlign: "right" }}>{ds}h</div>
                     <div className="mono" style={{ fontSize: 10.5, fontWeight: 700, color: dayOk ? proj.color : "var(--text)", textAlign: "right" }}>{di}h{dayOk ? "✓" : ""}</div>
@@ -1400,34 +1413,85 @@ function StatsPanel({ taskTimes, pov }) {
           })}
         </svg>
 
-        {/* ── Tage-Verteilung Sliders (edit mode) ── */}
-        {editMode && (
-          <div style={{ marginTop: 10, background: "var(--panel-2)", border: "1px solid var(--line)", padding: "14px 16px" }}>
-            <div style={{ fontSize: 8.5, letterSpacing: "0.14em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 12 }}>
-              WOCHENBUDGET VERTEILEN · {weeklyBudget}h gesamt · {planTotal.toFixed(1)}h geplant
+        {/* ── Pro-Projekt Tages-Verteilung (edit mode) ── */}
+        {editMode && ringProjects.length > 0 && (
+          <div style={{ marginTop: 10, background: "var(--panel-2)", border: "1px solid var(--line)", padding: "16px 18px" }}>
+            <div style={{ fontSize: 8.5, letterSpacing: "0.14em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 14 }}>
+              WOCHENPLAN PRO PROJEKT — an welchem Tag wie viel % des Wochenbudgets?
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8 }}>
-              {DAYS_LABEL.map((day, i) => {
-                const hrs = (weeklyBudget * planWeights[i]).toFixed(1);
-                const pct = Math.round(planWeights[i] * 100);
-                return (
-                  <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                    <div style={{ fontSize: 8, fontWeight: 700, color: i === todayDowIdx ? "var(--accent)" : "var(--text-faint)", letterSpacing: "0.1em" }}>{day}</div>
-                    <input
-                      type="range" min={0} max={100} step={5} value={pct}
-                      onChange={e => setWeight(i, e.target.value / 100)}
-                      style={{ writingMode: "vertical-lr", direction: "rtl", height: 60, accentColor: "var(--accent)", cursor: "pointer" }}
-                    />
-                    <div className="mono" style={{ fontSize: 9, fontWeight: 700, color: "var(--accent)" }}>{hrs}h</div>
-                    <div style={{ fontSize: 8, color: "var(--text-faint)" }}>{pct}%</div>
+
+            {/* Header row: blank | MO..SO | Gesamt */}
+            <div style={{ display: "grid", gridTemplateColumns: "180px repeat(7, 1fr) 72px", gap: "0 6px", marginBottom: 4, paddingBottom: 8, borderBottom: "1px solid var(--line-soft)" }}>
+              <div />
+              {DAYS_LABEL.map((d, i) => (
+                <div key={d} style={{ textAlign: "center", fontSize: 8, fontWeight: 700, letterSpacing: "0.1em",
+                  color: i === todayDowIdx ? "var(--accent)" : "var(--text-faint)" }}>{d}</div>
+              ))}
+              <div style={{ textAlign: "right", fontSize: 7.5, fontWeight: 700, color: "var(--text-faint)", letterSpacing: "0.08em" }}>GESAMT</div>
+            </div>
+
+            {/* Per-project rows */}
+            {ringProjects.map(proj => {
+              const weights = getProjWeights(proj.id);
+              const totalPct = weights.reduce((s, w) => s + w, 0);
+              const overBudget = totalPct > 1.02;
+              return (
+                <div key={proj.id} style={{ display: "grid", gridTemplateColumns: "180px repeat(7, 1fr) 72px", gap: "0 6px", alignItems: "center", padding: "10px 0", borderBottom: "1px solid var(--line-soft)" }}>
+                  {/* Project label */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ width: 7, height: 7, borderRadius: "50%", background: proj.color, flexShrink: 0 }} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 10.5, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.title}</div>
+                      <div style={{ fontSize: 9, color: "var(--text-faint)" }}>{proj.hoursPerWeek}h/W</div>
+                    </div>
                   </div>
-                );
-              })}
+                  {/* Day sliders */}
+                  {DAYS_LABEL.map((_, i) => {
+                    const pct = Math.round(weights[i] * 100);
+                    const hrs = (proj.hoursPerWeek * weights[i]).toFixed(1);
+                    return (
+                      <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                        <div className="mono" style={{ fontSize: 9, fontWeight: 700, color: i === todayDowIdx ? "var(--accent)" : "var(--text)", lineHeight: 1 }}>{hrs}h</div>
+                        <input
+                          type="range" min={0} max={100} step={5} value={pct}
+                          onChange={e => setProjWeight(proj.id, i, e.target.value / 100)}
+                          style={{ width: "100%", accentColor: proj.color, cursor: "pointer", height: 16 }}
+                        />
+                        <div style={{ fontSize: 7.5, color: "var(--text-faint)" }}>{pct}%</div>
+                      </div>
+                    );
+                  })}
+                  {/* Totals */}
+                  <div style={{ textAlign: "right" }}>
+                    <div className="mono" style={{ fontSize: 10.5, fontWeight: 700, color: overBudget ? "var(--danger)" : Math.round(totalPct * 100) === 100 ? "var(--good)" : "var(--text)" }}>
+                      {(proj.hoursPerWeek * totalPct).toFixed(1)}h
+                    </div>
+                    <div style={{ fontSize: 8, color: overBudget ? "var(--danger)" : "var(--text-faint)" }}>
+                      {Math.round(totalPct * 100)}%{overBudget ? " !" : ""}
+                    </div>
+                    <button onClick={() => resetProjWeights(proj.id)}
+                      style={{ background: "none", border: "none", color: "var(--text-faint)", fontSize: 8.5, cursor: "pointer", padding: "2px 0", letterSpacing: "0.06em" }}>
+                      ↺
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Daily totals row */}
+            <div style={{ display: "grid", gridTemplateColumns: "180px repeat(7, 1fr) 72px", gap: "0 6px", alignItems: "center", paddingTop: 8, marginTop: 4 }}>
+              <div style={{ fontSize: 8, fontWeight: 700, color: "var(--text-faint)", letterSpacing: "0.1em" }}>GESAMT / TAG</div>
+              {DAYS_LABEL.map((_, i) => (
+                <div key={i} style={{ textAlign: "center" }}>
+                  <div className="mono" style={{ fontSize: 10, fontWeight: 700, color: i === todayDowIdx ? "var(--accent)" : "var(--text-dim)" }}>
+                    {planPerDay[i].toFixed(1)}h
+                  </div>
+                </div>
+              ))}
+              <div className="mono" style={{ fontSize: 10, fontWeight: 700, color: "var(--text-dim)", textAlign: "right" }}>
+                {planTotal.toFixed(1)}h
+              </div>
             </div>
-            <button onClick={() => setPlanWeights(DEFAULT_WEIGHTS)}
-              style={{ marginTop: 10, background: "none", border: "none", color: "var(--text-faint)", fontSize: 9.5, cursor: "pointer", letterSpacing: "0.1em", padding: 0 }}>
-              ↺ Reset (Mo–Fr gleichmäßig)
-            </button>
           </div>
         )}
       </div>
