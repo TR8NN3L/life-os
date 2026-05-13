@@ -107,9 +107,28 @@
       const focusDesc  = focus  <= 2 ? "niedrig (kurze Bloecke, viele Pausen)" : focus  >= 4 ? "hoch (lange Bloecke, wenig Pausen)" : "mittel";
       const blockSpec  = numBlocks && blockDuration ? `Exakt ${numBlocks} Bloecke, je ca. ${blockDuration} Minuten. Startzeit: ${startTime || "08:00"}.` : "";
       const povSpec    = multiPov && povs ? `Verteile die Bloecke auf diese POVs: ${povs.join(", ")}. Jeder Block bekommt einen bucket-Wert aus dieser Liste.` : `POV: ${povLabel}`;
+
+      // Maker vs Manager split based on energy level
+      const makerManagerRule = energy >= 4
+        ? `MAKER VS MANAGER SPLIT (Energie hoch):
+- MAKER-ZEIT 08:00-13:00: Exklusiv Deep Work (type=deep-work). Keine Meetings, keine Admin. Volle Konzentration auf den Main Quest.
+- MITTAGSPAUSE 13:00-14:00: Flex-Block (Essen, kurze Erholung).
+- MANAGER-ZEIT 14:00-18:00: Basic + Flex Bloecke (QUICK/EASY Tasks, Admin, Kommunikation).
+Erzwinge diese Struktur — kein deep-work nach 13:00, keine basic-Tasks vor 13:00.`
+        : energy <= 2
+        ? `MAKER VS MANAGER SPLIT (Energie niedrig):
+- Kein Deep Work heute. Energie reicht nicht fuer Flow-State.
+- Starte direkt mit MANAGER-ZEIT: Basic + Flex Bloecke den ganzen Tag.
+- Kurze Bloecke (max 45 Min), haeufige Pausen einplanen.
+- Typ basic und flex bevorzugen.`
+        : `MAKER VS MANAGER SPLIT (Energie mittel):
+- MAKER-ZEIT 09:00-12:00: 1 Deep Work Block (type=deep-work), max 90 Min.
+- MITTAGSPAUSE 12:00-13:00: Flex-Block.
+- MANAGER-ZEIT 13:00-17:00: Basic + Flex Bloecke.`;
+
       return callAI(
-        `Du bist ein Tagesplaner-Experte. Generiere Zeitbloecke fuer einen Tagesplan. Antworte NUR mit validem JSON ohne Kommentare: { "blocks": [{ "name": "Aussagekraeftiger Blockname", "start": "HH:MM", "end": "HH:MM", "type": "deep-work|basic|flex", "bucket": "founder|personal|student|athlete", "durationMins": 60 }] }. Zeiten im Format HH:MM, keine Ueberschneidungen, keine Bloecke vor 06:00 oder nach 23:00.`,
-        `${povSpec}\nEnergie: ${energyDesc}\nMentale Fokus-Kapazitaet: ${focusDesc}\nGesamtzeit: ${availableTime}\n${blockSpec}\n${goal ? `Tagesziel: ${goal}\n` : ""}${dayStr ? `Datum: ${dayStr}\n` : ""}Modus: ${mode === "fill" ? "Ergaenzende Bloecke" : "Kompletter Tagesplan"}\n\nBlocknamen sollen konkret und motivierend sein (z.B. "Leads abtelefonieren" statt "Arbeit"). Typ: deep-work fuer Konzentration/Flow, basic fuer kurze Erledigungen, flex fuer gemischtes.`,
+        `Du bist ein Elite-Tagesplaner. Generiere einen Tagesplan nach dem Maker/Manager-Prinzip. Antworte NUR mit validem JSON ohne Kommentare: { "blocks": [{ "name": "Aussagekraeftiger Blockname", "start": "HH:MM", "end": "HH:MM", "type": "deep-work|basic|flex", "bucket": "founder|personal|student|athlete", "durationMins": 60 }] }. Zeiten im Format HH:MM, keine Ueberschneidungen, keine Bloecke vor 06:00 oder nach 23:00.`,
+        `${povSpec}\nEnergie: ${energyDesc}\nMentale Fokus-Kapazitaet: ${focusDesc}\nGesamtzeit: ${availableTime}\n${blockSpec}\n${goal ? `Tagesziel: ${goal}\n` : ""}${dayStr ? `Datum: ${dayStr}\n` : ""}Modus: ${mode === "fill" ? "Ergaenzende Bloecke" : "Kompletter Tagesplan"}\n\n${makerManagerRule}\n\nBlocknamen sollen konkret und motivierend sein (z.B. "Leads abtelefonieren", "OKR-Review", "E-Mails & Admin" statt generischem "Arbeit"). deep-work=Flow-State Arbeit, basic=schnelle Erledigungen, flex=gemischtes.`,
         { maxTokens: 800 }
       );
     },

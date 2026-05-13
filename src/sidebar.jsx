@@ -303,6 +303,45 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
                     {window.Push?.isPWA?.() ? "✓ Läuft als PWA" : "Nicht installiert"}
                   </div>
                 )}
+                {renderRow("Automatische Trigger", "Läuft im Hintergrund solange die App offen ist.",
+                  <div style={{ fontSize: 11.5, color: "var(--text-faint)", lineHeight: 1.65 }}>
+                    <div>🔁 <b>21:00</b> — Habit-Erinnerung (wenn nicht alle gecheckt)</div>
+                    <div>🚨 <b>Debt &gt; 5h</b> — Ignorance Debt Alarm</div>
+                    <div>⚡ Block-Start — beim Starten eines Planner-Blocks</div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── FOCUS LOCK ── */}
+            {activeTab === "notifications" && (
+              <div style={{ marginTop: 8 }}>
+                {renderSection("Focus Lock — iPhone Setup",
+                  <div style={{ fontSize: 12, color: "var(--text-dim)", lineHeight: 1.8 }}>
+                    <div style={{ marginBottom: 12, color: "var(--text-faint)", fontSize: 11.5 }}>
+                      PWAs können Apps nicht direkt sperren. Richte Screen Time manuell ein — das dauert 2 Minuten und ist dauerhaft.
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {[
+                        ["1", "Einstellungen → Bildschirmzeit → App-Limits → Limit hinzufügen"],
+                        ["2", "Kategorie: Soziale Netzwerke + Unterhaltung → 0 Min / Tag"],
+                        ["3", "Einstellungen → Fokus → Arbeit → Apps: nur Life OS + Telefon erlauben"],
+                        ["4", "Fokus-Automation: Standort oder Zeit → Arbeit-Fokus automatisch aktivieren"],
+                        ["5", "Passcode für Screen Time setzen → niemand kann Limits umgehen"],
+                      ].map(([n, text]) => (
+                        <div key={n} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                          <div style={{
+                            width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
+                            background: "var(--accent-soft)", border: "1px solid var(--accent-line)",
+                            color: "var(--accent)", fontSize: 10, fontWeight: 700,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                          }}>{n}</div>
+                          <div style={{ fontSize: 11.5, color: "var(--text-dim)", lineHeight: 1.5 }}>{text}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

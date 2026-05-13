@@ -15,8 +15,12 @@
   const LOCAL_ONLY = new Set([
     "lifeos_openai_key",  // API key — security
     "lifeos_guest",       // device-specific flag
-    "lifeos_active",      // which task is running on this device
-    "lifeos_times",       // high-frequency timer state, device-specific
+    "lifeos_active",      // which task is running — device-specific to avoid cross-device auto-start
+  ]);
+
+  // Keys that sync to cloud but with a longer debounce (5s) to avoid write storms
+  const SLOW_SYNC = new Set([
+    "lifeos_times",       // timer seconds — sync on pause/idle, not every tick
   ]);
 
   async function _write(key, valueStr) {
@@ -61,7 +65,8 @@
       if (_uid && !LOCAL_ONLY.has(k)) {
         _dirty.add(k);
         clearTimeout(_q[k]);
-        _q[k] = setTimeout(() => _write(k, v), 300);
+        const delay = SLOW_SYNC.has(k) ? 5000 : 300;
+        _q[k] = setTimeout(() => _write(k, v), delay);
       }
     },
     removeItem: (k) => {

@@ -204,6 +204,25 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // ── Push Scheduler — habit reminder at 21:00 + debt alarm over 5h ──────────
+  React.useEffect(() => {
+    if (!window.Push?.startScheduler) return;
+    window.Push.startScheduler({
+      getHabits: () => { try { return JSON.parse(LS.getItem("lifeos_habits") || "[]"); } catch { return []; } },
+      getDebt: () => {
+        try {
+          const TRUTH_LOOP = window.TRUTH_LOOP_DATA || null;
+          if (!TRUTH_LOOP) return null;
+          const planKey = `lifeos_truth_plan`;
+          const plan = JSON.parse(LS.getItem(planKey) || "null") || TRUTH_LOOP.plan;
+          const reality = TRUTH_LOOP.reality;
+          return plan.reduce((a, b) => a + b, 0) - reality.reduce((a, b) => a + b, 0);
+        } catch { return null; }
+      },
+      debtThreshold: 5,
+    });
+  }, []);
+
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
   React.useEffect(() => { applyTweaks(tweaks); }, [tweaks]);
 

@@ -144,6 +144,57 @@ window.Push = {
     });
   },
 
+  debtAlarm(debtHours) {
+    return this.send({
+      title: "🚨 Ignorance Debt kritisch",
+      message: `${debtHours.toFixed(1)}h Schuld zwischen Plan und Realität — jetzt Timer starten und Schuld abbauen.`,
+      tag: "debt-alarm",
+    });
+  },
+
+  // ── Scheduler ───────────────────────────────────────────────────────────────
+  // Call once on app start. Checks habits at 21:00 daily + debt when over threshold.
+  startScheduler({ getHabits, getDebt, debtThreshold = 5 }) {
+    const todayISO = () => new Date().toISOString().slice(0, 10);
+
+    // Habit reminder — check every 5 minutes if it's past 21:00 and habits undone
+    const checkHabits = () => {
+      if (!this.isConfigured()) return;
+      const h = new Date().getHours();
+      if (h < 21) return;
+      const lastKey = `lifeos_habit_reminder_${todayISO()}`;
+      if (localStorage.getItem(lastKey)) return; // already sent today
+      try {
+        const habits = getHabits ? getHabits() : JSON.parse(localStorage.getItem("lifeos_habits") || "[]");
+        const today = todayISO();
+        const undone = habits.filter(hb => !hb.log?.[today]).length;
+        if (undone > 0) {
+          this.habitReminder(undone);
+          localStorage.setItem(lastKey, "1");
+        }
+      } catch {}
+    };
+
+    // Debt alarm — check every 10 minutes
+    const checkDebt = () => {
+      if (!this.isConfigured()) return;
+      const lastKey = `lifeos_debt_alarm_${todayISO()}`;
+      if (localStorage.getItem(lastKey)) return; // max once per day
+      try {
+        const debt = getDebt ? getDebt() : null;
+        if (debt !== null && debt >= debtThreshold) {
+          this.debtAlarm(debt);
+          localStorage.setItem(lastKey, "1");
+        }
+      } catch {}
+    };
+
+    setInterval(checkHabits, 5 * 60 * 1000);
+    setInterval(checkDebt,   10 * 60 * 1000);
+    // Also run once on startup (after 30s to let app settle)
+    setTimeout(() => { checkHabits(); checkDebt(); }, 30000);
+  },
+
   milestone(percent, name) {
     const emoji = percent >= 100 ? "🏆" : "🎯";
     return this.send({
