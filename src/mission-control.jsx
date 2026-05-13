@@ -789,9 +789,14 @@ function ProjectDetail({ proj, onBack, onOpenKR, taskTimes, setTaskTimes, active
   const [showEdit, setShowEdit] = React.useState(false);
   const [editHPW, setEditHPW] = React.useState(proj.hoursPerWeek || 8);
   const [editDeadline, setEditDeadline] = React.useState(proj.deadline || "");
+  const [editTitle, setEditTitle] = React.useState(proj.title || "");
 
   const saveProjectEdit = () => {
-    if (onSaveProjectEdit) onSaveProjectEdit(proj.id, { hoursPerWeek: editHPW, deadline: editDeadline || null });
+    if (onSaveProjectEdit) onSaveProjectEdit(proj.id, {
+      title: editTitle.trim() || proj.title,
+      hoursPerWeek: editHPW,
+      deadline: editDeadline || null,
+    });
     setShowEdit(false);
   };
   const objectives = getObjectives(proj);
@@ -977,9 +982,18 @@ function ProjectDetail({ proj, onBack, onOpenKR, taskTimes, setTaskTimes, active
               {/* Edit Modal */}
               {showEdit && (
                 <div onClick={() => setShowEdit(false)} style={{ position: "fixed", inset: 0, zIndex: 800, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <div onClick={e => e.stopPropagation()} style={{ width: 400, background: "var(--panel)", border: "1px solid var(--line)", padding: "28px 28px 24px" }}>
-                    <div style={{ fontWeight: 700, fontSize: 11, letterSpacing: "0.18em", marginBottom: 22 }}>PROJEKT BEARBEITEN</div>
-                    <div style={{ marginBottom: 20 }}>
+                  <div onClick={e => e.stopPropagation()} style={{ width: 440, background: "var(--panel)", border: "1px solid var(--line)", padding: "28px 28px 24px" }}>
+                    <div style={{ fontWeight: 700, fontSize: 11, letterSpacing: "0.18em", marginBottom: 24 }}>⚙ PROJEKT BEARBEITEN</div>
+                    <div style={{ marginBottom: 18 }}>
+                      <div className="uppercase-label" style={{ marginBottom: 8 }}>Projektname</div>
+                      <input
+                        value={editTitle}
+                        onChange={e => setEditTitle(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") saveProjectEdit(); }}
+                        style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "10px 14px", fontSize: 13.5, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+                      />
+                    </div>
+                    <div style={{ marginBottom: 18 }}>
                       <div className="uppercase-label" style={{ marginBottom: 8 }}>Stunden pro Woche</div>
                       <input type="range" min={1} max={40} step={1} value={editHPW} onChange={e => setEditHPW(+e.target.value)}
                         style={{ width: "100%", accentColor: "var(--accent)", cursor: "pointer" }} />
@@ -1021,9 +1035,9 @@ function ProjectDetail({ proj, onBack, onOpenKR, taskTimes, setTaskTimes, active
           {onOpenWizard && (
             <button onClick={onOpenWizard} style={{ padding: "9px 18px", background: "var(--accent-soft)", border: "1px solid var(--accent-line)", color: "var(--accent)", fontWeight: 700, fontSize: 10.5, letterSpacing: "0.16em", cursor: "pointer" }}>⚡ GENERATE OKR / TASKS</button>
           )}
-          <button onClick={() => { setEditHPW(proj.hoursPerWeek || 8); setEditDeadline(proj.deadline || ""); setShowEdit(true); }}
-            title="Stunden/Woche & Deadline bearbeiten"
-            style={{ padding: "9px 12px", background: "transparent", border: "1px solid var(--line)", color: "var(--text-faint)", fontSize: 13, cursor: "pointer", lineHeight: 1 }}>⚙</button>
+          <button onClick={() => { setEditTitle(proj.title || ""); setEditHPW(proj.hoursPerWeek || 8); setEditDeadline(proj.deadline || ""); setShowEdit(true); }}
+            title="Projekt bearbeiten (Name, Stunden, Deadline)"
+            style={{ padding: "9px 14px", background: "transparent", border: "1px solid var(--line)", color: "var(--text-faint)", fontSize: 11, letterSpacing: "0.1em", fontWeight: 600, cursor: "pointer", lineHeight: 1 }}>⚙ BEARBEITEN</button>
         </div>
       </div>
 

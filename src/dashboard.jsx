@@ -1172,78 +1172,97 @@ function StatsPanel({ truthPlan, setTruthPlan, taskTimes, pov }) {
   const bw = (innerW - gap * (days.length - 1)) / days.length;
 
   return (
-    <div onMouseEnter={() => setAreaHover(true)} onMouseLeave={() => { setAreaHover(false); }}
-      style={{ padding: "20px 28px 24px" }}>
+    <div onMouseEnter={() => setAreaHover(true)} onMouseLeave={() => setAreaHover(false)}
+      style={{ padding: "16px 28px 20px" }}>
 
-      {/* Section header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+      {/* ── Header ── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <div className="uppercase-label">War Room · Stats</div>
-        <div style={{ display: "flex", gap: 6 }}>
-          <button onClick={() => setEditMode(e => !e)} style={{
-            padding: "3px 12px", background: editMode ? "var(--accent)" : "transparent",
-            border: `1px solid ${editMode ? "var(--accent)" : "var(--line)"}`,
-            color: editMode ? "#0a0a0c" : "var(--text-faint)",
-            fontSize: 9.5, fontWeight: 700, letterSpacing: "0.14em", cursor: "pointer",
-            opacity: (areaHover || editMode) ? 1 : 0, transition: "opacity .2s",
-          }}>PLAN BEARBEITEN</button>
-        </div>
+        <button onClick={() => setEditMode(e => !e)} style={{
+          padding: "3px 10px", background: editMode ? "var(--accent)" : "transparent",
+          border: `1px solid ${editMode ? "var(--accent)" : "var(--line)"}`,
+          color: editMode ? "#0a0a0c" : "var(--text-faint)",
+          fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", cursor: "pointer",
+          opacity: (areaHover || editMode) ? 1 : 0, transition: "opacity .2s",
+        }}>PLAN BEARBEITEN</button>
       </div>
 
-      {/* Main 3-column grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 24, alignItems: "center" }}>
+      {/* ── Main row: rings | table | debt ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 20, alignItems: "start" }}>
 
-        {/* ── Column 1: Rings ── */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-          <svg width={SVG_SIZE} height={SVG_SIZE} viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}>
-            {ringProjects.length === 0 ? (
-              <>
-                <circle cx={cx} cy={cy} r={baseRadius} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={RING_W} />
-                <text x={cx} y={cy + 4} textAnchor="middle" fill="var(--text-faint)" fontSize={10} fontFamily="'Inter',sans-serif">Keine Projekte</text>
-              </>
-            ) : ringProjects.map((proj, i) => {
-              const r = baseRadius - i * (RING_W + GAP);
-              if (r < RING_W / 2) return null;
-              const circ = 2 * Math.PI * r;
-              const clamp = Math.min(1, proj.progress);
-              const offset = circ * (1 - clamp);
-              return (
-                <g key={proj.id}>
-                  <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={RING_W} />
-                  {clamp > 0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color}
-                    strokeWidth={RING_W} strokeLinecap="round"
-                    strokeDasharray={circ} strokeDashoffset={offset}
-                    transform={`rotate(-90 ${cx} ${cy})`}
-                    style={{ transition: "stroke-dashoffset 0.5s ease" }} />}
-                  {proj.progress >= 1 && <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color} strokeWidth={RING_W * 0.3} opacity={0.2} />}
-                </g>
-              );
-            })}
-            <text x={cx} y={cy - 5} textAnchor="middle" fill="var(--text)" fontSize={14} fontWeight={700} fontFamily="'JetBrains Mono',monospace">
-              {Math.round(topProgress * 100)}%
-            </text>
-            <text x={cx} y={cy + 10} textAnchor="middle" fill="var(--text-faint)" fontSize={8} fontFamily="'Inter',sans-serif" letterSpacing="1.5">
-              HEUTE
-            </text>
-          </svg>
+        {/* ── Rings ── */}
+        <svg width={SVG_SIZE} height={SVG_SIZE} viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`} style={{ flexShrink: 0 }}>
+          {ringProjects.length === 0 ? (
+            <>
+              <circle cx={cx} cy={cy} r={baseRadius} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={RING_W} />
+              <text x={cx} y={cy + 4} textAnchor="middle" fill="var(--text-faint)" fontSize={9} fontFamily="'Inter',sans-serif">Keine Projekte</text>
+            </>
+          ) : ringProjects.map((proj, i) => {
+            const r = baseRadius - i * (RING_W + GAP);
+            if (r < RING_W / 2) return null;
+            const circ = 2 * Math.PI * r;
+            const clamp = Math.min(1, proj.progress);
+            const offset = circ * (1 - clamp);
+            return (
+              <g key={proj.id}>
+                <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={RING_W} />
+                {clamp > 0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color}
+                  strokeWidth={RING_W} strokeLinecap="round"
+                  strokeDasharray={circ} strokeDashoffset={offset}
+                  transform={`rotate(-90 ${cx} ${cy})`}
+                  style={{ transition: "stroke-dashoffset 0.5s ease" }} />}
+                {proj.progress >= 1 && <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color} strokeWidth={RING_W * 0.3} opacity={0.2} />}
+              </g>
+            );
+          })}
+          <text x={cx} y={cy - 5} textAnchor="middle" fill="var(--text)" fontSize={14} fontWeight={700} fontFamily="'JetBrains Mono',monospace">
+            {Math.round(topProgress * 100)}%
+          </text>
+          <text x={cx} y={cy + 10} textAnchor="middle" fill="var(--text-faint)" fontSize={8} fontFamily="'Inter',sans-serif" letterSpacing="1.5">
+            HEUTE
+          </text>
+        </svg>
 
-          {/* Legend */}
-          {ringProjects.length > 0 && (
-            <div style={{ width: SVG_SIZE, display: "flex", flexDirection: "column", gap: 5 }}>
-              {ringProjects.map(proj => {
-                const doneDay  = proj.progress >= 1;
-                const doneWeek = proj.weeklySecs >= proj.weeklyTarget;
+        {/* ── Soll/Ist table ── */}
+        <div style={{ minWidth: 0 }}>
+          {ringProjects.length === 0 ? (
+            <div style={{ fontSize: 11, color: "var(--text-faint)", fontStyle: "italic", paddingTop: 12 }}>
+              Projekte mit Stunden/Woche aktivieren, um Statistiken zu sehen.
+            </div>
+          ) : (
+            <div>
+              {/* Column headers */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 80px 80px", gap: "0 8px", paddingBottom: 8, borderBottom: "1px solid var(--line-soft)", marginBottom: 2 }}>
+                <div />
+                {[["HEUTE", "SOLL"], ["HEUTE", "IST"], ["WOCHE", "SOLL"], ["WOCHE", "IST"]].map(([a, b], i) => (
+                  <div key={i} style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 7.5, letterSpacing: "0.12em", fontWeight: 700, color: "var(--text-faint)", lineHeight: 1.2 }}>{a}</div>
+                    <div style={{ fontSize: 7.5, letterSpacing: "0.12em", fontWeight: 700, color: "var(--text-faint)", lineHeight: 1.2 }}>{b}</div>
+                  </div>
+                ))}
+              </div>
+              {ringProjects.map((proj, i) => {
+                const ds = (proj.dailyTarget  / 3600).toFixed(1);
+                const di = (proj.todaySecs    / 3600).toFixed(1);
+                const ws = (proj.weeklyTarget / 3600).toFixed(1);
+                const wi = (proj.weeklySecs   / 3600).toFixed(1);
+                const dayOk  = proj.todaySecs  >= proj.dailyTarget;
+                const weekOk = proj.weeklySecs >= proj.weeklyTarget;
                 return (
-                  <div key={proj.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: proj.color, flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 9.5, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.title}</div>
-                      <div style={{ height: 2, background: "rgba(255,255,255,0.06)", borderRadius: 1, marginTop: 2 }}>
-                        <div style={{ height: "100%", background: proj.color, width: `${Math.min(100, proj.progress * 100)}%`, borderRadius: 1 }} />
-                      </div>
+                  <div key={proj.id} style={{
+                    display: "grid", gridTemplateColumns: "1fr 80px 80px 80px 80px",
+                    gap: "0 8px", alignItems: "center",
+                    padding: "9px 0",
+                    borderBottom: i < ringProjects.length - 1 ? "1px solid var(--line-soft)" : "none",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+                      <div style={{ width: 7, height: 7, borderRadius: "50%", background: proj.color, flexShrink: 0 }} />
+                      <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.title}</span>
                     </div>
-                    <span style={{ fontSize: 8.5, color: doneDay ? proj.color : "var(--text-faint)", fontWeight: doneDay ? 700 : 400, flexShrink: 0 }}>
-                      {doneDay ? "✓" : `${Math.round(proj.progress * 100)}%`}
-                    </span>
+                    <div className="mono" style={{ fontSize: 11, color: "var(--text-faint)", textAlign: "right" }}>{ds}h</div>
+                    <div className="mono" style={{ fontSize: 11, fontWeight: 700, color: dayOk ? proj.color : "var(--text)", textAlign: "right" }}>{di}h{dayOk ? " ✓" : ""}</div>
+                    <div className="mono" style={{ fontSize: 11, color: "var(--text-faint)", textAlign: "right" }}>{ws}h</div>
+                    <div className="mono" style={{ fontSize: 11, fontWeight: 700, color: weekOk ? proj.color : "var(--text)", textAlign: "right" }}>{wi}h{weekOk ? " ✓" : ""}</div>
                   </div>
                 );
               })}
@@ -1251,110 +1270,73 @@ function StatsPanel({ truthPlan, setTruthPlan, taskTimes, pov }) {
           )}
         </div>
 
-        {/* ── Column 2: Chart + Soll/Ist ── */}
-        <div style={{ minWidth: 0 }}>
-          {/* Truth Loop chart */}
-          <div style={{ fontSize: 9, letterSpacing: "0.16em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 8 }}>
-            THE TRUTH LOOP · Plan vs. Realität
+        {/* ── Ignorance Debt ── */}
+        <div style={{
+          background: debtOk ? "var(--good-soft)" : "rgba(214,50,74,0.14)",
+          border: `1px solid ${debtOk ? "var(--good)" : "var(--danger)"}`,
+          color: debtOk ? "var(--good)" : "var(--danger)",
+          padding: "14px 18px", textAlign: "center", minWidth: 132,
+        }}>
+          <div style={{ fontSize: 8.5, letterSpacing: "0.18em", fontWeight: 700, opacity: 0.75, marginBottom: 8 }}>IGNORANCE DEBT</div>
+          <div className="mono" style={{ fontSize: 30, fontWeight: 800, lineHeight: 1 }}>
+            {debtOk ? "+" : "−"}{Math.abs(debt).toFixed(1)}h
           </div>
-          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }}>
-            {[0, 2, 4, 6, 8, 10].map(v => {
-              const y = padT + innerH - (v / maxChart) * innerH;
-              return (
-                <g key={v}>
-                  <text x={4} y={y + 3} fontSize="8.5" fill="var(--text-faint)" fontFamily="JetBrains Mono,monospace">{v}h</text>
-                  <line x1={padL} x2={W - padR} y1={y} y2={y} stroke="var(--line-soft)" strokeWidth="1" />
-                </g>
-              );
-            })}
-            {days.map((day, i) => {
-              const x = padL + i * (bw + gap);
-              const ph = (plan[i] / maxChart) * innerH;
-              const rh = (reality[i] / maxChart) * innerH;
-              const py = padT + innerH - ph;
-              const ry = padT + innerH - rh;
-              return (
-                <g key={i}>
-                  {plan[i] > reality[i] && <rect x={x} y={py} width={bw} height={ph - rh} fill="rgba(214,50,74,0.12)" />}
-                  {reality[i] > 0 && <rect x={x} y={ry} width={bw} height={rh} fill="rgba(214,50,74,0.6)" stroke="rgba(214,50,74,0.85)" strokeWidth={1} />}
-                  <rect x={x} y={py} width={bw} height={ph} fill="transparent" stroke="var(--text-dim)" strokeWidth={1.5} />
-                  <text x={x + bw / 2} y={py - 4} fontSize="8" textAnchor="middle" fontFamily="JetBrains Mono,monospace" fill="var(--text-dim)">{plan[i]}h</text>
-                  <text x={x + bw / 2} y={H - 4} fontSize="8" textAnchor="middle" fill="var(--text-faint)" fontFamily="JetBrains Mono,monospace" letterSpacing="0.05em">{day}</text>
-                </g>
-              );
-            })}
-          </svg>
-          {editMode && (
-            <div style={{ display: "flex", gap: 4, paddingLeft: padL, marginTop: 4 }}>
-              {days.map((day, i) => (
-                <div key={i} style={{ flex: 1, textAlign: "center" }}>
-                  <input type="number" min="0" max="24" step="0.5" value={plan[i]} onChange={e => updatePlanDay(i, e.target.value)}
-                    style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--accent-line)", color: "var(--text)", textAlign: "center", padding: "3px 1px", fontSize: 10, fontFamily: "JetBrains Mono,monospace", outline: "none" }} />
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Tages / Wochen Soll+Ist Tabelle */}
-          {ringProjects.length > 0 && (
-            <div style={{ marginTop: 14 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto auto", gap: "4px 12px", alignItems: "center" }}>
-                <div style={{ fontSize: 8.5, letterSpacing: "0.14em", fontWeight: 700, color: "var(--text-faint)" }}></div>
-                {["HEUTE SOLL", "HEUTE IST", "WOCHE SOLL", "WOCHE IST"].map(h => (
-                  <div key={h} style={{ fontSize: 8, letterSpacing: "0.1em", fontWeight: 700, color: "var(--text-faint)", textAlign: "right" }}>{h}</div>
-                ))}
-                {ringProjects.map(proj => {
-                  const ds = (proj.dailyTarget  / 3600).toFixed(1);
-                  const di = (proj.todaySecs  / 3600).toFixed(1);
-                  const ws = (proj.weeklyTarget / 3600).toFixed(1);
-                  const wi = (proj.weeklySecs / 3600).toFixed(1);
-                  const dayOk  = proj.todaySecs  >= proj.dailyTarget;
-                  const weekOk = proj.weeklySecs >= proj.weeklyTarget;
-                  return (
-                    <React.Fragment key={proj.id}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                        <div style={{ width: 6, height: 6, borderRadius: "50%", background: proj.color, flexShrink: 0 }} />
-                        <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.title}</span>
-                      </div>
-                      <div className="mono" style={{ fontSize: 10.5, color: "var(--text-dim)", textAlign: "right" }}>{ds}h</div>
-                      <div className="mono" style={{ fontSize: 10.5, fontWeight: 700, color: dayOk ? proj.color : "var(--text)", textAlign: "right" }}>{di}h {dayOk ? "✓" : ""}</div>
-                      <div className="mono" style={{ fontSize: 10.5, color: "var(--text-dim)", textAlign: "right" }}>{ws}h</div>
-                      <div className="mono" style={{ fontSize: 10.5, fontWeight: 700, color: weekOk ? proj.color : "var(--text)", textAlign: "right" }}>{wi}h {weekOk ? "✓" : ""}</div>
-                    </React.Fragment>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          <div style={{ fontSize: 9, opacity: 0.8, marginTop: 8, letterSpacing: "0.06em", fontWeight: 600 }}>
+            {debtOk ? "Auf Kurs ✓" : "Selbstbetrug"}
+          </div>
         </div>
+      </div>
 
-        {/* ── Column 3: Ignorance Debt ── */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
-          <div style={{
-            background: debtOk ? "var(--good-soft)" : "var(--danger)",
-            border: debtOk ? "1px solid var(--good)" : "none",
-            color: debtOk ? "var(--good)" : "#fff",
-            padding: "18px 20px", textAlign: "center", minWidth: 140,
-          }}>
-            <div style={{ fontSize: 9, letterSpacing: "0.16em", fontWeight: 700, opacity: 0.85, marginBottom: 6 }}>IGNORANCE DEBT</div>
-            <div className="mono" style={{ fontSize: 32, fontWeight: 700, lineHeight: 1 }}>{debtOk ? "+" : "−"}{Math.abs(debt).toFixed(1)}h</div>
-            <div style={{ fontSize: 9.5, opacity: 0.85, marginTop: 8, letterSpacing: "0.05em" }}>{debtOk ? "Auf Kurs ✓" : "Selbstbetrug"}</div>
-          </div>
-
-          {/* Legend */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 5, width: "100%" }}>
-            {[
-              { color: "var(--text-dim)", dashed: true, label: "Plan" },
-              { color: "rgba(214,50,74,0.85)", label: "Realität" },
-              { color: "rgba(214,50,74,0.3)", label: "Debt-Gap" },
-            ].map(({ color, dashed, label }) => (
-              <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <div style={{ width: 16, height: 2, background: color, borderTop: dashed ? "1.5px dashed" : "none", borderColor: color, flexShrink: 0 }} />
-                <span style={{ fontSize: 9.5, color: "var(--text-faint)" }}>{label}</span>
+      {/* ── Chart (collapsible) ── */}
+      <div style={{ marginTop: 16, borderTop: "1px solid var(--line-soft)", paddingTop: 14 }}>
+        <div style={{ fontSize: 8.5, letterSpacing: "0.14em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 8, display: "flex", gap: 16, alignItems: "center" }}>
+          <span>THE TRUTH LOOP · Plan vs. Realität</span>
+          <span style={{ display: "flex", gap: 10, opacity: 0.7 }}>
+            {[["var(--text-dim)", "Plan"], ["rgba(214,50,74,0.85)", "Realität"], ["rgba(214,50,74,0.2)", "Debt-Gap"]].map(([c, l]) => (
+              <span key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ display: "inline-block", width: 12, height: 2, background: c }} />
+                <span style={{ fontSize: 8, color: "var(--text-faint)" }}>{l}</span>
+              </span>
+            ))}
+          </span>
+        </div>
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }}>
+          {[0, 2, 4, 6, 8, 10].map(v => {
+            const y = padT + innerH - (v / maxChart) * innerH;
+            return (
+              <g key={v}>
+                <text x={4} y={y + 3} fontSize="8" fill="var(--text-faint)" fontFamily="JetBrains Mono,monospace">{v}h</text>
+                <line x1={padL} x2={W - padR} y1={y} y2={y} stroke="var(--line-soft)" strokeWidth="0.5" />
+              </g>
+            );
+          })}
+          {days.map((day, i) => {
+            const x = padL + i * (bw + gap);
+            const ph = (plan[i] / maxChart) * innerH;
+            const rh = (reality[i] / maxChart) * innerH;
+            const py = padT + innerH - ph;
+            const ry = padT + innerH - rh;
+            return (
+              <g key={i}>
+                {plan[i] > reality[i] && <rect x={x} y={py} width={bw} height={ph - rh} fill="rgba(214,50,74,0.1)" />}
+                {reality[i] > 0 && <rect x={x} y={ry} width={bw} height={rh} fill="rgba(214,50,74,0.55)" stroke="rgba(214,50,74,0.8)" strokeWidth={1} />}
+                <rect x={x} y={py} width={bw} height={Math.max(ph, 0.5)} fill="transparent" stroke="var(--text-dim)" strokeWidth={1} strokeDasharray={ph < 1 ? "2 2" : "none"} />
+                <text x={x + bw / 2} y={py - 4} fontSize="7.5" textAnchor="middle" fontFamily="JetBrains Mono,monospace" fill={plan[i] > 0 ? "var(--text-dim)" : "var(--text-faint)"}>{plan[i]}h</text>
+                <text x={x + bw / 2} y={H - 4} fontSize="8" textAnchor="middle" fill="var(--text-faint)" fontFamily="JetBrains Mono,monospace">{day}</text>
+              </g>
+            );
+          })}
+        </svg>
+        {editMode && (
+          <div style={{ display: "flex", gap: 4, paddingLeft: padL, marginTop: 6 }}>
+            {days.map((day, i) => (
+              <div key={i} style={{ flex: 1, textAlign: "center" }}>
+                <input type="number" min="0" max="24" step="0.5" value={plan[i]} onChange={e => updatePlanDay(i, e.target.value)}
+                  style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--accent-line)", color: "var(--text)", textAlign: "center", padding: "4px 1px", fontSize: 10, fontFamily: "JetBrains Mono,monospace", outline: "none" }} />
               </div>
             ))}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
