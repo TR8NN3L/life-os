@@ -575,7 +575,15 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
 
         {/* Quick Start banner — fixed */}
         {(() => {
-          const debt = (truthPlan || TRUTH_LOOP.plan).reduce((a,b)=>a+b,0) - TRUTH_LOOP.reality.reduce((a,b)=>a+b,0);
+          // Quick debt: project daily targets vs actual today
+          let projs = []; try { projs = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]"); } catch {}
+          let archivedIds = new Set(); try { archivedIds = new Set(JSON.parse(LS.getItem("lifeos_archived_projects") || "[]")); } catch {}
+          const todayKey = new Date().toISOString().slice(0, 10);
+          let todayLog = {}; try { todayLog = JSON.parse(LS.getItem(`lifeos_daily_${todayKey}`) || "{}"); } catch {}
+          const activeProjs = projs.filter(p => !archivedIds.has(p.id) && (p.hoursPerWeek || 0) > 0);
+          const dailySollH  = activeProjs.reduce((s, p) => s + (p.hoursPerWeek || 8) / 5, 0);
+          const dailyIstH   = Object.values(todayLog).reduce((s, v) => s + v, 0) / 3600;
+          const debt = dailySollH - dailyIstH;
           return (
             <div style={{
               background: "var(--accent)", color: "#0a0a0c",
@@ -885,7 +893,7 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
 
         {/* War Room Stats — rings + truth loop + debt + soll/ist */}
         <div style={{ flexShrink: 0, borderTop: "1px solid var(--line)", maxHeight: "48vh", overflowY: "auto" }}>
-          <StatsPanel truthPlan={truthPlan} setTruthPlan={setTruthPlan} taskTimes={taskTimes} pov={pov} />
+          <StatsPanel taskTimes={taskTimes} pov={pov} />
         </div>
       </div>
 
@@ -1095,35 +1103,44 @@ function BehaviorStrip() {
 }
 
 // ── War Room Stats Panel ────────────────────────────────────────────────────
-function StatsPanel({ truthPlan, setTruthPlan, taskTimes, pov }) {
+function StatsPanel({ taskTimes, pov }) {
   const today = new Date().toISOString().slice(0, 10);
+  const DAYS_LABEL = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"];
 
-  // Daily times (refresh when taskTimes ticks)
-  const [dailyTimes, setDailyTimes] = React.useState(() => {
-    try { return JSON.parse(LS.getItem(`lifeos_daily_${today}`) || "{}"); } catch { return {}; }
-  });
-  React.useEffect(() => {
-    try { setDailyTimes(JSON.parse(LS.getItem(`lifeos_daily_${today}`) || "{}")); } catch {}
-  }, [taskTimes]);
+  // ── Week start (Monday) ──────────────────────────────────────────────────
+  const weekStart = React.useMemo(() => {
+    const d = new Date();
+    const dow = d.getDay();
+    const diff = dow === 0 ? -6 : 1 - dow;
+    const mon = new Date(d);
+    mon.setDate(d.getDate() + diff);
+    mon.setHours(0, 0, 0, 0);
+    return mon;
+  }, [today]);
 
-  // Weekly times: sum last 7 days
-  const weeklyTimes = React.useMemo(() => {
-    const sum = {};
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(); d.setDate(d.getDate() - i);
+  const todayDowIdx = (() => { const d = new Date().getDay(); return d === 0 ? 6 : d - 1; })();
+
+  // ── Refresh trigger on timer tick ───────────────────────────────────────
+  const [tick, setTick] = React.useState(0);
+  React.useEffect(() => { setTick(t => t + 1); }, [taskTimes]);
+
+  // ── Daily times per weekday of current week ──────────────────────────────
+  const realityPerDay = React.useMemo(() => {
+    return DAYS_LABEL.map((_, i) => {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
       const key = d.toISOString().slice(0, 10);
       try {
-        const day = JSON.parse(LS.getItem(`lifeos_daily_${key}`) || "{}");
-        Object.entries(day).forEach(([id, s]) => { sum[id] = (sum[id] || 0) + s; });
-      } catch {}
-    }
-    return sum;
-  }, [today]); // recalculate daily
+        const log = JSON.parse(LS.getItem(`lifeos_daily_${key}`) || "{}");
+        return Object.values(log).reduce((s, v) => s + v, 0) / 3600;
+      } catch { return 0; }
+    });
+  }, [tick, weekStart]);
 
-  // Project ring data
+  // ── Project data ─────────────────────────────────────────────────────────
   const ringProjects = React.useMemo(() => {
     const povColors = { personal: "#8b5cf6", founder: "#2f8bff", student: "#e11d48", athlete: "#10b981" };
-    const palette = ["#10b981", "#2f8bff", "#8b5cf6", "#f97316", "#ec4899"];
+    const palette   = ["#10b981", "#2f8bff", "#8b5cf6", "#f97316", "#ec4899"];
     let userPovs = []; try { userPovs = JSON.parse(LS.getItem("lifeos_user_povs") || "[]"); } catch {}
     const allPovColors = { ...povColors, ...Object.fromEntries(userPovs.map(p => [p.id, p.color])) };
     let archivedIds = new Set(); try { archivedIds = new Set(JSON.parse(LS.getItem("lifeos_archived_projects") || "[]")); } catch {}
@@ -1133,43 +1150,64 @@ function StatsPanel({ truthPlan, setTruthPlan, taskTimes, pov }) {
       .slice(0, 4)
       .map((proj, i) => {
         const taskIds = new Set((proj.objectives || []).flatMap(o => (o.krs || []).flatMap(kr => (kr.tasks || []).map(t => t.id))));
-        const todaySecs  = [...taskIds].reduce((s, id) => s + (dailyTimes[id]  || 0), 0);
-        const weeklySecs = [...taskIds].reduce((s, id) => s + (weeklyTimes[id] || 0), 0);
-        const dailyTarget  = ((proj.hoursPerWeek || 8) / 5) * 3600;
+        // Per-day secs for THIS week
+        const perDaySecs = DAYS_LABEL.map((_, di) => {
+          const d = new Date(weekStart); d.setDate(weekStart.getDate() + di);
+          const key = d.toISOString().slice(0, 10);
+          try {
+            const log = JSON.parse(LS.getItem(`lifeos_daily_${key}`) || "{}");
+            return [...taskIds].reduce((s, id) => s + (log[id] || 0), 0);
+          } catch { return 0; }
+        });
+        const todaySecs  = perDaySecs[todayDowIdx];
+        const weeklySecs = perDaySecs.reduce((s, v) => s + v, 0);
         const weeklyTarget = (proj.hoursPerWeek || 8) * 3600;
-        const progress = Math.min(1, todaySecs / dailyTarget);
         const color = allPovColors[proj.pov] || palette[i % palette.length];
         return { id: proj.id, title: proj.title, color, hoursPerWeek: proj.hoursPerWeek || 8,
-          todaySecs, weeklySecs, dailyTarget, weeklyTarget, progress };
+          todaySecs, weeklySecs, weeklyTarget };
       });
-  }, [dailyTimes, weeklyTimes]);
+  }, [tick, weekStart]);
+
+  // ── Weekly budget & per-day plan ─────────────────────────────────────────
+  // planWeights[i] = fraction of weekly budget for day i (sum <= 1)
+  const weeklyBudget = ringProjects.reduce((s, p) => s + p.hoursPerWeek, 0);
+  const DEFAULT_WEIGHTS = [0.2, 0.2, 0.2, 0.2, 0.2, 0, 0]; // Mon-Fri equal
+  const [planWeights, setPlanWeights] = React.useState(() => {
+    try { return JSON.parse(LS.getItem("lifeos_plan_weights") || "null") || DEFAULT_WEIGHTS; } catch { return DEFAULT_WEIGHTS; }
+  });
+  React.useEffect(() => { LS.setItem("lifeos_plan_weights", JSON.stringify(planWeights)); }, [planWeights]);
+
+  const planPerDay = planWeights.map(w => weeklyBudget * w); // hours per day
+  const planTotal  = planPerDay.reduce((s, v) => s + v, 0);
+
+  // Debt = planned this week so far vs actual this week so far
+  const debtSoFar = planPerDay.slice(0, todayDowIdx + 1).reduce((s, v) => s + v, 0)
+                  - realityPerDay.slice(0, todayDowIdx + 1).reduce((s, v) => s + v, 0);
+  const debtOk = debtSoFar <= 0.05;
 
   // Ring SVG
-  const SVG_SIZE = 140;
+  const SVG_SIZE = 120;
   const cx = SVG_SIZE / 2, cy = SVG_SIZE / 2;
-  const RING_W = 12, GAP = 4;
+  const RING_W = 11, GAP = 4;
   const baseRadius = cx - RING_W / 2 - 2;
+  const topProgress = ringProjects.length > 0
+    ? Math.min(1, ringProjects[0].todaySecs / ((ringProjects[0].hoursPerWeek / 5) * 3600))
+    : 0;
 
-  const topProgress = ringProjects[0]?.progress ?? 0;
-
-  // Truth Loop data
-  const plan     = truthPlan || TRUTH_LOOP.plan;
-  const reality  = TRUTH_LOOP.reality;
-  const days     = TRUTH_LOOP.days;
-  const debt     = plan.reduce((a, b) => a + b, 0) - reality.reduce((a, b) => a + b, 0);
-  const debtOk   = debt <= 0;
   const [editMode, setEditMode] = React.useState(false);
   const [areaHover, setAreaHover] = React.useState(false);
-  const updatePlanDay = (i, val) => {
-    const v = Math.max(0, Math.min(24, parseFloat(val) || 0));
-    setTruthPlan(prev => prev.map((x, idx) => idx === i ? v : x));
+
+  const setWeight = (i, val) => {
+    const v = Math.max(0, Math.min(1, parseFloat(val) || 0));
+    setPlanWeights(prev => { const n = [...prev]; n[i] = v; return n; });
   };
-  const maxChart = 10;
-  const W = 420, H = 130, padL = 28, padR = 6, padT = 16, padB = 22;
+
+  const maxChart = Math.max(10, ...planPerDay, ...realityPerDay) * 1.15;
+  const W = 420, H = 110, padL = 28, padR = 6, padT = 12, padB = 20;
   const innerW = W - padL - padR;
   const innerH = H - padT - padB;
-  const gap = 6;
-  const bw = (innerW - gap * (days.length - 1)) / days.length;
+  const barGap = 6;
+  const bw = (innerW - barGap * (DAYS_LABEL.length - 1)) / DAYS_LABEL.length;
 
   return (
     <div onMouseEnter={() => setAreaHover(true)} onMouseLeave={() => setAreaHover(false)}
@@ -1177,48 +1215,56 @@ function StatsPanel({ truthPlan, setTruthPlan, taskTimes, pov }) {
 
       {/* ── Header ── */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-        <div className="uppercase-label">War Room · Stats</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="uppercase-label">War Room · Stats</div>
+          {weeklyBudget > 0 && (
+            <span style={{ fontSize: 9, color: "var(--text-faint)", letterSpacing: "0.06em" }}>
+              {weeklyBudget}h/Woche aus Projekten · verteilt {planTotal.toFixed(1)}h
+            </span>
+          )}
+        </div>
         <button onClick={() => setEditMode(e => !e)} style={{
-          padding: "3px 10px", background: editMode ? "var(--accent)" : "transparent",
-          border: `1px solid ${editMode ? "var(--accent)" : "var(--line)"}`,
-          color: editMode ? "#0a0a0c" : "var(--text-faint)",
+          padding: "3px 10px", background: editMode ? "var(--accent-soft)" : "transparent",
+          border: `1px solid ${editMode ? "var(--accent-line)" : "var(--line)"}`,
+          color: editMode ? "var(--accent)" : "var(--text-faint)",
           fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", cursor: "pointer",
           opacity: (areaHover || editMode) ? 1 : 0, transition: "opacity .2s",
-        }}>PLAN BEARBEITEN</button>
+        }}>TAGE VERTEILEN</button>
       </div>
 
       {/* ── Main row: rings | table | debt ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 20, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr 148px", gap: "0 20px", alignItems: "start" }}>
 
         {/* ── Rings ── */}
         <svg width={SVG_SIZE} height={SVG_SIZE} viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`} style={{ flexShrink: 0 }}>
           {ringProjects.length === 0 ? (
             <>
               <circle cx={cx} cy={cy} r={baseRadius} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={RING_W} />
-              <text x={cx} y={cy + 4} textAnchor="middle" fill="var(--text-faint)" fontSize={9} fontFamily="'Inter',sans-serif">Keine Projekte</text>
+              <text x={cx} y={cy + 4} textAnchor="middle" fill="var(--text-faint)" fontSize={9} fontFamily="'Inter',sans-serif">–</text>
             </>
           ) : ringProjects.map((proj, i) => {
             const r = baseRadius - i * (RING_W + GAP);
             if (r < RING_W / 2) return null;
+            const dailyTarget = (proj.hoursPerWeek / 5) * 3600;
+            const prog = Math.min(1, proj.todaySecs / dailyTarget);
             const circ = 2 * Math.PI * r;
-            const clamp = Math.min(1, proj.progress);
-            const offset = circ * (1 - clamp);
+            const offset = circ * (1 - prog);
             return (
               <g key={proj.id}>
                 <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={RING_W} />
-                {clamp > 0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color}
+                {prog > 0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color}
                   strokeWidth={RING_W} strokeLinecap="round"
                   strokeDasharray={circ} strokeDashoffset={offset}
                   transform={`rotate(-90 ${cx} ${cy})`}
                   style={{ transition: "stroke-dashoffset 0.5s ease" }} />}
-                {proj.progress >= 1 && <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color} strokeWidth={RING_W * 0.3} opacity={0.2} />}
+                {prog >= 1 && <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color} strokeWidth={RING_W * 0.3} opacity={0.2} />}
               </g>
             );
           })}
-          <text x={cx} y={cy - 5} textAnchor="middle" fill="var(--text)" fontSize={14} fontWeight={700} fontFamily="'JetBrains Mono',monospace">
+          <text x={cx} y={cy - 4} textAnchor="middle" fill="var(--text)" fontSize={13} fontWeight={700} fontFamily="'JetBrains Mono',monospace">
             {Math.round(topProgress * 100)}%
           </text>
-          <text x={cx} y={cy + 10} textAnchor="middle" fill="var(--text-faint)" fontSize={8} fontFamily="'Inter',sans-serif" letterSpacing="1.5">
+          <text x={cx} y={cy + 9} textAnchor="middle" fill="var(--text-faint)" fontSize={7.5} fontFamily="'Inter',sans-serif" letterSpacing="1.5">
             HEUTE
           </text>
         </svg>
@@ -1226,43 +1272,45 @@ function StatsPanel({ truthPlan, setTruthPlan, taskTimes, pov }) {
         {/* ── Soll/Ist table ── */}
         <div style={{ minWidth: 0 }}>
           {ringProjects.length === 0 ? (
-            <div style={{ fontSize: 11, color: "var(--text-faint)", fontStyle: "italic", paddingTop: 12 }}>
-              Projekte mit Stunden/Woche aktivieren, um Statistiken zu sehen.
+            <div style={{ fontSize: 11, color: "var(--text-faint)", fontStyle: "italic", paddingTop: 10 }}>
+              Projekte mit Stunden/Woche aktivieren.
             </div>
           ) : (
             <div>
-              {/* Column headers */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 80px 80px", gap: "0 8px", paddingBottom: 8, borderBottom: "1px solid var(--line-soft)", marginBottom: 2 }}>
+              {/* Headers */}
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 54px 54px 54px 54px", gap: "0 6px", paddingBottom: 7, borderBottom: "1px solid var(--line-soft)", marginBottom: 2 }}>
                 <div />
-                {[["HEUTE", "SOLL"], ["HEUTE", "IST"], ["WOCHE", "SOLL"], ["WOCHE", "IST"]].map(([a, b], i) => (
+                {[["HEUTE","SOLL"],["HEUTE","IST"],["WOCHE","SOLL"],["WOCHE","IST"]].map(([a,b],i) => (
                   <div key={i} style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 7.5, letterSpacing: "0.12em", fontWeight: 700, color: "var(--text-faint)", lineHeight: 1.2 }}>{a}</div>
-                    <div style={{ fontSize: 7.5, letterSpacing: "0.12em", fontWeight: 700, color: "var(--text-faint)", lineHeight: 1.2 }}>{b}</div>
+                    <div style={{ fontSize: 7, letterSpacing: "0.1em", fontWeight: 700, color: "var(--text-faint)", lineHeight: 1.3 }}>{a}</div>
+                    <div style={{ fontSize: 7, letterSpacing: "0.1em", fontWeight: 700, color: "var(--text-faint)", lineHeight: 1.3 }}>{b}</div>
                   </div>
                 ))}
               </div>
               {ringProjects.map((proj, i) => {
-                const ds = (proj.dailyTarget  / 3600).toFixed(1);
-                const di = (proj.todaySecs    / 3600).toFixed(1);
-                const ws = (proj.weeklyTarget / 3600).toFixed(1);
-                const wi = (proj.weeklySecs   / 3600).toFixed(1);
-                const dayOk  = proj.todaySecs  >= proj.dailyTarget;
+                const dailyTarget  = (proj.hoursPerWeek / 5) * 3600;
+                const todayPlanH   = planPerDay[todayDowIdx]; // total planned today (all projects combined)
+                const ds = (dailyTarget / 3600).toFixed(1);
+                const di = (proj.todaySecs / 3600).toFixed(1);
+                const ws = proj.hoursPerWeek.toFixed(1);
+                const wi = (proj.weeklySecs / 3600).toFixed(1);
+                const dayOk  = proj.todaySecs  >= dailyTarget;
                 const weekOk = proj.weeklySecs >= proj.weeklyTarget;
                 return (
                   <div key={proj.id} style={{
-                    display: "grid", gridTemplateColumns: "1fr 80px 80px 80px 80px",
-                    gap: "0 8px", alignItems: "center",
-                    padding: "9px 0",
+                    display: "grid", gridTemplateColumns: "minmax(0,1fr) 54px 54px 54px 54px",
+                    gap: "0 6px", alignItems: "center",
+                    padding: "8px 0",
                     borderBottom: i < ringProjects.length - 1 ? "1px solid var(--line-soft)" : "none",
                   }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-                      <div style={{ width: 7, height: 7, borderRadius: "50%", background: proj.color, flexShrink: 0 }} />
-                      <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.title}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: proj.color, flexShrink: 0 }} />
+                      <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 130 }}>{proj.title}</span>
                     </div>
-                    <div className="mono" style={{ fontSize: 11, color: "var(--text-faint)", textAlign: "right" }}>{ds}h</div>
-                    <div className="mono" style={{ fontSize: 11, fontWeight: 700, color: dayOk ? proj.color : "var(--text)", textAlign: "right" }}>{di}h{dayOk ? " ✓" : ""}</div>
-                    <div className="mono" style={{ fontSize: 11, color: "var(--text-faint)", textAlign: "right" }}>{ws}h</div>
-                    <div className="mono" style={{ fontSize: 11, fontWeight: 700, color: weekOk ? proj.color : "var(--text)", textAlign: "right" }}>{wi}h{weekOk ? " ✓" : ""}</div>
+                    <div className="mono" style={{ fontSize: 10.5, color: "var(--text-faint)", textAlign: "right" }}>{ds}h</div>
+                    <div className="mono" style={{ fontSize: 10.5, fontWeight: 700, color: dayOk ? proj.color : "var(--text)", textAlign: "right" }}>{di}h{dayOk ? "✓" : ""}</div>
+                    <div className="mono" style={{ fontSize: 10.5, color: "var(--text-faint)", textAlign: "right" }}>{ws}h</div>
+                    <div className="mono" style={{ fontSize: 10.5, fontWeight: 700, color: weekOk ? proj.color : "var(--text)", textAlign: "right" }}>{wi}h{weekOk ? "✓" : ""}</div>
                   </div>
                 );
               })}
@@ -1272,69 +1320,114 @@ function StatsPanel({ truthPlan, setTruthPlan, taskTimes, pov }) {
 
         {/* ── Ignorance Debt ── */}
         <div style={{
-          background: debtOk ? "var(--good-soft)" : "rgba(214,50,74,0.14)",
+          background: debtOk ? "var(--good-soft)" : "rgba(214,50,74,0.12)",
           border: `1px solid ${debtOk ? "var(--good)" : "var(--danger)"}`,
           color: debtOk ? "var(--good)" : "var(--danger)",
-          padding: "14px 18px", textAlign: "center", minWidth: 132,
+          padding: "12px 14px", textAlign: "center",
         }}>
-          <div style={{ fontSize: 8.5, letterSpacing: "0.18em", fontWeight: 700, opacity: 0.75, marginBottom: 8 }}>IGNORANCE DEBT</div>
-          <div className="mono" style={{ fontSize: 30, fontWeight: 800, lineHeight: 1 }}>
-            {debtOk ? "+" : "−"}{Math.abs(debt).toFixed(1)}h
+          <div style={{ fontSize: 7.5, letterSpacing: "0.18em", fontWeight: 700, opacity: 0.7, marginBottom: 6 }}>IGNORANCE DEBT</div>
+          <div className="mono" style={{ fontSize: 28, fontWeight: 800, lineHeight: 1 }}>
+            {debtOk ? "+" : "−"}{Math.abs(debtSoFar).toFixed(1)}h
           </div>
-          <div style={{ fontSize: 9, opacity: 0.8, marginTop: 8, letterSpacing: "0.06em", fontWeight: 600 }}>
+          <div style={{ fontSize: 8.5, opacity: 0.75, marginTop: 7, letterSpacing: "0.06em", fontWeight: 600 }}>
             {debtOk ? "Auf Kurs ✓" : "Selbstbetrug"}
+          </div>
+          <div style={{ fontSize: 7.5, color: debtOk ? "var(--good)" : "var(--danger)", opacity: 0.55, marginTop: 4 }}>
+            bis heute
           </div>
         </div>
       </div>
 
-      {/* ── Chart (collapsible) ── */}
-      <div style={{ marginTop: 16, borderTop: "1px solid var(--line-soft)", paddingTop: 14 }}>
-        <div style={{ fontSize: 8.5, letterSpacing: "0.14em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 8, display: "flex", gap: 16, alignItems: "center" }}>
-          <span>THE TRUTH LOOP · Plan vs. Realität</span>
-          <span style={{ display: "flex", gap: 10, opacity: 0.7 }}>
-            {[["var(--text-dim)", "Plan"], ["rgba(214,50,74,0.85)", "Realität"], ["rgba(214,50,74,0.2)", "Debt-Gap"]].map(([c, l]) => (
+      {/* ── Chart ── */}
+      <div style={{ marginTop: 14, borderTop: "1px solid var(--line-soft)", paddingTop: 12 }}>
+        <div style={{ fontSize: 8, letterSpacing: "0.14em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 6, display: "flex", gap: 14, alignItems: "center" }}>
+          <span>THE TRUTH LOOP · Plan vs. Realität (KW)</span>
+          <span style={{ display: "flex", gap: 10, opacity: 0.65 }}>
+            {[["var(--text-dim)", "Plan"],["rgba(214,50,74,0.85)","Realität"],["rgba(214,50,74,0.18)","Debt-Gap"]].map(([c, l]) => (
               <span key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ display: "inline-block", width: 12, height: 2, background: c }} />
-                <span style={{ fontSize: 8, color: "var(--text-faint)" }}>{l}</span>
+                <span style={{ display: "inline-block", width: 10, height: 2, background: c }} />
+                <span style={{ fontSize: 7.5, color: "var(--text-faint)" }}>{l}</span>
               </span>
             ))}
           </span>
         </div>
         <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }}>
-          {[0, 2, 4, 6, 8, 10].map(v => {
+          {[0, 2, 4, 6, 8].map(v => {
+            if (v > maxChart) return null;
             const y = padT + innerH - (v / maxChart) * innerH;
             return (
               <g key={v}>
-                <text x={4} y={y + 3} fontSize="8" fill="var(--text-faint)" fontFamily="JetBrains Mono,monospace">{v}h</text>
+                <text x={2} y={y + 3} fontSize="7.5" fill="var(--text-faint)" fontFamily="JetBrains Mono,monospace">{v}h</text>
                 <line x1={padL} x2={W - padR} y1={y} y2={y} stroke="var(--line-soft)" strokeWidth="0.5" />
               </g>
             );
           })}
-          {days.map((day, i) => {
-            const x = padL + i * (bw + gap);
-            const ph = (plan[i] / maxChart) * innerH;
-            const rh = (reality[i] / maxChart) * innerH;
-            const py = padT + innerH - ph;
-            const ry = padT + innerH - rh;
+          {DAYS_LABEL.map((day, i) => {
+            const x   = padL + i * (bw + barGap);
+            const ph  = (planPerDay[i] / maxChart) * innerH;
+            const rh  = (realityPerDay[i] / maxChart) * innerH;
+            const py  = padT + innerH - ph;
+            const ry  = padT + innerH - rh;
+            const isToday = i === todayDowIdx;
+            const isFuture = i > todayDowIdx;
             return (
               <g key={i}>
-                {plan[i] > reality[i] && <rect x={x} y={py} width={bw} height={ph - rh} fill="rgba(214,50,74,0.1)" />}
-                {reality[i] > 0 && <rect x={x} y={ry} width={bw} height={rh} fill="rgba(214,50,74,0.55)" stroke="rgba(214,50,74,0.8)" strokeWidth={1} />}
-                <rect x={x} y={py} width={bw} height={Math.max(ph, 0.5)} fill="transparent" stroke="var(--text-dim)" strokeWidth={1} strokeDasharray={ph < 1 ? "2 2" : "none"} />
-                <text x={x + bw / 2} y={py - 4} fontSize="7.5" textAnchor="middle" fontFamily="JetBrains Mono,monospace" fill={plan[i] > 0 ? "var(--text-dim)" : "var(--text-faint)"}>{plan[i]}h</text>
-                <text x={x + bw / 2} y={H - 4} fontSize="8" textAnchor="middle" fill="var(--text-faint)" fontFamily="JetBrains Mono,monospace">{day}</text>
+                {planPerDay[i] > realityPerDay[i] && !isFuture && (
+                  <rect x={x} y={py} width={bw} height={Math.max(0, ph - rh)} fill="rgba(214,50,74,0.12)" />
+                )}
+                {realityPerDay[i] > 0 && (
+                  <rect x={x} y={ry} width={bw} height={rh} fill="rgba(214,50,74,0.55)" stroke="rgba(214,50,74,0.75)" strokeWidth={0.8} />
+                )}
+                <rect x={x} y={padT + innerH - Math.max(ph, 0.5)} width={bw} height={Math.max(ph, 0.5)}
+                  fill="transparent"
+                  stroke={isToday ? "var(--accent)" : isFuture ? "rgba(255,255,255,0.15)" : "var(--text-dim)"}
+                  strokeWidth={isToday ? 1.5 : 0.8}
+                  strokeDasharray={isFuture ? "3 2" : "none"} />
+                {planPerDay[i] > 0 && (
+                  <text x={x + bw / 2} y={py - 3} fontSize="7" textAnchor="middle"
+                    fontFamily="JetBrains Mono,monospace"
+                    fill={isToday ? "var(--accent)" : isFuture ? "var(--text-faint)" : "var(--text-dim)"}>
+                    {planPerDay[i].toFixed(1)}h
+                  </text>
+                )}
+                <text x={x + bw / 2} y={H - 3} fontSize="7.5" textAnchor="middle"
+                  fill={isToday ? "var(--accent)" : "var(--text-faint)"}
+                  fontFamily="JetBrains Mono,monospace" fontWeight={isToday ? 700 : 400}>
+                  {day}
+                </text>
               </g>
             );
           })}
         </svg>
+
+        {/* ── Tage-Verteilung Sliders (edit mode) ── */}
         {editMode && (
-          <div style={{ display: "flex", gap: 4, paddingLeft: padL, marginTop: 6 }}>
-            {days.map((day, i) => (
-              <div key={i} style={{ flex: 1, textAlign: "center" }}>
-                <input type="number" min="0" max="24" step="0.5" value={plan[i]} onChange={e => updatePlanDay(i, e.target.value)}
-                  style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--accent-line)", color: "var(--text)", textAlign: "center", padding: "4px 1px", fontSize: 10, fontFamily: "JetBrains Mono,monospace", outline: "none" }} />
-              </div>
-            ))}
+          <div style={{ marginTop: 10, background: "var(--panel-2)", border: "1px solid var(--line)", padding: "14px 16px" }}>
+            <div style={{ fontSize: 8.5, letterSpacing: "0.14em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 12 }}>
+              WOCHENBUDGET VERTEILEN · {weeklyBudget}h gesamt · {planTotal.toFixed(1)}h geplant
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8 }}>
+              {DAYS_LABEL.map((day, i) => {
+                const hrs = (weeklyBudget * planWeights[i]).toFixed(1);
+                const pct = Math.round(planWeights[i] * 100);
+                return (
+                  <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                    <div style={{ fontSize: 8, fontWeight: 700, color: i === todayDowIdx ? "var(--accent)" : "var(--text-faint)", letterSpacing: "0.1em" }}>{day}</div>
+                    <input
+                      type="range" min={0} max={100} step={5} value={pct}
+                      onChange={e => setWeight(i, e.target.value / 100)}
+                      style={{ writingMode: "vertical-lr", direction: "rtl", height: 60, accentColor: "var(--accent)", cursor: "pointer" }}
+                    />
+                    <div className="mono" style={{ fontSize: 9, fontWeight: 700, color: "var(--accent)" }}>{hrs}h</div>
+                    <div style={{ fontSize: 8, color: "var(--text-faint)" }}>{pct}%</div>
+                  </div>
+                );
+              })}
+            </div>
+            <button onClick={() => setPlanWeights(DEFAULT_WEIGHTS)}
+              style={{ marginTop: 10, background: "none", border: "none", color: "var(--text-faint)", fontSize: 9.5, cursor: "pointer", letterSpacing: "0.1em", padding: 0 }}>
+              ↺ Reset (Mo–Fr gleichmäßig)
+            </button>
           </div>
         )}
       </div>
