@@ -242,20 +242,22 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
 
             {/* ── KI ── */}
             {activeTab === "ai" && renderSection("Künstliche Intelligenz",
-              renderRow("Anthropic API Key", "Für KI-Funktionen (OKR-Wizard, Insights). Wird lokal gespeichert, nie übertragen.",
-                <div>
-                  <input
-                    type="password"
-                    value={apiKey}
-                    onChange={e => { const v = e.target.value; setApiKey(v); LS.setItem("lifeos_openai_key", v.trim()); if (v.trim()) window.TUTORIAL?.onAction?.("api-key-set"); }}
-                    placeholder="sk-ant-..."
-                    style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "8px 12px", fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
-                  />
-                  {apiKey
-                    ? <div style={{ fontSize: 11, color: "var(--good)", marginTop: 6, letterSpacing: "0.06em" }}>✓ Key gespeichert</div>
-                    : <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 6, lineHeight: 1.5 }}>Key unter <b>console.anthropic.com</b> → API Keys erstellen.</div>}
+              <div style={{ padding: "16px 0", borderBottom: "1px solid var(--line-soft)" }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 5 }}>Anthropic API Key</div>
+                <div style={{ fontSize: 11.5, color: "var(--text-faint)", lineHeight: 1.55, marginBottom: 12 }}>
+                  Für KI-Funktionen (OKR-Wizard, Daily Missions, Tagesplan). Wird nur lokal gespeichert — nie übertragen.
                 </div>
-              )
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={e => { const v = e.target.value; setApiKey(v); LS.setItem("lifeos_openai_key", v.trim()); if (v.trim()) window.TUTORIAL?.onAction?.("api-key-set"); }}
+                  placeholder="sk-ant-..."
+                  style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "9px 12px", fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+                />
+                {apiKey
+                  ? <div style={{ fontSize: 11, color: "var(--good)", marginTop: 8, letterSpacing: "0.06em" }}>✓ Key gespeichert</div>
+                  : <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 8, lineHeight: 1.5 }}>Key unter <b>console.anthropic.com</b> → API Keys → Create Key.</div>}
+              </div>
             )}
 
             {/* ── NOTIFICATIONS ── */}
@@ -303,45 +305,52 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
                     {window.Push?.isPWA?.() ? "✓ Läuft als PWA" : "Nicht installiert"}
                   </div>
                 )}
-                {renderRow("Automatische Trigger", "Läuft im Hintergrund solange die App offen ist.",
-                  <div style={{ fontSize: 11.5, color: "var(--text-faint)", lineHeight: 1.65 }}>
-                    <div>🔁 <b>21:00</b> — Habit-Erinnerung (wenn nicht alle gecheckt)</div>
-                    <div>🚨 <b>Debt &gt; 5h</b> — Ignorance Debt Alarm</div>
-                    <div>⚡ Block-Start — beim Starten eines Planner-Blocks</div>
+                <div style={{ padding: "14px 0", borderBottom: "1px solid var(--line-soft)" }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>Automatische Trigger</div>
+                  <div style={{ fontSize: 11.5, color: "var(--text-faint)", marginBottom: 10, lineHeight: 1.5 }}>Läuft im Hintergrund solange die App offen ist.</div>
+                  <div style={{ background: "var(--panel-2)", border: "1px solid var(--line-soft)", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 9 }}>
+                    {[
+                      ["🔁", "21:00", "Habit-Erinnerung (wenn nicht alle gecheckt)"],
+                      ["🚨", "Debt > 5h", "Ignorance Debt Alarm"],
+                      ["⚡", "Block-Start", "Beim Starten eines Planner-Blocks"],
+                    ].map(([emoji, key, desc]) => (
+                      <div key={key} style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                        <span style={{ fontSize: 13, flexShrink: 0 }}>{emoji}</span>
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--text-dim)", flexShrink: 0, minWidth: 72 }}>{key}</span>
+                        <span style={{ fontSize: 11.5, color: "var(--text-faint)", lineHeight: 1.45 }}>{desc}</span>
+                      </div>
+                    ))}
                   </div>
-                )}
+                </div>
               </div>
             )}
 
             {/* ── FOCUS LOCK ── */}
             {activeTab === "notifications" && (
-              <div style={{ marginTop: 8 }}>
-                {renderSection("Focus Lock — iPhone Setup",
-                  <div style={{ fontSize: 12, color: "var(--text-dim)", lineHeight: 1.8 }}>
-                    <div style={{ marginBottom: 12, color: "var(--text-faint)", fontSize: 11.5 }}>
-                      PWAs können Apps nicht direkt sperren. Richte Screen Time manuell ein — das dauert 2 Minuten und ist dauerhaft.
+              <div style={{ marginTop: 20 }}>
+                <div className="uppercase-label" style={{ marginBottom: 14, color: "var(--text-faint)", letterSpacing: "0.18em" }}>Focus Lock — iPhone Setup</div>
+                <div style={{ fontSize: 11.5, color: "var(--text-faint)", lineHeight: 1.6, marginBottom: 14 }}>
+                  PWAs können Apps nicht direkt sperren. Screen Time manuell einrichten — dauert 2 Minuten.
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {[
+                    "Einstellungen → Bildschirmzeit → App-Limits → Limit hinzufügen",
+                    "Kategorie: Soziale Netzwerke + Unterhaltung → 0 Min / Tag",
+                    "Einstellungen → Fokus → Arbeit → Apps: nur Life OS + Telefon erlauben",
+                    "Fokus-Automation: Standort oder Zeit → Arbeit-Fokus automatisch aktivieren",
+                    "Passcode für Screen Time setzen → niemand kann Limits umgehen",
+                  ].map((text, i) => (
+                    <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "10px 12px", background: "var(--panel-2)", border: "1px solid var(--line-soft)" }}>
+                      <div style={{
+                        width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
+                        background: "var(--accent-soft)", border: "1px solid var(--accent-line)",
+                        color: "var(--accent)", fontSize: 10, fontWeight: 700,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>{i + 1}</div>
+                      <div style={{ fontSize: 11.5, color: "var(--text-dim)", lineHeight: 1.5 }}>{text}</div>
                     </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {[
-                        ["1", "Einstellungen → Bildschirmzeit → App-Limits → Limit hinzufügen"],
-                        ["2", "Kategorie: Soziale Netzwerke + Unterhaltung → 0 Min / Tag"],
-                        ["3", "Einstellungen → Fokus → Arbeit → Apps: nur Life OS + Telefon erlauben"],
-                        ["4", "Fokus-Automation: Standort oder Zeit → Arbeit-Fokus automatisch aktivieren"],
-                        ["5", "Passcode für Screen Time setzen → niemand kann Limits umgehen"],
-                      ].map(([n, text]) => (
-                        <div key={n} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                          <div style={{
-                            width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
-                            background: "var(--accent-soft)", border: "1px solid var(--accent-line)",
-                            color: "var(--accent)", fontSize: 10, fontWeight: 700,
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                          }}>{n}</div>
-                          <div style={{ fontSize: 11.5, color: "var(--text-dim)", lineHeight: 1.5 }}>{text}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                  ))}
+                </div>
               </div>
             )}
 
