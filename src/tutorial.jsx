@@ -105,6 +105,7 @@ const TUT_STEPS = [
   {
     id: "focus-pause", route: "focus", selector: "[data-tutorial='focus-start-btn']", type: "do",
     waitFor: "timer-paused",
+    spotlightPad: 60,
     title: "Fokusmodus — Reality Tracker aktiv",
     body: "Schwarz, still, eine Aufgabe. Der Timer läuft bereits — so sammelst du echte Daten über deine Arbeitszeit, die direkt in deine Insights einfließen. Drück PAUSE wenn du fertig bist.",
     hint: "Großen PAUSE-Button drücken.",
@@ -258,7 +259,7 @@ const TUT_STEPS = [
 ];
 
 // ─── Spotlight ────────────────────────────────────────────────────────────────
-function TutSpotlight({ selector, extraLeft = 0 }) {
+function TutSpotlight({ selector, extraLeft = 0, extraPad = 0 }) {
   const [rect, setRect] = React.useState(null);
   React.useEffect(() => {
     if (!selector) { setRect(null); return; }
@@ -280,7 +281,7 @@ function TutSpotlight({ selector, extraLeft = 0 }) {
   }, [selector]);
 
   if (!rect) return null;
-  const PAD = 10;
+  const PAD = 10 + extraPad;
   return (
     <div style={{
       position: "fixed",
@@ -454,10 +455,14 @@ function TutorialManager({ onDone, setRoute, setPov }) {
     return () => { if (window.TUTORIAL) window.TUTORIAL.active = false; };
   }, []); // register once; onAction uses setIdx functional form so it doesn't need idx
 
-  // Force route + pov when step changes
+  // Force route + pov when step changes; dispatch special events per step
   React.useEffect(() => {
     if (step && step.route && setRoute) setRoute(step.route);
     if (step && step.forcePov && setPov) setPov(step.forcePov);
+    if (step && step.id === "check-behavior") {
+      // Auto-expand habit strip so checkbox is immediately visible
+      window.dispatchEvent(new CustomEvent("lifeos-tutorial-expand-habits"));
+    }
   }, [step && step.id]);
 
   // Global click blocking for ALL steps — only card + current target + wizard are allowed
@@ -492,7 +497,7 @@ function TutorialManager({ onDone, setRoute, setPov }) {
 
   return (
     <>
-      {!step.noSpotlight && <TutSpotlight selector={step.spotlightSelector || step.selector} extraLeft={step.spotlightExtraLeft || 0} />}
+      {!step.noSpotlight && <TutSpotlight selector={step.spotlightSelector || step.selector} extraLeft={step.spotlightExtraLeft || 0} extraPad={step.spotlightPad || 0} />}
       <TutCard step={step} idx={idx} total={TUT_STEPS.length} onNext={advance} onSkip={onDone} />
     </>
   );

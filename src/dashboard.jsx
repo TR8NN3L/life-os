@@ -808,6 +808,13 @@ function BehaviorStrip() {
     return () => window.removeEventListener("lifeos-habits-updated", sync);
   }, []);
 
+  // Tutorial: auto-expand when tutorial reaches habit check-in step
+  React.useEffect(() => {
+    const expand = () => setExpanded(true);
+    window.addEventListener("lifeos-tutorial-expand-habits", expand);
+    return () => window.removeEventListener("lifeos-tutorial-expand-habits", expand);
+  }, []);
+
   const saveManualCheckin = (val) => {
     setManualCheckin(val);
     try {
