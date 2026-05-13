@@ -181,14 +181,14 @@ const TUT_STEPS = [
     title: "API Key einrichten (optional)",
     body: "Der OKR Wizard braucht deinen Anthropic API Key. Klick unten links auf ⚙, wechsle zum Tab 'KI' und füge deinen Key (sk-ant-...) ein. Du kannst diesen Schritt auch jetzt überspringen.",
     hint: "⚙ klicken → Tab 'KI' → API Key eingeben.",
-    position: "corner", blockClicks: true,
+    position: "corner-mid", blockClicks: true,
   },
   {
     id: "new-project", route: "missioncontrol", selector: "[data-tutorial='new-project-btn']", type: "do",
     waitFor: "wizard-opened", skippable: true,
     title: "Ersten Projektplan erstellen (optional)",
     body: "Der OKR-Wizard führt dich durch die Erstellung — mit Wizard-generierten Key Results und konkreten Tasks. Du kannst ihn auch später jederzeit starten.",
-    hint: "Klick auf '⚡ OKR WIZARD — PROJEKT ERSTELLEN'.", position: "corner", blockClicks: true,
+    hint: "Klick auf '⚡ OKR WIZARD — PROJEKT ERSTELLEN'.", position: "corner-mid", blockClicks: true,
   },
   {
     id: "wizard-session", route: "missioncontrol", selector: null, type: "do",
@@ -307,6 +307,7 @@ function cardPos(position, selector) {
   };
   if (position === "center")      return { ...base, left: "50%", top: "50%", transform: "translate(-50%,-50%)" };
   if (position === "corner")      return { ...base, right: 24, bottom: 80, width: 320 };
+  if (position === "corner-mid")  return { ...base, right: 24, top: "50%", transform: "translateY(-50%)", width: 320 };
   if (position === "corner-left") return { ...base, left: 24, bottom: 80, width: 310 };
   const el = selector ? document.querySelector(selector) : null;
   const r = el ? el.getBoundingClientRect() : null;
@@ -339,6 +340,57 @@ function TutProgress({ idx, total }) {
   );
 }
 
+// ─── Confetti ─────────────────────────────────────────────────────────────────
+function TutConfetti() {
+  const canvasRef = React.useRef(null);
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+    resize();
+    window.addEventListener("resize", resize);
+    const COLORS = ["#6d28d9","#8b5cf6","#a78bfa","#2f8bff","#10b981","#f59e0b","#ec4899","#ffffff"];
+    const particles = Array.from({ length: 140 }, (_, i) => ({
+      x: Math.random() * window.innerWidth,
+      y: -20 - Math.random() * window.innerHeight * 0.6,
+      w: Math.random() * 10 + 5,
+      h: Math.random() * 5 + 3,
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      speed: Math.random() * 2.5 + 1.5,
+      angle: Math.random() * Math.PI * 2,
+      spin: (Math.random() - 0.5) * 0.12,
+      drift: (Math.random() - 0.5) * 0.8,
+      opacity: Math.random() * 0.4 + 0.6,
+    }));
+    let raf;
+    let running = true;
+    const draw = () => {
+      if (!running) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach(p => {
+        p.y += p.speed;
+        p.x += p.drift;
+        p.angle += p.spin;
+        if (p.y > canvas.height + 20) {
+          p.y = -20; p.x = Math.random() * canvas.width;
+        }
+        ctx.save();
+        ctx.globalAlpha = p.opacity;
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.angle);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      });
+      raf = requestAnimationFrame(draw);
+    };
+    draw();
+    return () => { running = false; cancelAnimationFrame(raf); window.removeEventListener("resize", resize); };
+  }, []);
+  return <canvas ref={canvasRef} style={{ position: "fixed", inset: 0, zIndex: 9998, pointerEvents: "none" }} />;
+}
+
 // ─── Celebrate Screen ─────────────────────────────────────────────────────────
 function TutCelebrate({ onDone }) {
   const items = [
@@ -351,6 +403,7 @@ function TutCelebrate({ onDone }) {
   ];
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.93)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <TutConfetti />
       <div style={{ background: "#16161e", border: "1px solid rgba(139,92,246,0.4)", borderRadius: 18, padding: "48px 52px", maxWidth: 460, width: "90%", textAlign: "center", boxShadow: "0 32px 80px rgba(0,0,0,0.85)" }}>
         <div style={{ fontSize: 52, marginBottom: 18 }}>🎯</div>
         <div style={{ fontSize: 23, fontWeight: 800, color: "var(--text)", marginBottom: 8, letterSpacing: "-0.02em" }}>Life OS gehört dir.</div>
