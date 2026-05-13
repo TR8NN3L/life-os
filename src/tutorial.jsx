@@ -105,7 +105,7 @@ const TUT_STEPS = [
   {
     id: "focus-pause", route: "focus", selector: "[data-tutorial='focus-start-btn']", type: "do",
     waitFor: "timer-paused",
-    spotlightPad: 60,
+    spotlightPad: 250,
     title: "Fokusmodus — Reality Tracker aktiv",
     body: "Schwarz, still, eine Aufgabe. Der Timer läuft bereits — so sammelst du echte Daten über deine Arbeitszeit, die direkt in deine Insights einfließen. Drück PAUSE wenn du fertig bist.",
     hint: "Großen PAUSE-Button drücken.",
@@ -164,22 +164,12 @@ const TUT_STEPS = [
     position: "bottom", blockClicks: false,
   },
   {
-    id: "quick-capture", route: "missioncontrol",
-    selector: "[data-tutorial='quick-capture-btn']",
-    spotlightSelector: "[data-tutorial='quick-capture-btn']",
-    type: "do", waitFor: "capture-saved",
-    title: "Quick Capture — Ideen sofort festhalten",
-    body: "Der + Button unten rechts ist dein schnellster Weg in die Inbox — eine Idee, ein Task, ein Gedanke. Ohne Kontext, ohne Zuweisung. Einfach rein damit. Klick ihn, tippe etwas ein und speichere.",
-    hint: "Klick auf den + Button → Idee eintippen → Enter oder SPEICHERN.",
-    position: "corner-left", blockClicks: true,
-  },
-  {
     id: "setup-api", route: "missioncontrol", selector: "[data-tutorial='settings-btn']",
     spotlightSelector: "[data-tutorial='settings-modal']",
     type: "do",
-    waitFor: "api-key-set", skippable: true,
+    waitFor: "api-key-set", skippable: true, skipCount: 3,
     title: "API Key einrichten (optional)",
-    body: "Der OKR Wizard braucht deinen Anthropic API Key. Klick unten links auf ⚙, wechsle zum Tab 'KI' und füge deinen Key (sk-ant-...) ein. Du kannst diesen Schritt auch jetzt überspringen.",
+    body: "Der OKR Wizard braucht deinen Anthropic API Key. Klick unten links auf ⚙, wechsle zum Tab 'KI' und füge deinen Key (sk-ant-...) ein. Du kannst diesen Schritt auch jetzt überspringen — dann werden auch die nächsten zwei Wizard-Schritte übersprungen.",
     hint: "⚙ klicken → Tab 'KI' → API Key eingeben.",
     position: "corner-mid", blockClicks: true,
   },
@@ -307,7 +297,7 @@ function cardPos(position, selector) {
   };
   if (position === "center")      return { ...base, left: "50%", top: "50%", transform: "translate(-50%,-50%)" };
   if (position === "corner")      return { ...base, right: 24, bottom: 80, width: 320 };
-  if (position === "corner-mid")  return { ...base, right: 24, top: "50%", transform: "translateY(-50%)", width: 320 };
+  if (position === "corner-mid")  return { ...base, left: 188, top: "50%", transform: "translateY(-50%)", width: 320 };
   if (position === "corner-left") return { ...base, left: 24, bottom: 80, width: 310 };
   const el = selector ? document.querySelector(selector) : null;
   const r = el ? el.getBoundingClientRect() : null;
@@ -388,7 +378,7 @@ function TutConfetti() {
     draw();
     return () => { running = false; cancelAnimationFrame(raf); window.removeEventListener("resize", resize); };
   }, []);
-  return <canvas ref={canvasRef} style={{ position: "fixed", inset: 0, zIndex: 9998, pointerEvents: "none" }} />;
+  return <canvas ref={canvasRef} style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }} />;
 }
 
 // ─── Celebrate Screen ─────────────────────────────────────────────────────────
@@ -398,13 +388,13 @@ function TutCelebrate({ onDone }) {
     { icon: "🔥", label: "Ersten Habit Streak gestartet" },
     { icon: "🎯", label: "OKR-Projekt mit dem Wizard erstellt" },
     { icon: "📅", label: "Ersten Zeitblock im Planner geplant" },
-    { icon: "⚡", label: "Quick Capture genutzt — Inbox als Ideen-Speicher aktiv" },
+    { icon: "⚡", label: "Quick Capture: + Button unten rechts — Ideen sofort in die Inbox" },
     { icon: "🔔", label: "Push Notifications: ⚙ → Notifications → Aktivieren" },
   ];
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.93)", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <TutConfetti />
-      <div style={{ background: "#16161e", border: "1px solid rgba(139,92,246,0.4)", borderRadius: 18, padding: "48px 52px", maxWidth: 460, width: "90%", textAlign: "center", boxShadow: "0 32px 80px rgba(0,0,0,0.85)" }}>
+      <div style={{ background: "#16161e", border: "1px solid rgba(139,92,246,0.4)", borderRadius: 18, padding: "48px 52px", maxWidth: 460, width: "90%", textAlign: "center", boxShadow: "0 32px 80px rgba(0,0,0,0.85)", position: "relative", zIndex: 1 }}>
         <div style={{ fontSize: 52, marginBottom: 18 }}>🎯</div>
         <div style={{ fontSize: 23, fontWeight: 800, color: "var(--text)", marginBottom: 8, letterSpacing: "-0.02em" }}>Life OS gehört dir.</div>
         <div style={{ fontSize: 13.5, color: "var(--text-dim)", marginBottom: 32, lineHeight: 1.65 }}>
@@ -430,7 +420,7 @@ function TutCelebrate({ onDone }) {
 }
 
 // ─── Info Card ────────────────────────────────────────────────────────────────
-function TutCard({ step, idx, total, onNext, onSkip }) {
+function TutCard({ step, idx, total, onNext, onStepSkip, onSkip }) {
   const posEl = step.positionSelector || step.selector;
   const [style, setStyle] = React.useState(() => cardPos(step.position, posEl));
   React.useEffect(() => {
@@ -463,7 +453,7 @@ function TutCard({ step, idx, total, onNext, onSkip }) {
             {step.nextLabel || "Weiter →"}
           </button>
         ) : step.skippable ? (
-          <button onClick={onNext} style={{ background: "transparent", border: "1px solid var(--line)", color: "var(--text-dim)", borderRadius: 7, padding: "10px 22px", fontSize: 12, fontWeight: 600, cursor: "pointer", letterSpacing: "0.04em" }}>
+          <button onClick={onStepSkip || onNext} style={{ background: "transparent", border: "1px solid var(--line)", color: "var(--text-dim)", borderRadius: 7, padding: "10px 22px", fontSize: 12, fontWeight: 600, cursor: "pointer", letterSpacing: "0.04em" }}>
             Schritt überspringen →
           </button>
         ) : (
@@ -487,6 +477,15 @@ function TutorialManager({ onDone, setRoute, setPov }) {
 
   const advance = React.useCallback(() => {
     const next = idx + 1;
+    if (next >= TUT_STEPS.length) { onDone(); return; }
+    setIdx(next);
+  }, [idx, onDone]);
+
+  // For skippable steps with skipCount — jump over a group of steps
+  const advanceSkip = React.useCallback(() => {
+    const s = TUT_STEPS[idx];
+    const jump = (s && s.skipCount) ? s.skipCount : 1;
+    const next = idx + jump;
     if (next >= TUT_STEPS.length) { onDone(); return; }
     setIdx(next);
   }, [idx, onDone]);
@@ -551,7 +550,7 @@ function TutorialManager({ onDone, setRoute, setPov }) {
   return (
     <>
       {!step.noSpotlight && <TutSpotlight selector={step.spotlightSelector || step.selector} extraLeft={step.spotlightExtraLeft || 0} extraPad={step.spotlightPad || 0} />}
-      <TutCard step={step} idx={idx} total={TUT_STEPS.length} onNext={advance} onSkip={onDone} />
+      <TutCard step={step} idx={idx} total={TUT_STEPS.length} onNext={advance} onStepSkip={advanceSkip} onSkip={onDone} />
     </>
   );
 }
