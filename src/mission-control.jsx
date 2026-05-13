@@ -966,10 +966,6 @@ function ProjectDetail({ proj, onBack, onOpenKR, taskTimes, setTaskTimes, active
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span className="mono" style={{ fontSize: 14, color: "var(--text-dim)" }}>{Math.round(objProgress * 100)}%</span>
-                <button onClick={() => { setEditHPW(proj.hoursPerWeek || 8); setEditDeadline(proj.deadline || ""); setShowEdit(true); }} style={{
-                  padding: "6px 14px", background: "transparent", border: "1px solid var(--line)",
-                  color: "var(--text-faint)", fontSize: 9.5, letterSpacing: "0.14em", fontWeight: 700, cursor: "pointer",
-                }}>✎ BEARBEITEN</button>
                 {onArchive && (
                   <button onClick={onArchive} style={{
                     padding: "6px 14px", background: "transparent", border: "1px solid var(--line)",
@@ -1021,10 +1017,13 @@ function ProjectDetail({ proj, onBack, onOpenKR, taskTimes, setTaskTimes, active
             }}>{f.label}</button>
           ))}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {onOpenWizard && (
             <button onClick={onOpenWizard} style={{ padding: "9px 18px", background: "var(--accent-soft)", border: "1px solid var(--accent-line)", color: "var(--accent)", fontWeight: 700, fontSize: 10.5, letterSpacing: "0.16em", cursor: "pointer" }}>⚡ GENERATE OKR / TASKS</button>
           )}
+          <button onClick={() => { setEditHPW(proj.hoursPerWeek || 8); setEditDeadline(proj.deadline || ""); setShowEdit(true); }}
+            title="Stunden/Woche & Deadline bearbeiten"
+            style={{ padding: "9px 12px", background: "transparent", border: "1px solid var(--line)", color: "var(--text-faint)", fontSize: 13, cursor: "pointer", lineHeight: 1 }}>⚙</button>
         </div>
       </div>
 
