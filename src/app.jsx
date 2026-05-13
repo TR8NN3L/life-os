@@ -637,6 +637,7 @@ function App() {
     if (!t) return;
     setInbox(prev => [...prev, { id: `inbox_${Date.now()}`, text: t, ts: new Date().toISOString(), pov: null }]);
     setCaptureText(""); setCaptureOpen(false);
+    window.TUTORIAL?.onAction?.("capture-saved");
   };
 
   // Global task detail — modal overlay, works from any screen
@@ -760,6 +761,7 @@ function App() {
       {/* Quick Capture — floating button + overlay */}
       {!captureOpen && (
         <button
+          data-tutorial="quick-capture-btn"
           onClick={() => setCaptureOpen(true)}
           title="Quick Capture (Idee festhalten)"
           style={{

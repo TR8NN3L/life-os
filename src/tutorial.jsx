@@ -7,7 +7,7 @@ function injectTutorialSeedData() {
     const tasks = JSON.parse(LS.getItem("lifeos_tasks_personal") || "[]");
     if (!tasks.find(t => t.id === "tutorial_task_1")) {
       LS.setItem("lifeos_tasks_personal", JSON.stringify([
-        { id: "tutorial_task_1", title: "Life OS installieren & einloggen", sub: "Du hast es geschafft. Der erste Schritt ist getan. 🎉", elapsed: 0, pov: "personal", custom: true, _tutorial: true },
+        { id: "tutorial_task_1", title: "Life OS installieren & einloggen", sub: "Du hast es geschafft. Der erste Schritt ist getan. 🎉", elapsed: 0, pov: "personal", custom: true, _tutorial: true, flow: "FLOW" },
         ...tasks,
       ]));
     }
@@ -127,7 +127,7 @@ const TUT_STEPS = [
     type: "do",
     waitFor: "task-checked-tutorial_task_1",
     title: "Task als erledigt markieren",
-    body: "Du hast die Zeit gestoppt — jetzt die Aufgabe abhaken. Hak 'Life OS installieren & einloggen' als erledigt ab.",
+    body: "Du hast die Zeit gestoppt — jetzt die Aufgabe abhaken. Hak 'Life OS installieren & einloggen' als erledigt ab. Sie wandert danach in den ERLEDIGT-Bereich — das ist genau richtig so.",
     hint: "Klick auf die Checkbox links neben dem Task.",
     position: "right", blockClicks: true,
   },
@@ -153,14 +153,24 @@ const TUT_STEPS = [
   {
     id: "mc-page-intro", route: "missioncontrol", selector: "[data-tutorial='mc-content-area']", type: "explain",
     title: "Mission Control — Überblick",
-    body: "Das ist dein strategisches Cockpit. Jeder Lebensbereich hat einen Main Quest (dein großes Ziel) und darunter OKR-Projekte mit konkreten Key Results. Schau dir kurz an wie alles strukturiert ist.",
+    body: "Das ist dein strategisches Cockpit. Oben siehst du die Inbox — Ideen aus dem Quick Capture die noch keinem Bereich zugewiesen sind. Darunter folgen Main Quest und OKR-Projekte für jeden deiner Lebensbereiche.",
     position: "center", blockClicks: false,
   },
   {
     id: "mc-overview", route: "missioncontrol", selector: "[data-tutorial='mc-main-quest-section']", type: "explain",
     title: "Das Mission Control Board",
-    body: "Jeder Bereich zeigt seinen Main Quest und darunter Projekte mit OKRs. Du kannst dein Hauptziel direkt hier bearbeiten — klick auf das Stift-Symbol neben dem Prozentwert.",
+    body: "Jeder Bereich zeigt seinen Main Quest und darunter Projekte mit OKRs. Du kannst dein Hauptziel direkt hier bearbeiten — klick auf das Stift-Symbol neben dem Prozentwert. Inbox-Items kannst du per OEFFNEN einem POV zuweisen und als Task anlegen.",
     position: "bottom", blockClicks: false,
+  },
+  {
+    id: "quick-capture", route: "missioncontrol",
+    selector: "[data-tutorial='quick-capture-btn']",
+    spotlightSelector: "[data-tutorial='quick-capture-btn']",
+    type: "do", waitFor: "capture-saved",
+    title: "Quick Capture — Ideen sofort festhalten",
+    body: "Der + Button unten rechts ist dein schnellster Weg in die Inbox — eine Idee, ein Task, ein Gedanke. Ohne Kontext, ohne Zuweisung. Einfach rein damit. Klick ihn, tippe etwas ein und speichere.",
+    hint: "Klick auf den + Button → Idee eintippen → Enter oder SPEICHERN.",
+    position: "corner-left", blockClicks: true,
   },
   {
     id: "setup-api", route: "missioncontrol", selector: "[data-tutorial='settings-btn']",
@@ -216,7 +226,7 @@ const TUT_STEPS = [
   {
     id: "planner-page-intro", route: "planner", selector: "[data-tutorial='planner-content-area']", type: "explain",
     title: "Planner — Überblick",
-    body: "Dein tägliches Cockpit. Ziehe auf der Zeitachse um Blöcke zu erstellen und weise ihnen Tasks zu. So wird jede Stunde bewusst verplant.",
+    body: "Dein tägliches Cockpit. Erstelle Zeitblöcke und weise ihnen Tasks zu — jede Stunde wird bewusst verplant. Der MISSIONS-GENERATOR oben rechts erstellt dir per KI einen kompletten Tagesplan in Sekunden.",
     position: "center", blockClicks: false,
   },
   {
@@ -238,7 +248,7 @@ const TUT_STEPS = [
     id: "planner-assign", route: "planner", selector: "[data-tutorial='planner-content-area']", type: "do",
     waitFor: "task-assigned",
     title: "Tasks dem Block zuweisen",
-    body: "Klick auf den Block den du erstellt hast — rechts erscheinen passende Task-Vorschläge. Hake einen an um ihn dem Block zuzuweisen.",
+    body: "Klick auf den Block — rechts erscheinen passende Tasks. Deep Work zeigt nur FLOW-Tasks, Basic nur QUICK & EASY, Flex alle. Hake einen Task an um ihn dem Block zuzuweisen.",
     hint: "Block anklicken → rechts Task anhaken.",
     position: "corner-left", blockClicks: false,
   },
@@ -335,6 +345,7 @@ function TutCelebrate({ onDone }) {
     { icon: "🔥", label: "Ersten Habit Streak gestartet" },
     { icon: "🎯", label: "OKR-Projekt mit dem Wizard erstellt" },
     { icon: "📅", label: "Ersten Zeitblock im Planner geplant" },
+    { icon: "⚡", label: "Quick Capture genutzt — Inbox als Ideen-Speicher aktiv" },
     { icon: "🔔", label: "Push Notifications: ⚙ → Notifications → Aktivieren" },
   ];
   return (
