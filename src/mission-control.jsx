@@ -56,11 +56,12 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
 
   const [showWizard, setShowWizard] = React.useState(false);
   const [wizardDefaultPov, setWizardDefaultPov] = React.useState(null);
+  const [wizardInitialDraft, setWizardInitialDraft] = React.useState(null);
 
   const handleWizardSave = (project, mode) => {
     if (mode === "existing") {
       setCustomProjects(prev => {
-        const updated = prev.map(p => p.id === project.id ? project : p);
+        const updated = prev.map(p => p.id === project.id ? { ...p, ...project } : p);
         LS.setItem("lifeos_custom_projects", JSON.stringify(updated));
         return updated;
       });
@@ -73,6 +74,7 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
     }
     setShowWizard(false);
     setWizardDefaultPov(null);
+    setWizardInitialDraft(null);
   };
 
   const [customProjects, setCustomProjects] = React.useState(() => {
@@ -299,7 +301,13 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
       activeTaskId={activeTaskId} setActiveTaskId={setActiveTaskId}
       krProgress={krProgress} setKrProgress={setKrProgress}
       onOpenTask={onOpenTask}
-      onArchive={() => { archiveProject(proj.id); setShowArchived(true); setView({ type: "list" }); }} />;
+      onArchive={() => { archiveProject(proj.id); setShowArchived(true); setView({ type: "list" }); }}
+      onOpenWizard={() => { setWizardInitialDraft({ mode: "existing", existingProjectId: proj.id, pov: proj.pov, projectName: proj.title }); setShowWizard(true); }}
+      onSaveProjectEdit={(projId, changes) => setCustomProjects(prev => {
+        const updated = prev.map(p => p.id === projId ? { ...p, ...changes } : p);
+        LS.setItem("lifeos_custom_projects", JSON.stringify(updated));
+        return updated;
+      })} />;
   }
   if (view.type === "kr") {
     const proj = [...PROJECTS, ...customProjects].find(p => p.id === view.projectId);
@@ -329,9 +337,9 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
       {showWizard && window.OKRWizard && React.createElement(window.OKRWizard, {
         defaultPov: wizardDefaultPov,
         customProjects: customProjects,
-        onClose: () => { setShowWizard(false); setWizardDefaultPov(null); },
+        onClose: () => { setShowWizard(false); setWizardDefaultPov(null); setWizardInitialDraft(null); },
         onSave: (project, mode) => { handleWizardSave(project, mode); window.TUTORIAL?.onAction?.('project-saved'); },
-        initialDraft: window.TUTORIAL?.active ? window.TUTORIAL.getPrefill?.() : null,
+        initialDraft: wizardInitialDraft || (window.TUTORIAL?.active ? window.TUTORIAL.getPrefill?.() : null),
         "data-tutorial": "wizard-container",
       })}
 
@@ -776,7 +784,16 @@ function Metric({ label, value, color = "var(--text)", bold = false }) {
   );
 }
 
-function ProjectDetail({ proj, onBack, onOpenKR, taskTimes, setTaskTimes, activeTaskId, setActiveTaskId, krProgress, setKrProgress, onArchive, onOpenTask }) {
+function ProjectDetail({ proj, onBack, onOpenKR, taskTimes, setTaskTimes, activeTaskId, setActiveTaskId, krProgress, setKrProgress, onArchive, onOpenTask, onOpenWizard, onSaveProjectEdit }) {
+  // ── Edit Workload / Deadline Modal ─────────────────────────────────────────
+  const [showEdit, setShowEdit] = React.useState(false);
+  const [editHPW, setEditHPW] = React.useState(proj.hoursPerWeek || 8);
+  const [editDeadline, setEditDeadline] = React.useState(proj.deadline || "");
+
+  const saveProjectEdit = () => {
+    if (onSaveProjectEdit) onSaveProjectEdit(proj.id, { hoursPerWeek: editHPW, deadline: editDeadline || null });
+    setShowEdit(false);
+  };
   const objectives = getObjectives(proj);
   const [activeObjId, setActiveObjId] = React.useState(() => objectives[0]?.id);
   const activeObj = objectives.find(o => o.id === activeObjId) || objectives[0];
@@ -947,8 +964,12 @@ function ProjectDetail({ proj, onBack, onOpenKR, taskTimes, setTaskTimes, active
                   );
                 })()}
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span className="mono" style={{ fontSize: 14, color: "var(--text-dim)" }}>{Math.round(objProgress * 100)}%</span>
+                <button onClick={() => { setEditHPW(proj.hoursPerWeek || 8); setEditDeadline(proj.deadline || ""); setShowEdit(true); }} style={{
+                  padding: "6px 14px", background: "transparent", border: "1px solid var(--line)",
+                  color: "var(--text-faint)", fontSize: 9.5, letterSpacing: "0.14em", fontWeight: 700, cursor: "pointer",
+                }}>✎ BEARBEITEN</button>
                 {onArchive && (
                   <button onClick={onArchive} style={{
                     padding: "6px 14px", background: "transparent", border: "1px solid var(--line)",
@@ -956,6 +977,31 @@ function ProjectDetail({ proj, onBack, onOpenKR, taskTimes, setTaskTimes, active
                   }}>ARCHIVIEREN</button>
                 )}
               </div>
+
+              {/* Edit Modal */}
+              {showEdit && (
+                <div onClick={() => setShowEdit(false)} style={{ position: "fixed", inset: 0, zIndex: 800, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <div onClick={e => e.stopPropagation()} style={{ width: 400, background: "var(--panel)", border: "1px solid var(--line)", padding: "28px 28px 24px" }}>
+                    <div style={{ fontWeight: 700, fontSize: 11, letterSpacing: "0.18em", marginBottom: 22 }}>PROJEKT BEARBEITEN</div>
+                    <div style={{ marginBottom: 20 }}>
+                      <div className="uppercase-label" style={{ marginBottom: 8 }}>Stunden pro Woche</div>
+                      <input type="range" min={1} max={40} step={1} value={editHPW} onChange={e => setEditHPW(+e.target.value)}
+                        style={{ width: "100%", accentColor: "var(--accent)", cursor: "pointer" }} />
+                      <div className="mono" style={{ fontSize: 28, fontWeight: 800, color: "var(--accent)", marginTop: 6 }}>{editHPW}h/W</div>
+                    </div>
+                    <div style={{ marginBottom: 24 }}>
+                      <div className="uppercase-label" style={{ marginBottom: 8 }}>Deadline</div>
+                      <input type="date" value={editDeadline} onChange={e => setEditDeadline(e.target.value)}
+                        style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "9px 12px", fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+                      {editDeadline && <button onClick={() => setEditDeadline("")} style={{ background: "none", border: "none", color: "var(--text-faint)", fontSize: 10.5, cursor: "pointer", marginTop: 6, padding: 0 }}>✕ Deadline entfernen</button>}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                      <button onClick={() => setShowEdit(false)} style={{ padding: "9px 18px", background: "transparent", border: "1px solid var(--line)", color: "var(--text-faint)", fontSize: 11, letterSpacing: "0.1em", cursor: "pointer", fontFamily: "inherit" }}>ABBRECHEN</button>
+                      <button onClick={saveProjectEdit} style={{ padding: "9px 24px", background: "var(--accent)", border: "none", color: "#0a0a0c", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", cursor: "pointer", fontFamily: "inherit" }}>SPEICHERN</button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             <ProgressBar value={objProgress} height={5} />
           </>
@@ -976,8 +1022,9 @@ function ProjectDetail({ proj, onBack, onOpenKR, taskTimes, setTaskTimes, active
           ))}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button style={{ padding: "9px 18px", background: "transparent", border: "1px solid var(--accent)", color: "var(--accent)", fontWeight: 700, fontSize: 10.5, letterSpacing: "0.16em", cursor: "pointer" }}>GENERATE OKR / TASKS</button>
-          <span style={{ padding: "5px 10px", background: "var(--warn-soft)", color: "var(--warn)", border: "1px solid rgba(212,162,60,.4)", fontSize: 9.5, letterSpacing: "0.16em", fontWeight: 700 }}>PREMIUM</span>
+          {onOpenWizard && (
+            <button onClick={onOpenWizard} style={{ padding: "9px 18px", background: "var(--accent-soft)", border: "1px solid var(--accent-line)", color: "var(--accent)", fontWeight: 700, fontSize: 10.5, letterSpacing: "0.16em", cursor: "pointer" }}>⚡ GENERATE OKR / TASKS</button>
+          )}
         </div>
       </div>
 

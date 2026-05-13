@@ -1,5 +1,127 @@
 // Dashboard — three-pane: Strategic Anchor (KRs) | Quick Start + Today's Tasks + Truth Loop
 
+// ── Activity Rings (Apple Watch Style) ─────────────────────────────────────
+function ActivityRings({ pov, taskTimes }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const weekStart = (() => {
+    const d = new Date(); d.setDate(d.getDate() - d.getDay() + 1); return d.toISOString().slice(0, 10);
+  })();
+
+  // Reload from localStorage whenever taskTimes changes (= every timer tick)
+  const [dailyTimes, setDailyTimes] = React.useState(() => {
+    try { return JSON.parse(LS.getItem(`lifeos_daily_${today}`) || "{}"); } catch { return {}; }
+  });
+  React.useEffect(() => {
+    try { setDailyTimes(JSON.parse(LS.getItem(`lifeos_daily_${today}`) || "{}")); } catch {}
+  }, [taskTimes]);
+
+  const ringProjects = React.useMemo(() => {
+    const povColors = { personal: "#8b5cf6", founder: "#2f8bff", student: "#e11d48", athlete: "#10b981" };
+    const palette = ["#10b981", "#2f8bff", "#8b5cf6", "#f97316", "#ec4899", "#14b8a6"];
+    let userPovs = [];
+    try { userPovs = JSON.parse(LS.getItem("lifeos_user_povs") || "[]"); } catch {}
+    const allPovColors = { ...povColors, ...Object.fromEntries(userPovs.map(p => [p.id, p.color])) };
+    let archivedIds = new Set();
+    try { archivedIds = new Set(JSON.parse(LS.getItem("lifeos_archived_projects") || "[]")); } catch {}
+    let projs = [];
+    try { projs = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]"); } catch {}
+    return projs
+      .filter(p => !archivedIds.has(p.id) && (p.hoursPerWeek || 0) > 0)
+      .slice(0, 4)
+      .map((proj, i) => {
+        const projTaskIds = new Set(
+          (proj.objectives || []).flatMap(o => (o.krs || []).flatMap(kr => (kr.tasks || []).map(t => t.id)))
+        );
+        const todaySecs = [...projTaskIds].reduce((s, id) => s + (dailyTimes[id] || 0), 0);
+        const dailyTargetSecs = ((proj.hoursPerWeek || 8) / 5) * 3600;
+        const progress = Math.min(1.05, todaySecs / dailyTargetSecs);
+        const color = allPovColors[proj.pov] || palette[i % palette.length];
+        return { id: proj.id, title: proj.title, todaySecs, dailyTargetSecs, progress, color, hoursPerWeek: proj.hoursPerWeek || 8 };
+      });
+  }, [dailyTimes]);
+
+  if (ringProjects.length === 0) return null;
+
+  const SVG_SIZE = 152;
+  const cx = SVG_SIZE / 2, cy = SVG_SIZE / 2;
+  const RING_W = 13, GAP = 4;
+  const baseRadius = (SVG_SIZE / 2) - RING_W / 2 - 3;
+
+  const todayLabel = new Date().toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "short" });
+
+  return (
+    <div style={{ padding: "14px 28px", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "center", gap: 24, background: "rgba(255,255,255,0.01)" }}>
+      {/* SVG concentric rings */}
+      <div style={{ flexShrink: 0, position: "relative" }}>
+        <svg width={SVG_SIZE} height={SVG_SIZE} viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}>
+          {ringProjects.map((proj, i) => {
+            const r = baseRadius - i * (RING_W + GAP);
+            if (r < RING_W) return null;
+            const circ = 2 * Math.PI * r;
+            const clampProg = Math.min(1, proj.progress);
+            const offset = circ * (1 - clampProg);
+            return (
+              <g key={proj.id}>
+                <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.055)" strokeWidth={RING_W} />
+                {clampProg > 0 && (
+                  <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color}
+                    strokeWidth={RING_W} strokeLinecap="round"
+                    strokeDasharray={circ} strokeDashoffset={offset}
+                    transform={`rotate(-90 ${cx} ${cy})`}
+                    style={{ transition: "stroke-dashoffset 0.6s ease" }} />
+                )}
+                {proj.progress >= 1 && (
+                  <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color} strokeWidth={RING_W * 0.35} opacity={0.25} />
+                )}
+              </g>
+            );
+          })}
+          <text x={cx} y={cy - 5} textAnchor="middle" fill="var(--text)" fontSize={15} fontWeight={700} fontFamily="'JetBrains Mono',monospace">
+            {Math.round(Math.min(1, ringProjects[0]?.progress) * 100)}%
+          </text>
+          <text x={cx} y={cy + 10} textAnchor="middle" fill="var(--text-faint)" fontSize={8.5} fontFamily="'Inter',sans-serif" letterSpacing="1.5">
+            HEUTE
+          </text>
+        </svg>
+      </div>
+
+      {/* Legend */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
+          <div style={{ fontSize: 9, letterSpacing: "0.18em", fontWeight: 700, color: "var(--text-faint)" }}>
+            ACTIVITY RINGS
+          </div>
+          <div style={{ fontSize: 9, color: "var(--text-faint)", letterSpacing: "0.06em" }}>{todayLabel}</div>
+        </div>
+        {ringProjects.map(proj => {
+          const hrs = (proj.todaySecs / 3600).toFixed(1);
+          const target = (proj.dailyTargetSecs / 3600).toFixed(1);
+          const pct = Math.round(Math.min(1, proj.progress) * 100);
+          const done = proj.progress >= 1;
+          return (
+            <div key={proj.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
+              <div style={{ width: 7, height: 7, borderRadius: "50%", background: proj.color, flexShrink: 0, boxShadow: done ? `0 0 6px ${proj.color}` : "none" }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 3 }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: done ? proj.color : "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 120 }}>
+                    {proj.title}
+                  </span>
+                  <span className="mono" style={{ fontSize: 9, color: done ? proj.color : "var(--text-faint)", fontWeight: done ? 700 : 400, flexShrink: 0 }}>
+                    {done ? "✓ DONE" : `${hrs}h / ${target}h`}
+                  </span>
+                </div>
+                <div style={{ height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+                  <div style={{ height: "100%", background: proj.color, width: `${pct}%`, borderRadius: 2, transition: "width 0.5s ease", boxShadow: done ? `0 0 8px ${proj.color}` : "none" }} />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 const DONE_QUOTES = [
   "Erledigt. Momentum aufgebaut.",
   "Done. Der nächste Schritt wartet.",
@@ -491,6 +613,9 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
 
         {/* Tasks — scrollable middle section */}
         <div data-tutorial="task-list" style={{ flex: 1, overflowY: "auto" }}>
+
+        {/* Activity Rings */}
+        <ActivityRings pov={pov} taskTimes={taskTimes} />
 
         {/* Tasks today */}
         <div style={{ padding: "20px 28px 8px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>

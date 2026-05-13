@@ -36,6 +36,54 @@ const PARKINSON_HINTS = {
   24: { level: "danger", msg: "6 Monate: hohes Prokrastinationsrisiko. Setze harte monatliche Milestones — sonst verpufft die Energie nach Woche 3." },
 };
 
+// ─── Speech-to-Text Mic Button ──────────────────────────────────────────────
+function MicButton({ onTranscript, lang = "de-DE", style }) {
+  const [listening, setListening] = React.useState(false);
+  const recRef = React.useRef(null);
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return null;
+
+  const toggle = () => {
+    if (listening) {
+      recRef.current?.stop();
+      setListening(false);
+      return;
+    }
+    const rec = new SR();
+    rec.lang = lang;
+    rec.continuous = true;
+    rec.interimResults = false;
+    rec.onresult = (e) => {
+      const t = Array.from(e.results)
+        .filter(r => r.isFinal)
+        .map(r => r[0].transcript)
+        .join(" ");
+      if (t) onTranscript(t);
+    };
+    rec.onerror = () => setListening(false);
+    rec.onend = () => setListening(false);
+    rec.start();
+    recRef.current = rec;
+    setListening(true);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      title={listening ? "Aufnahme stoppen" : "Diktieren (de)"}
+      style={{
+        background: listening ? "rgba(214,50,74,0.15)" : "var(--panel-2)",
+        border: `1px solid ${listening ? "var(--danger)" : "var(--line)"}`,
+        color: listening ? "var(--danger)" : "var(--text-faint)",
+        padding: "6px 10px", cursor: "pointer", fontSize: 16, lineHeight: 1,
+        transition: "all .15s", flexShrink: 0,
+        ...style,
+      }}
+    >{listening ? "⏹" : "🎙"}</button>
+  );
+}
+
 function addWeeks(weeks) {
   const d = new Date();
   d.setDate(d.getDate() + weeks * 7);
@@ -403,9 +451,12 @@ function WizardStep({ step, d, upd, toggleArr, phaseColor, totalHours, customPro
           </div>
           <div>
             <div className="uppercase-label" style={{ marginBottom: 8 }}>Projektname</div>
-            <input autoFocus value={d.projectName} onChange={e => upd("projectName", e.target.value)}
-              placeholder="z.B. Immobilienvertrieb Mastery, Uni Q3, Bodybuilding-Wettkampf…"
-              style={inp} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <input autoFocus value={d.projectName} onChange={e => upd("projectName", e.target.value)}
+                placeholder="z.B. Immobilienvertrieb Mastery, Uni Q3, Bodybuilding-Wettkampf…"
+                style={{ ...inp, flex: 1 }} />
+              <MicButton onTranscript={t => upd("projectName", t.trim())} />
+            </div>
           </div>
         </div>
       );
@@ -414,9 +465,13 @@ function WizardStep({ step, d, upd, toggleArr, phaseColor, totalHours, customPro
     case 2:
       return (
         <div>
-          <textarea autoFocus value={d.bigGoal} onChange={e => upd("bigGoal", e.target.value)}
-            placeholder="Schreib so, als würdest du einem Freund erklären was du dir in ein paar Monaten wünschst. Kein Druck — einfach ehrlich."
-            rows={5} style={{ ...inp, resize: "none" }} />
+          <div style={{ position: "relative" }}>
+            <textarea autoFocus value={d.bigGoal} onChange={e => upd("bigGoal", e.target.value)}
+              placeholder="Schreib so, als würdest du einem Freund erklären was du dir in ein paar Monaten wünschst. Kein Druck — einfach ehrlich."
+              rows={5} style={{ ...inp, resize: "none", paddingRight: 50 }} />
+            <MicButton onTranscript={t => upd("bigGoal", d.bigGoal ? d.bigGoal + " " + t : t)}
+              style={{ position: "absolute", top: 10, right: 10 }} />
+          </div>
           <div style={{ marginTop: 14, fontSize: 11.5, color: "var(--text-faint)", lineHeight: 1.7, padding: "12px 16px", background: "var(--panel)", border: "1px solid var(--line-soft)" }}>
             💡 <strong style={{ color: "var(--text-dim)" }}>Tipp:</strong> Je konkreter du schreibst, desto präziser werden deine Key Results. Statt "mehr Geld" lieber "meine erste Provision verdient und X€ auf dem Konto."
           </div>
@@ -432,15 +487,23 @@ function WizardStep({ step, d, upd, toggleArr, phaseColor, totalHours, customPro
               Das "Warum" ist dein Kraftstoff. Wenn es klar ist, überwindest du auch schlechte Tage. Nicht die Version die gut klingt — die echte.
             </div>
             <div className="uppercase-label" style={{ marginBottom: 8 }}>Warum ist dieses Projekt wichtig für dich?</div>
-            <textarea autoFocus value={d.why1} onChange={e => upd("why1", e.target.value)}
-              placeholder="Sei ehrlich…" rows={3} style={{ ...inp, resize: "none" }} />
+            <div style={{ position: "relative" }}>
+              <textarea autoFocus value={d.why1} onChange={e => upd("why1", e.target.value)}
+                placeholder="Sei ehrlich…" rows={3} style={{ ...inp, resize: "none", paddingRight: 50 }} />
+              <MicButton onTranscript={t => upd("why1", d.why1 ? d.why1 + " " + t : t)}
+                style={{ position: "absolute", top: 10, right: 10 }} />
+            </div>
           </div>
           {d.why1.trim().length > 5 && (
             <div>
               <div className="uppercase-label" style={{ marginBottom: 8, color: phaseColor }}>Und warum ist <em>das</em> wichtig? (eine Ebene tiefer)</div>
-              <textarea value={d.why2} onChange={e => upd("why2", e.target.value)}
-                placeholder="Oft ist die Antwort auf diese Frage der eigentliche Antrieb…" rows={3}
-                style={{ ...inp, resize: "none" }} />
+              <div style={{ position: "relative" }}>
+                <textarea value={d.why2} onChange={e => upd("why2", e.target.value)}
+                  placeholder="Oft ist die Antwort auf diese Frage der eigentliche Antrieb…" rows={3}
+                  style={{ ...inp, resize: "none", paddingRight: 50 }} />
+                <MicButton onTranscript={t => upd("why2", d.why2 ? d.why2 + " " + t : t)}
+                  style={{ position: "absolute", top: 10, right: 10 }} />
+              </div>
               <div style={{ marginTop: 10, fontSize: 10.5, color: "var(--text-faint)", lineHeight: 1.6 }}>
                 ✦ <strong>5-Whys-Methode</strong> (Toyota): Das zweite Warum deckt den echten Antrieb auf. Der Wizard nutzt beide Ebenen für präzisere Formulierungen.
               </div>
@@ -557,9 +620,13 @@ function WizardStep({ step, d, upd, toggleArr, phaseColor, totalHours, customPro
           <div style={{ fontSize: 12.5, color: "var(--text-faint)", marginBottom: 20, lineHeight: 1.7 }}>
             Stell dir vor du bist am Tag der Deadline und schaust zufrieden zurück. Was ist passiert? Der Wizard entwickelt daraus deine Objectives — sei so konkret wie möglich.
           </div>
-          <textarea autoFocus value={d.successDefinition} onChange={e => upd("successDefinition", e.target.value)}
-            placeholder='"Ich habe meine erste Immobilienprovision verdient und den vollständigen Vertriebsprozess von Opening bis Close beherrscht."'
-            rows={4} style={{ ...inp, resize: "none" }} />
+          <div style={{ position: "relative" }}>
+            <textarea autoFocus value={d.successDefinition} onChange={e => upd("successDefinition", e.target.value)}
+              placeholder='"Ich habe meine erste Immobilienprovision verdient und den vollständigen Vertriebsprozess von Opening bis Close beherrscht."'
+              rows={4} style={{ ...inp, resize: "none", paddingRight: 50 }} />
+            <MicButton onTranscript={t => upd("successDefinition", d.successDefinition ? d.successDefinition + " " + t : t)}
+              style={{ position: "absolute", top: 10, right: 10 }} />
+          </div>
           <div style={{ marginTop: 10, fontSize: 11, color: "var(--text-faint)", lineHeight: 1.6, padding: "10px 14px", background: "var(--panel)", border: "1px solid var(--line-soft)" }}>
             ✦ <strong style={{ color: "var(--text-dim)" }}>Tipp:</strong> Zahlen, Ergebnisse und Zustände machen bessere Objectives als Absichten. "Ich habe X erreicht" statt "Ich möchte X erreichen".
           </div>
@@ -603,9 +670,13 @@ function WizardStep({ step, d, upd, toggleArr, phaseColor, totalHours, customPro
               <div style={{ fontSize: 12, color: "var(--text-faint)", marginBottom: 10, lineHeight: 1.6 }}>
                 "Wenn <strong style={{ color: "var(--text)" }}>{fullPrompt}</strong> {verb}, werde ich…"
               </div>
-              <textarea value={d.implementationIntention} onChange={e => upd("implementationIntention", e.target.value)}
-                placeholder="…konkret beschreiben was ich dann tue. z.B. 'sofort den nächsten Schritt ausführen und Termin fixieren.'"
-                rows={2} style={{ ...inp, resize: "none" }} />
+              <div style={{ position: "relative" }}>
+                <textarea value={d.implementationIntention} onChange={e => upd("implementationIntention", e.target.value)}
+                  placeholder="…konkret beschreiben was ich dann tue. z.B. 'sofort den nächsten Schritt ausführen und Termin fixieren.'"
+                  rows={2} style={{ ...inp, resize: "none", paddingRight: 50 }} />
+                <MicButton onTranscript={t => upd("implementationIntention", d.implementationIntention ? d.implementationIntention + " " + t : t)}
+                  style={{ position: "absolute", top: 10, right: 10 }} />
+              </div>
               <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 8 }}>✦ Gollwitzer 1999: If-Then-Pläne erhöhen Zielerreichung um 200–300%</div>
             </div>
           )}

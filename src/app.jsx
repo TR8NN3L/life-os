@@ -352,6 +352,14 @@ function App() {
     localStorage.setItem("lifeos_timer_start", JSON.stringify({ taskId: activeTaskId, startedAt: Date.now(), baseTime }));
     const id = setInterval(() => {
       setTaskTimes(prev => ({ ...prev, [activeTaskId]: (prev[activeTaskId] ?? 0) + 1 }));
+      // Daily time log (resets per date) for Activity Rings
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const dk = `lifeos_daily_${today}`;
+        const daily = JSON.parse(localStorage.getItem(dk) || "{}");
+        daily[activeTaskId] = (daily[activeTaskId] || 0) + 1;
+        localStorage.setItem(dk, JSON.stringify(daily));
+      } catch {}
     }, 1000);
     return () => clearInterval(id);
   }, [activeTaskId]);
