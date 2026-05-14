@@ -6,6 +6,72 @@ const POMO_LONG  = 15 * 60;
 
 
 function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes, focusTaskId, onOpenTask }) {
+  // ── Mode toggle: task vs free-flow ────────────────────────────────────────
+  const [freeMode, setFreeMode] = React.useState(false);
+
+  // ── Free Flow state ───────────────────────────────────────────────────────
+  const [freeProjId,       setFreeProjId]       = React.useState("");
+  const [freeSecs,         setFreeSecs]         = React.useState(0);
+  const [freeRunning,      setFreeRunning]      = React.useState(false);
+  const [showFreeNote,     setShowFreeNote]     = React.useState(false);
+  const [freeNote,         setFreeNote]         = React.useState("");
+  const [freeSavedIdx,     setFreeSavedIdx]     = React.useState(-1);
+  const [freeSavedSecs,    setFreeSavedSecs]    = React.useState(0);
+  const freeRef = React.useRef(null);
+
+  const freeProjs = React.useMemo(() => {
+    try {
+      const p    = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]");
+      const arch = new Set(JSON.parse(LS.getItem("lifeos_archived_projects") || "[]"));
+      return p.filter(x => !arch.has(x.id));
+    } catch { return []; }
+  }, [freeMode]);
+
+  React.useEffect(() => {
+    if (!freeRunning) { clearInterval(freeRef.current); return; }
+    freeRef.current = setInterval(() => setFreeSecs(s => s + 1), 1000);
+    return () => clearInterval(freeRef.current);
+  }, [freeRunning]);
+
+  const startFree = () => {
+    if (!freeProjId) return;
+    setFreeSecs(0); setFreeRunning(true); setShowFreeNote(false); setFreeNote("");
+  };
+
+  const stopFree = () => {
+    clearInterval(freeRef.current);
+    setFreeRunning(false);
+    if (freeSecs < 1) return;
+    const dur    = freeSecs;
+    const today  = new Date().toISOString().slice(0, 10);
+    const dayKey = `lifeos_daily_${today}`;
+    const freeKey = `free_${freeProjId}`;
+    try {
+      const log = JSON.parse(LS.getItem(dayKey) || "{}");
+      log[freeKey] = (log[freeKey] || 0) + dur;
+      LS.setItem(dayKey, JSON.stringify(log));
+    } catch {}
+    try {
+      const all = JSON.parse(LS.getItem("lifeos_free_sessions") || "[]");
+      all.push({ projId: freeProjId, dur, ts: new Date().toISOString(), note: "" });
+      LS.setItem("lifeos_free_sessions", JSON.stringify(all));
+      setFreeSavedIdx(all.length - 1);
+    } catch {}
+    setFreeSavedSecs(dur);
+    setShowFreeNote(true);
+  };
+
+  const saveFreeNote = () => {
+    if (freeSavedIdx >= 0) {
+      try {
+        const all = JSON.parse(LS.getItem("lifeos_free_sessions") || "[]");
+        if (all[freeSavedIdx]) { all[freeSavedIdx].note = freeNote; LS.setItem("lifeos_free_sessions", JSON.stringify(all)); }
+      } catch {}
+    }
+    window.dispatchEvent(new CustomEvent("lifeos-projects-updated"));
+    setShowFreeNote(false); setFreeNote(""); setFreeSecs(0); setFreeSavedIdx(-1);
+  };
+
   // ── Pomodoro state (defined first — before any early returns) ─────────────
   const [pomodoroMode, setPomodoroMode] = React.useState(false);
   const [pomoCycle,    setPomoCycle]    = React.useState("work");   // "work" | "break" | "long-break"
@@ -72,7 +138,11 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
   const displayId = activeTaskId || focusTaskId;
   const task = tasksToday.find(t => t.id === displayId) ?? tasksToday[0];
 
-  if (!task) {
+  // In free flow mode we don't need a task — skip the early return
+  const isRunning = task ? activeTaskId === task.id : false;
+  const elapsed   = task ? (taskTimes[task.id] ?? task.elapsed ?? 0) : 0;
+
+  if (!task && !freeMode) {
     return (
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "var(--bg)", gap: 16 }}>
         <div style={{ fontSize: 13, color: "var(--text-faint)", letterSpacing: "0.08em" }}>Keine Aufgaben vorhanden</div>
@@ -81,18 +151,15 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
     );
   }
 
-  const isRunning = activeTaskId === task.id;
-  const elapsed   = taskTimes[task.id] ?? task.elapsed ?? 0;
-
   // Pomodoro display: which cycle label & color
   const pomoColor  = pomoCycle === "work" ? "var(--accent)" : "#10b981";
   const pomoCycleLabel = pomoCycle === "work" ? "WORK" : pomoCycle === "break" ? "BREAK" : "LONG BREAK";
   const pomoDotsTotal  = 4;
 
-  const colonIdx = task.title.indexOf(":");
-  const hasColon = colonIdx > 0 && colonIdx < task.title.length - 1;
-  const mainPart = hasColon ? task.title.slice(0, colonIdx + 1) : task.title;
-  const subPart  = hasColon ? task.title.slice(colonIdx + 1).trim() : "";
+  const colonIdx = task ? task.title.indexOf(":") : -1;
+  const hasColon = colonIdx > 0 && task && colonIdx < task.title.length - 1;
+  const mainPart = task ? (hasColon ? task.title.slice(0, colonIdx + 1) : task.title) : "";
+  const subPart  = task ? (hasColon ? task.title.slice(colonIdx + 1).trim() : "") : "";
 
   const toggleTimer = () => {
     const willRun = !isRunning;
@@ -112,27 +179,171 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
 
       {/* ── Top bar ── */}
       <div style={{ padding: "16px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div className="uppercase-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <Icon name="zap" size={11} color="var(--text-faint)" />
-          Focus
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div className="uppercase-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Icon name="zap" size={11} color="var(--text-faint)" />
+            Focus
+          </div>
+          {/* Mode tabs */}
+          <div style={{ display: "flex", gap: 2, marginLeft: 16, background: "var(--panel)", border: "1px solid var(--line)", padding: 3 }}>
+            {[["task", "TASK"], ["free", "FREE FLOW"]].map(([id, label]) => (
+              <button key={id} onClick={() => { setFreeMode(id === "free"); if (freeRunning) stopFree(); if (isRunning) setActiveTaskId(null); }}
+                style={{
+                  padding: "4px 12px", border: "none", cursor: "pointer", fontSize: 9.5, fontWeight: 700, letterSpacing: "0.14em",
+                  background: (id === "free") === freeMode ? "var(--accent)" : "transparent",
+                  color: (id === "free") === freeMode ? "#0a0a0c" : "var(--text-faint)",
+                  transition: "all .15s",
+                }}>{label}</button>
+            ))}
+          </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {/* Pomodoro toggle */}
-          <button
-            onClick={() => { setPomodoroMode(m => !m); if (isRunning) setActiveTaskId(null); resetPomo(); }}
-            style={{
-              padding: "5px 14px", background: pomodoroMode ? "rgba(16,185,129,0.12)" : "transparent",
-              border: `1px solid ${pomodoroMode ? "#10b981" : "var(--line)"}`,
-              color: pomodoroMode ? "#10b981" : "var(--text-faint)",
-              fontSize: 10.5, letterSpacing: "0.12em", fontWeight: 700, cursor: "pointer",
-            }}
-          >🍅 POMODORO{pomodoroMode ? " AN" : ""}</button>
-          <div className="uppercase-label" style={{ color: "var(--text-dim)" }}>Single-Task · No Distractions</div>
+          {/* Pomodoro toggle — only in task mode */}
+          {!freeMode && (
+            <button
+              onClick={() => { setPomodoroMode(m => !m); if (isRunning) setActiveTaskId(null); resetPomo(); }}
+              style={{
+                padding: "5px 14px", background: pomodoroMode ? "rgba(16,185,129,0.12)" : "transparent",
+                border: `1px solid ${pomodoroMode ? "#10b981" : "var(--line)"}`,
+                color: pomodoroMode ? "#10b981" : "var(--text-faint)",
+                fontSize: 10.5, letterSpacing: "0.12em", fontWeight: 700, cursor: "pointer",
+              }}
+            >🍅 POMODORO{pomodoroMode ? " AN" : ""}</button>
+          )}
+          <div className="uppercase-label" style={{ color: "var(--text-dim)" }}>
+            {freeMode ? "Free Flow · Kein Task nötig" : "Single-Task · No Distractions"}
+          </div>
         </div>
       </div>
 
-      {/* ── Canvas ── */}
-      <div data-tutorial="focus-canvas" style={{
+      {/* ── Free Flow Canvas ── */}
+      {freeMode && (
+        <div style={{
+          flex: 1, margin: "0 28px 28px", background: "#000",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          position: "relative", border: "1px solid var(--line)",
+        }}>
+          {freeRunning && (
+            <div style={{ position: "absolute", inset: 0, pointerEvents: "none",
+              background: "radial-gradient(ellipse 60% 55% at 50% 52%, transparent 0%, rgba(0,0,0,0.72) 100%)" }} />
+          )}
+
+          {/* Note modal (post-session) */}
+          {showFreeNote && (
+            <div style={{ position: "absolute", inset: 0, zIndex: 10, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ width: 480, background: "var(--panel)", border: "1px solid var(--accent-line)", padding: 32 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <Icon name="check" size={14} color="var(--accent)" />
+                  <span className="uppercase-label" style={{ color: "var(--accent)" }}>Session gespeichert — {fmtTime(freeSavedSecs)}</span>
+                </div>
+                <div style={{ fontSize: 12, color: "var(--text-faint)", marginBottom: 20 }}>
+                  Was hast du gemacht? (optional)
+                </div>
+                <textarea
+                  autoFocus
+                  value={freeNote}
+                  onChange={e => setFreeNote(e.target.value)}
+                  placeholder="Kurze Notiz zur Session — Änderungen, Erkenntnisse, nächste Schritte…"
+                  rows={5}
+                  style={{
+                    width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)",
+                    borderLeft: "2px solid var(--accent)", color: "var(--text)",
+                    padding: "12px 16px", fontSize: 13, fontFamily: "inherit",
+                    resize: "vertical", outline: "none", lineHeight: 1.6, boxSizing: "border-box",
+                  }}
+                />
+                <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
+                  <button onClick={saveFreeNote} style={{
+                    padding: "10px 24px", background: "var(--accent)", color: "#0a0a0c",
+                    border: "none", fontWeight: 700, fontSize: 10.5, letterSpacing: "0.16em", cursor: "pointer",
+                  }}>SPEICHERN →</button>
+                  <button onClick={() => { setShowFreeNote(false); setFreeNote(""); setFreeSecs(0); }}
+                    style={{ padding: "10px 16px", background: "transparent", border: "1px solid var(--line)", color: "var(--text-faint)", fontSize: 10.5, cursor: "pointer" }}>
+                    ÜBERSPRINGEN
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Project picker */}
+          {!freeRunning && !showFreeNote && (
+            <div style={{ textAlign: "center", marginBottom: 48 }}>
+              <div className="uppercase-label" style={{ color: "var(--text-faint)", marginBottom: 16, letterSpacing: "0.2em" }}>
+                PROJEKT WÄHLEN
+              </div>
+              {freeProjs.length === 0 ? (
+                <div style={{ color: "var(--text-faint)", fontSize: 13 }}>Keine aktiven Projekte vorhanden.</div>
+              ) : (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center", maxWidth: 560 }}>
+                  {freeProjs.map(p => (
+                    <button key={p.id} onClick={() => setFreeProjId(p.id)} style={{
+                      padding: "10px 20px", fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", cursor: "pointer",
+                      background: freeProjId === p.id ? "var(--accent-soft)" : "transparent",
+                      border: `1px solid ${freeProjId === p.id ? "var(--accent-line)" : "var(--line)"}`,
+                      color: freeProjId === p.id ? "var(--accent)" : "var(--text-faint)",
+                      transition: "all .15s",
+                    }}>{(p.title || p.id).toUpperCase()}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Running: project name */}
+          {freeRunning && (
+            <div style={{
+              textAlign: "center", marginBottom: 48,
+              opacity: 0.08, filter: "blur(6px)", transition: "opacity .5s, filter .5s",
+            }}>
+              <h1 style={{ margin: 0, fontSize: 64, fontWeight: 800, letterSpacing: "-0.02em", color: "var(--text-dim)", lineHeight: 0.95 }}>
+                {((freeProjs.find(p => p.id === freeProjId)?.title) || freeProjId).toUpperCase()}
+              </h1>
+              <div style={{ margin: "20px auto 0", width: 96, height: 1, background: "var(--accent)" }} />
+            </div>
+          )}
+
+          {/* Big button */}
+          {!showFreeNote && (
+            <button
+              onClick={freeRunning ? stopFree : startFree}
+              disabled={!freeProjId && !freeRunning}
+              style={{
+                width: 168, height: 168, borderRadius: "50%",
+                background: freeRunning ? "var(--bg)" : (freeProjId ? "var(--accent)" : "var(--panel)"),
+                color: freeRunning ? "var(--accent)" : (freeProjId ? "#0a0a0c" : "var(--text-faint)"),
+                border: `4px solid ${freeRunning ? "var(--accent)" : "transparent"}`,
+                fontSize: 22, fontWeight: 700, letterSpacing: "0.2em",
+                cursor: freeProjId || freeRunning ? "pointer" : "default",
+                boxShadow: freeRunning ? "0 0 80px var(--accent)" : freeProjId ? "0 0 80px rgba(16,185,129,.4)" : "none",
+                transition: "all .35s",
+              }}
+            >{freeRunning ? "STOP" : "START"}</button>
+          )}
+
+          {/* Timer */}
+          {!showFreeNote && (
+            <div className="mono" style={{
+              marginTop: 36, fontSize: 72, fontWeight: 500, letterSpacing: "0.04em",
+              color: freeRunning ? "var(--text)" : "var(--text-faint)",
+              textShadow: freeRunning ? "0 0 40px var(--accent)" : "none",
+              transition: "all .35s",
+            }}>{fmtTime(freeSecs)}</div>
+          )}
+
+          {!showFreeNote && (
+            <div className="uppercase-label" style={{
+              marginTop: 6,
+              color: freeRunning ? "var(--accent)" : freeProjId ? "var(--text-dim)" : "var(--text-faint)",
+            }}>
+              {freeRunning ? "FREE FLOW · LÄUFT" : freeProjId ? "BEREIT ZU STARTEN" : "KEIN PROJEKT GEWÄHLT"}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Task Canvas ── */}
+      {!freeMode && <div data-tutorial="focus-canvas" style={{
         flex: 1, margin: "0 28px 28px", background: "#000",
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
         position: "relative", border: "1px solid var(--line)",
@@ -249,7 +460,7 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
           )}
           <span style={{ color: "var(--text-faint)", fontSize: 10, letterSpacing: "0.1em" }}>ESC = EXIT · SPACE = PAUSE</span>
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

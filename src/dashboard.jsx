@@ -1195,6 +1195,7 @@ function StatsPanel({ taskTimes, pov }) {
   // Helper: map project → stats object (shared by rings + table)
   const buildProjStats = (proj, i, weekStart, todayDowIdx, allPovColors, palette) => {
     const taskIds = new Set((proj.objectives || []).flatMap(o => (o.krs || []).flatMap(kr => (kr.tasks || []).map(t => t.id))));
+    taskIds.add(`free_${proj.id}`); // include free-flow sessions
     const perDaySecs = DAYS_LABEL.map((_, di) => {
       const d = new Date(weekStart); d.setDate(weekStart.getDate() + di);
       const key = d.toISOString().slice(0, 10);
