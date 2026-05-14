@@ -1048,9 +1048,6 @@ function ProjectDetail({ proj, onBack, onOpenKR, taskTimes, setTaskTimes, active
           ))}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {onOpenWizard && (
-            <button onClick={onOpenWizard} style={{ padding: "9px 18px", background: "var(--accent-soft)", border: "1px solid var(--accent-line)", color: "var(--accent)", fontWeight: 700, fontSize: 10.5, letterSpacing: "0.16em", cursor: "pointer" }}>⚡ GENERATE OKR / TASKS</button>
-          )}
           <button onClick={() => { setEditTitle(proj.title || ""); setEditHPW(proj.hoursPerWeek || 8); setEditDeadline(proj.deadline || ""); setShowEdit(true); }}
             title="Projekt bearbeiten (Name, Stunden, Deadline)"
             style={{ padding: "9px 14px", background: "transparent", border: "1px solid var(--line)", color: "var(--text-faint)", fontSize: 11, letterSpacing: "0.1em", fontWeight: 600, cursor: "pointer", lineHeight: 1 }}>⚙ BEARBEITEN</button>
@@ -1265,7 +1262,6 @@ function KRDetail({ proj, krId, onBack, onSwitchKR, taskTimes, setTaskTimes, act
             );
           })}
         </div>
-        <button style={{ padding: "9px 18px", background: "transparent", border: "1px solid var(--accent)", color: "var(--accent)", fontWeight: 700, fontSize: 10.5, letterSpacing: "0.16em", cursor: "pointer" }}>GENERATE OKR / TASKS</button>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "60px 1fr 200px 130px 120px", alignItems: "center", gap: 16, padding: "16px 8px", borderBottom: "1px solid var(--line-soft)" }}>
         <span style={{ color: "var(--accent)", fontSize: 10.5, letterSpacing: "0.16em", fontWeight: 700 }}>{kr.label}:</span>
