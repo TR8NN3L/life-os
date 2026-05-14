@@ -1306,8 +1306,8 @@ function StatsPanel({ taskTimes, pov }) {
         }}>TAGE VERTEILEN</button>
       </div>
 
-      {/* ── Main row: rings | table | debt ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr 148px", gap: "0 24px", alignItems: "start" }}>
+      {/* ── Main row: rings | table | spacer | debt ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr 56px 148px", gap: "0 20px", alignItems: "start" }}>
 
         {/* ── Rings ── */}
         <svg width={SVG_SIZE} height={SVG_SIZE} viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`} style={{ flexShrink: 0 }}>
@@ -1424,6 +1424,9 @@ function StatsPanel({ taskTimes, pov }) {
             </div>
           )}
         </div>
+
+        {/* ── Spacer ── */}
+        <div />
 
         {/* ── Ignorance Debt ── */}
         <div style={{
