@@ -166,9 +166,18 @@ function App() {
   const [hasAccess, setHasAccess] = React.useState(() => localStorage.getItem("lifeos_access") === "1");
   const [authUser,  setAuthUser]  = React.useState(null); // { id, email }
 
-  const checkAccess = React.useCallback(async (userId) => {
+  // Paywall launch date — accounts created before this date get automatic beta access
+  const PAYWALL_LAUNCH = "2026-05-14";
+
+  const checkAccess = React.useCallback(async (userId, createdAt) => {
     // Guests bypass paywall
     if (localStorage.getItem("lifeos_guest") === "1") { setHasAccess(true); return; }
+    // Existing users (created before paywall launch) get automatic access
+    if (createdAt && createdAt.slice(0, 10) < PAYWALL_LAUNCH) {
+      localStorage.setItem("lifeos_access", "1");
+      localStorage.setItem("lifeos_access_ts", String(Date.now()));
+      setHasAccess(true); return;
+    }
     // Cache: valid 6h
     const cached   = localStorage.getItem("lifeos_access");
     const cachedTs = localStorage.getItem("lifeos_access_ts");
@@ -210,7 +219,7 @@ function App() {
           if (window.injectTutorialSeedData) window.injectTutorialSeedData();
           setTutorialActive(true);
         }
-        checkAccess(uid);
+        checkAccess(uid, session.user.created_at);
         setAuthStatus(done ? "ready" : "onboarding");
       } else {
         setAuthStatus("login");
@@ -229,7 +238,7 @@ function App() {
           if (window.injectTutorialSeedData) window.injectTutorialSeedData();
           setTutorialActive(true);
         }
-        checkAccess(uid);
+        checkAccess(uid, session.user.created_at);
         window.posthog?.identify(uid, { email: session.user.email });
         window.posthog?.capture("user_logged_in");
         setAuthStatus(done ? "ready" : "onboarding");
