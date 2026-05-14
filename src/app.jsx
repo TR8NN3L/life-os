@@ -873,7 +873,7 @@ function App() {
           }}
         />
       )}
-      {!focusMode && <Sidebar route={route} setRoute={setRoute} pov={pov} setPov={setPov} userPovs={userPovs} setUserPovs={setUserPovs} onOpenPaywall={() => setHasAccess(false)} />}
+      {!focusMode && <Sidebar route={route} setRoute={setRoute} pov={pov} setPov={setPov} userPovs={userPovs} setUserPovs={setUserPovs} onOpenPaywall={() => setHasAccess(false)} onAccessGranted={() => setHasAccess(true)} />}
       <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--bg)" }}>
         {focusMode && (
           // tiny top bar with exit
@@ -1068,7 +1068,7 @@ function App() {
               ? (localStorage.getItem("lifeos_guest") === "1" ? "Gast-Zugang" : "Pro-Zugang aktiv ✓")
               : "Kein aktiver Zugang"}
           </div>
-          <button onClick={() => setHasAccess(false)} style={{
+          <button onClick={() => window.__lifeos_openSettings?.("abo")} style={{
             width: "100%", padding: "8px 0", background: "var(--accent)",
             color: "#fff", border: "none", borderRadius: 4,
             fontSize: 11, fontWeight: 700, letterSpacing: "0.12em",

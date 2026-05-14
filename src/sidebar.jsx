@@ -82,16 +82,23 @@ function PovModal({ initial, onSave, onDelete, onClose }) {
 }
 
 // ── Settings Modal ────────────────────────────────────────────────────────────
-function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, pushStatus, setPushStatus, pushLoading, setPushLoading, signOut, resetAllData, onOpenPaywall }) {
+function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, pushStatus, setPushStatus, pushLoading, setPushLoading, signOut, resetAllData, onOpenPaywall, initialTab, onAccessGranted }) {
   const [editingName,    setEditingName]    = React.useState(false);
   const [nameInput,      setNameInput]      = React.useState(userName);
-  const [activeTab,      setActiveTab]      = React.useState("profile"); // profile | ai | notifications | kalender | system
+  const [activeTab,      setActiveTab]      = React.useState(initialTab || "profile");
   const [calUserId,      setCalUserId]      = React.useState(null);
   const [calCopied,      setCalCopied]      = React.useState(false);
   const [userEmail,      setUserEmail]      = React.useState(null);
   const [pwResetSent,    setPwResetSent]    = React.useState(false);
   const [pwResetLoading, setPwResetLoading] = React.useState(false);
   const [pwResetError,   setPwResetError]   = React.useState(null);
+  // Abo-Tab state
+  const [aboSubTab,  setAboSubTab]  = React.useState("code");
+  const [aboCode,    setAboCode]    = React.useState("");
+  const [aboLoading, setAboLoading] = React.useState(false);
+  const [aboErr,     setAboErr]     = React.useState(null);
+  const [aboSuccess, setAboSuccess] = React.useState(false);
+  const [aboPlan,    setAboPlan]    = React.useState("monthly");
 
   React.useEffect(() => {
     window._supabase?.auth?.getSession().then(({ data }) => {
@@ -138,11 +145,46 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
 
   const tabs = [
     { id: "profile",       label: "Profil" },
+    { id: "abo",           label: "Abo & Zugang" },
     { id: "ai",            label: "KI" },
     { id: "notifications", label: "Push" },
     { id: "kalender",      label: "Kalender" },
     { id: "system",        label: "System" },
   ];
+
+  const redeemAboCode = async () => {
+    const c = aboCode.trim();
+    if (!c || aboLoading) return;
+    setAboLoading(true); setAboErr(null);
+    try {
+      const r = await fetch("/api/redeem-beta", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: calUserId, email: userEmail, code: c }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Ungültiger Code");
+      setAboSuccess(true);
+      localStorage.setItem("lifeos_access", "1");
+      localStorage.setItem("lifeos_access_ts", String(Date.now()));
+      window.posthog?.capture("paywall_code_redeemed", { source: "settings" });
+      setTimeout(() => { onAccessGranted && onAccessGranted(); onClose(); }, 1400);
+    } catch (e) { setAboErr(e.message); } finally { setAboLoading(false); }
+  };
+
+  const startAboCheckout = async () => {
+    if (aboLoading) return;
+    setAboLoading(true); setAboErr(null);
+    try {
+      const r = await fetch("/api/create-checkout", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: calUserId, email: userEmail, plan: aboPlan }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Fehler");
+      window.posthog?.capture("paywall_checkout_started", { plan: aboPlan, source: "settings" });
+      window.location.href = d.url;
+    } catch (e) { setAboErr(e.message); setAboLoading(false); }
+  };
 
   const renderSection = (title, children) => (
     <div style={{ marginBottom: 28 }}>
@@ -354,6 +396,121 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
               </div>
             )}
 
+            {/* ── ABO & ZUGANG ── */}
+            {activeTab === "abo" && (
+              <div style={{ padding: "4px 0" }}>
+                {/* Sub-tabs */}
+                <div style={{ display: "flex", background: "var(--bg)", border: "1px solid var(--line)", padding: 3, marginBottom: 24 }}>
+                  {[["code", "Beta-Code"], ["pay", "Pro freischalten"]].map(function(item) {
+                    return React.createElement("button", {
+                      key: item[0],
+                      onClick: function() { setAboSubTab(item[0]); setAboErr(null); },
+                      style: {
+                        flex: 1, padding: "8px 0", border: "none", cursor: "pointer",
+                        fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
+                        background: aboSubTab === item[0] ? "var(--accent)" : "transparent",
+                        color: aboSubTab === item[0] ? "#0a0a0c" : "var(--text-faint)",
+                        transition: "all .15s", fontFamily: "inherit",
+                      }
+                    }, item[1].toUpperCase());
+                  })}
+                </div>
+
+                {/* Beta-Code */}
+                {aboSubTab === "code" && !aboSuccess && (
+                  <div>
+                    <div style={{ fontSize: 10.5, color: "var(--text-faint)", letterSpacing: "0.14em", fontWeight: 700, marginBottom: 8 }}>ZUGANGSCODE</div>
+                    <input
+                      autoFocus value={aboCode}
+                      onChange={function(e) { setAboCode(e.target.value); }}
+                      onKeyDown={function(e) { if (e.key === "Enter") redeemAboCode(); }}
+                      placeholder="z.B. LifeOS BETA 2026"
+                      style={{
+                        width: "100%", background: "var(--bg)", border: "1px solid var(--line)",
+                        borderLeft: "2px solid var(--accent)", color: "var(--text)",
+                        padding: "11px 14px", fontSize: 14, fontFamily: "'JetBrains Mono', monospace",
+                        letterSpacing: "0.06em", outline: "none", boxSizing: "border-box", marginBottom: 10,
+                      }}
+                    />
+                    {aboErr && (
+                      <div style={{ fontSize: 11.5, color: "var(--danger)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                        <Icon name="x" size={12} color="var(--danger)" />
+                        {aboErr}
+                      </div>
+                    )}
+                    <button onClick={redeemAboCode} disabled={aboLoading || !aboCode.trim()} style={{
+                      width: "100%", padding: "12px",
+                      background: aboCode.trim() && !aboLoading ? "var(--accent)" : "var(--panel)",
+                      color: aboCode.trim() && !aboLoading ? "#0a0a0c" : "var(--text-faint)",
+                      border: "1px solid " + (aboCode.trim() ? "var(--accent)" : "var(--line)"),
+                      fontWeight: 700, fontSize: 11, letterSpacing: "0.18em",
+                      cursor: aboCode.trim() && !aboLoading ? "pointer" : "default",
+                      fontFamily: "inherit",
+                    }}>{aboLoading ? "WIRD GEPRÜFT…" : "EINLÖSEN →"}</button>
+                    <div style={{ marginTop: 12, fontSize: 10.5, color: "var(--text-faint)", letterSpacing: "0.04em" }}>
+                      Beta-Code erhalten? Hier eingeben — sofortiger Zugang, kein Zahlungsmittel nötig.
+                    </div>
+                  </div>
+                )}
+
+                {aboSubTab === "code" && aboSuccess && (
+                  <div style={{ textAlign: "center", padding: "24px 0" }}>
+                    <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--accent)", margin: "0 auto 14px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Icon name="check" size={22} color="#0a0a0c" strokeWidth={2.5} />
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.16em", color: "var(--accent)" }}>ZUGANG AKTIVIERT</div>
+                    <div style={{ fontSize: 11.5, color: "var(--text-faint)", marginTop: 6 }}>Wird geladen…</div>
+                  </div>
+                )}
+
+                {/* Pro freischalten */}
+                {aboSubTab === "pay" && (
+                  <div>
+                    <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                      {[
+                        { id: "monthly", label: "MONATLICH", price: "9,99 €", sub: "pro Monat", badge: null },
+                        { id: "yearly",  label: "JÄHRLICH",  price: "79,99 €", sub: "pro Jahr",  badge: "33% SPAREN" },
+                      ].map(function(p) {
+                        return React.createElement("button", {
+                          key: p.id,
+                          onClick: function() { setAboPlan(p.id); },
+                          style: {
+                            flex: 1, padding: "14px 12px", cursor: "pointer", textAlign: "left",
+                            position: "relative",
+                            background: aboPlan === p.id ? "var(--accent-soft)" : "var(--bg)",
+                            border: "1px solid " + (aboPlan === p.id ? "var(--accent-line)" : "var(--line)"),
+                            fontFamily: "inherit",
+                          }
+                        },
+                          p.badge && React.createElement("span", { style: {
+                            position: "absolute", top: -8, right: 8,
+                            background: "var(--accent)", color: "#0a0a0c",
+                            fontSize: 7.5, fontWeight: 800, letterSpacing: "0.12em", padding: "2px 6px",
+                          }}, p.badge),
+                          React.createElement("div", { style: { fontSize: 9, letterSpacing: "0.16em", fontWeight: 700, color: aboPlan === p.id ? "var(--accent)" : "var(--text-faint)", marginBottom: 6 }}, p.label),
+                          React.createElement("div", { style: { fontSize: 20, fontWeight: 800, color: "var(--text)", letterSpacing: "-0.01em" }}, p.price),
+                          React.createElement("div", { style: { fontSize: 10, color: "var(--text-faint)", marginTop: 2 }}, p.sub)
+                        );
+                      })}
+                    </div>
+                    {aboErr && (
+                      <div style={{ fontSize: 11.5, color: "var(--danger)", marginBottom: 10 }}>{aboErr}</div>
+                    )}
+                    <button onClick={startAboCheckout} disabled={aboLoading} style={{
+                      width: "100%", padding: "12px",
+                      background: aboLoading ? "var(--panel)" : "var(--accent)",
+                      color: aboLoading ? "var(--text-faint)" : "#0a0a0c",
+                      border: "none", fontWeight: 700, fontSize: 11, letterSpacing: "0.18em",
+                      cursor: aboLoading ? "default" : "pointer", fontFamily: "inherit",
+                    }}>{aboLoading ? "WIRD GELADEN…" : "ZU STRIPE →"}</button>
+                    <div style={{ marginTop: 10, fontSize: 10, color: "var(--text-faint)", textAlign: "center" }}>
+                      Sichere Zahlung via Stripe · Jederzeit kündbar
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* ── KALENDER ── */}
             {activeTab === "kalender" && (
               <div>
@@ -459,7 +616,7 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
                   }}>DATEN ZURÜCKSETZEN</button>
                 )}
                 {renderRow("Abo & Zugang", "Beta-Code einlösen oder auf Pro upgraden.",
-                  <button onClick={() => { onClose(); onOpenPaywall && onOpenPaywall(); }} style={{
+                  <button onClick={() => setActiveTab("abo")} style={{
                     width: "100%", padding: "9px 0", background: "var(--accent-soft)",
                     border: "1px solid var(--accent-line)", color: "var(--accent)",
                     fontSize: 11, letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
@@ -482,8 +639,17 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
   );
 }
 
-function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs, onOpenPaywall }) {
-  const [settingsOpen, setSettingsOpen] = React.useState(false);
+function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs, onOpenPaywall, onAccessGranted }) {
+  const [settingsOpen,      setSettingsOpen]      = React.useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = React.useState("profile");
+
+  React.useEffect(function() {
+    window.__lifeos_openSettings = function(tab) {
+      setSettingsInitialTab(tab || "profile");
+      setSettingsOpen(true);
+    };
+    return function() { delete window.__lifeos_openSettings; };
+  }, []);
   const [povModal, setPovModal]         = React.useState(null); // null | "add" | {id,...}
   const [userName, setUserName]         = React.useState(() => {
     const raw = LS.getItem("lifeos_user_name") || "";
@@ -746,6 +912,8 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs, onOpenPa
           signOut={signOut}
           resetAllData={resetAllData}
           onOpenPaywall={onOpenPaywall}
+          initialTab={settingsInitialTab}
+          onAccessGranted={onAccessGranted}
         />
       )}
 
