@@ -168,6 +168,8 @@ function App() {
 
   // Paywall launch date — accounts created before this date get automatic beta access
   const PAYWALL_LAUNCH = "2026-05-14";
+  // Free trial after tutorial: 7 days
+  const TRIAL_DAYS = 7;
 
   const checkAccess = React.useCallback(async (userId, createdAt) => {
     // Guests bypass paywall
@@ -176,6 +178,11 @@ function App() {
     if (createdAt && createdAt.slice(0, 10) < PAYWALL_LAUNCH) {
       localStorage.setItem("lifeos_access", "1");
       localStorage.setItem("lifeos_access_ts", String(Date.now()));
+      setHasAccess(true); return;
+    }
+    // Free trial: 7 days from first post-tutorial app open (trial_start written in render gate)
+    const trialStart = localStorage.getItem("lifeos_trial_start");
+    if (trialStart && Date.now() - Number(trialStart) < TRIAL_DAYS * 24 * 3600 * 1000) {
       setHasAccess(true); return;
     }
     // Cache: valid 6h
@@ -796,6 +803,11 @@ function App() {
       setAuthStatus("onboarding");
     }} />
   );
+  // Start free trial clock on first post-tutorial open
+  if (authStatus === "ready" && !localStorage.getItem("lifeos_trial_start")) {
+    localStorage.setItem("lifeos_trial_start", String(Date.now()));
+  }
+
   if (authStatus === "ready" && !hasAccess) return (
     <PaywallScreen
       userId={authUser?.id || ""}

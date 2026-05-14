@@ -99,10 +99,10 @@ function PaywallScreen({ userId, email, onAccessGranted }) {
 
         {/* Heading */}
         <h1 style={{ margin: "0 0 8px", fontSize: 30, fontWeight: 800, letterSpacing: "-0.01em", color: "var(--text)", lineHeight: 1.1 }}>
-          Zugang aktivieren
+          Lust auf mehr?
         </h1>
         <p style={{ margin: "0 0 32px", fontSize: 13, color: "var(--text-faint)", lineHeight: 1.6 }}>
-          Beta-Code einlösen oder direkt abonnieren.
+          Deine kostenlose Testphase ist abgelaufen. Beta-Code einlösen oder Pro freischalten.
         </p>
 
         {/* Tab toggle */}
