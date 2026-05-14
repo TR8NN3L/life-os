@@ -1061,6 +1061,20 @@ function App() {
             value={tweaks.showTruthLoop}
             onChange={(v) => setTweak("showTruthLoop", v)} />
         </TweakSection>
+
+        <TweakSection title="Account">
+          <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 8 }}>
+            {hasAccess
+              ? (localStorage.getItem("lifeos_guest") === "1" ? "Gast-Zugang" : "Pro-Zugang aktiv ✓")
+              : "Kein aktiver Zugang"}
+          </div>
+          <button onClick={() => setHasAccess(false)} style={{
+            width: "100%", padding: "8px 0", background: "var(--accent)",
+            color: "#fff", border: "none", borderRadius: 4,
+            fontSize: 11, fontWeight: 700, letterSpacing: "0.12em",
+            cursor: "pointer",
+          }}>UPGRADE / BETA-CODE →</button>
+        </TweakSection>
       </TweaksPanel>
     </div>
   );
