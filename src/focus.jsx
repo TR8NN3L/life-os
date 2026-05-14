@@ -177,28 +177,33 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "var(--bg)" }}>
 
-      {/* ── Top bar ── */}
-      <div style={{ padding: "16px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div className="uppercase-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <Icon name="zap" size={11} color="var(--text-faint)" />
-            Focus
-          </div>
+      {/* ── Top bar — 3 columns: [spacer for EXIT btn | label | tabs+pomo] ── */}
+      <div style={{ padding: "16px 28px 16px 170px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        {/* Left: Focus label */}
+        <div className="uppercase-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Icon name="zap" size={11} color="var(--text-faint)" />
+          Focus
+          <span style={{ marginLeft: 10, color: "var(--line)", fontWeight: 300 }}>|</span>
+          <span style={{ color: "var(--text-faint)", fontWeight: 400, letterSpacing: "0.08em", fontSize: 10 }}>
+            {freeMode ? "Free Flow · Kein Task nötig" : "Single-Task · No Distractions"}
+          </span>
+        </div>
+
+        {/* Right: Mode tabs + Pomodoro */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {/* Mode tabs */}
-          <div style={{ display: "flex", gap: 2, marginLeft: 16, background: "var(--panel)", border: "1px solid var(--line)", padding: 3 }}>
+          <div style={{ display: "flex", gap: 2, background: "var(--panel)", border: "1px solid var(--line)", padding: 3 }}>
             {[["task", "TASK"], ["free", "FREE FLOW"]].map(([id, label]) => (
               <button key={id} onClick={() => { setFreeMode(id === "free"); if (freeRunning) stopFree(); if (isRunning) setActiveTaskId(null); }}
                 style={{
-                  padding: "4px 12px", border: "none", cursor: "pointer", fontSize: 9.5, fontWeight: 700, letterSpacing: "0.14em",
+                  padding: "5px 14px", border: "none", cursor: "pointer", fontSize: 9.5, fontWeight: 700, letterSpacing: "0.14em",
                   background: (id === "free") === freeMode ? "var(--accent)" : "transparent",
                   color: (id === "free") === freeMode ? "#0a0a0c" : "var(--text-faint)",
                   transition: "all .15s",
                 }}>{label}</button>
             ))}
           </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {/* Pomodoro toggle — only in task mode */}
+          {/* Pomodoro — only in task mode */}
           {!freeMode && (
             <button
               onClick={() => { setPomodoroMode(m => !m); if (isRunning) setActiveTaskId(null); resetPomo(); }}
@@ -210,9 +215,6 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
               }}
             >🍅 POMODORO{pomodoroMode ? " AN" : ""}</button>
           )}
-          <div className="uppercase-label" style={{ color: "var(--text-dim)" }}>
-            {freeMode ? "Free Flow · Kein Task nötig" : "Single-Task · No Distractions"}
-          </div>
         </div>
       </div>
 
