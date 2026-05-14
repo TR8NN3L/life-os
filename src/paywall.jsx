@@ -11,6 +11,11 @@ function PaywallScreen({ userId, email, onAccessGranted }) {
   const [err,       setErr]       = React.useState(null);
   const [success,   setSuccess]   = React.useState(false);
 
+  // Track paywall view once on mount
+  React.useEffect(() => {
+    window.posthog?.capture("paywall_viewed");
+  }, []);
+
   // Handle redirect back from Stripe with ?checkout=success
   React.useEffect(() => {
     const p = new URLSearchParams(window.location.search);
@@ -34,6 +39,7 @@ function PaywallScreen({ userId, email, onAccessGranted }) {
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Unbekannter Fehler");
       setSuccess(true);
+      window.posthog?.capture("paywall_code_redeemed");
       // Cache access locally
       localStorage.setItem("lifeos_access", "1");
       localStorage.setItem("lifeos_access_ts", String(Date.now()));
@@ -56,6 +62,7 @@ function PaywallScreen({ userId, email, onAccessGranted }) {
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Unbekannter Fehler");
+      window.posthog?.capture("paywall_checkout_started", { plan });
       window.location.href = d.url;
     } catch (e) {
       setErr(e.message);

@@ -230,8 +230,11 @@ function App() {
           setTutorialActive(true);
         }
         checkAccess(uid);
+        window.posthog?.identify(uid, { email: session.user.email });
+        window.posthog?.capture("user_logged_in");
         setAuthStatus(done ? "ready" : "onboarding");
       } else if (event === "SIGNED_OUT") {
+        window.posthog?.reset();
         setAuthUser(null);
         localStorage.removeItem("lifeos_access");
         localStorage.removeItem("lifeos_access_ts");
@@ -310,6 +313,9 @@ function App() {
   });
 
   React.useEffect(() => { LS.setItem("lifeos_pov", pov); }, [pov]);
+  React.useEffect(() => {
+    window.posthog?.capture("$pageview", { route, pov });
+  }, [route]);
   React.useEffect(() => { LS.setItem("lifeos_active", activeTaskId || ""); }, [activeTaskId]);
   React.useEffect(() => { LS.setItem("lifeos_times", JSON.stringify(taskTimes)); }, [taskTimes]);
 
@@ -390,6 +396,7 @@ function App() {
     const baseTime  = taskTimes[activeTaskId] ?? 0;
     const startedAt = Date.now();
     localStorage.setItem("lifeos_timer_start", JSON.stringify({ taskId: activeTaskId, startedAt, baseTime }));
+    window.posthog?.capture("timer_started", { task_id: activeTaskId, pov });
 
     let lastDailyTotal = baseTime; // track how many secs already written to daily log
 
@@ -410,7 +417,11 @@ function App() {
         }
       } catch {}
     }, 500); // 2× per second for smooth display; accuracy comes from Date.now(), not tick rate
-    return () => clearInterval(id);
+    return () => {
+      clearInterval(id);
+      const finalSecs = baseTime + Math.floor((Date.now() - startedAt) / 1000);
+      window.posthog?.capture("timer_stopped", { task_id: activeTaskId, duration_secs: finalSecs, pov });
+    };
   }, [activeTaskId]);
 
   // ── Push Notifications ──────────────────────────────────────────────────────

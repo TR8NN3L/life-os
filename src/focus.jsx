@@ -45,6 +45,7 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
     freeBaseTime.current  = 0;
     freeStartedAt.current = Date.now();
     setFreeSecs(0); setFreeRunning(true); setShowFreeNote(false); setFreeNote("");
+    window.posthog?.capture("free_flow_started", { proj_id: freeProjId });
   };
 
   const stopFree = () => {
@@ -70,6 +71,7 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
     } catch {}
     setFreeSavedSecs(dur);
     setShowFreeNote(true);
+    window.posthog?.capture("free_flow_stopped", { proj_id: freeProjId, duration_secs: dur });
   };
 
   const saveFreeNote = () => {
