@@ -261,6 +261,7 @@ function getFreeUsage() {
 
 // Returns true if allowed (and increments counter), false if limit hit
 function checkFreeLimit(feature) {
+  if (window.__lifeos_hasAccess) return true; // Pro users always allowed
   const usage = getFreeUsage();
   const limit = FREE_LIMITS[feature];
   if (!limit) return true; // unknown feature → allow

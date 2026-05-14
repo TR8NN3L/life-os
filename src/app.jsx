@@ -170,6 +170,8 @@ function App() {
   const [upgradeFeature, setUpgradeFeature] = React.useState(null); // null = hidden
 
   React.useEffect(() => {
+    // Make hasAccess readable globally so limit checks can bypass for Pro users
+    window.__lifeos_hasAccess = hasAccess;
     window.triggerUpgrade = (feature) => {
       if (hasAccess) return; // Pro users never see the modal
       window.posthog?.capture("upgrade_modal_shown", { feature });
