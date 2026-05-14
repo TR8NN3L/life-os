@@ -82,7 +82,7 @@ function PovModal({ initial, onSave, onDelete, onClose }) {
 }
 
 // ── Settings Modal ────────────────────────────────────────────────────────────
-function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, pushStatus, setPushStatus, pushLoading, setPushLoading, signOut, resetAllData }) {
+function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, pushStatus, setPushStatus, pushLoading, setPushLoading, signOut, resetAllData, onOpenPaywall }) {
   const [editingName,    setEditingName]    = React.useState(false);
   const [nameInput,      setNameInput]      = React.useState(userName);
   const [activeTab,      setActiveTab]      = React.useState("profile"); // profile | ai | notifications | kalender | system
@@ -458,6 +458,13 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
                     fontSize: 11, letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
                   }}>DATEN ZURÜCKSETZEN</button>
                 )}
+                {renderRow("Abo & Zugang", "Beta-Code einlösen oder auf Pro upgraden.",
+                  <button onClick={() => { onClose(); onOpenPaywall && onOpenPaywall(); }} style={{
+                    width: "100%", padding: "9px 0", background: "var(--accent-soft)",
+                    border: "1px solid var(--accent-line)", color: "var(--accent)",
+                    fontSize: 11, letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                  }}>UPGRADE / BETA-CODE →</button>
+                )}
                 {renderRow("Account", "Meldet dich aus diesem Gerät ab.",
                   <button onClick={() => { signOut(); onClose(); }} style={{
                     width: "100%", padding: "9px 0", background: "var(--danger-soft)",
@@ -475,7 +482,7 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
   );
 }
 
-function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs }) {
+function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs, onOpenPaywall }) {
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [povModal, setPovModal]         = React.useState(null); // null | "add" | {id,...}
   const [userName, setUserName]         = React.useState(() => {
@@ -738,6 +745,7 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs }) {
           setPushLoading={setPushLoading}
           signOut={signOut}
           resetAllData={resetAllData}
+          onOpenPaywall={onOpenPaywall}
         />
       )}
 

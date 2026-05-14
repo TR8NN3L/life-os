@@ -873,7 +873,7 @@ function App() {
           }}
         />
       )}
-      {!focusMode && <Sidebar route={route} setRoute={setRoute} pov={pov} setPov={setPov} userPovs={userPovs} setUserPovs={setUserPovs} />}
+      {!focusMode && <Sidebar route={route} setRoute={setRoute} pov={pov} setPov={setPov} userPovs={userPovs} setUserPovs={setUserPovs} onOpenPaywall={() => setHasAccess(false)} />}
       <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--bg)" }}>
         {focusMode && (
           // tiny top bar with exit
