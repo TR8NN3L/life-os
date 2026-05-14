@@ -249,6 +249,10 @@ function App() {
       if (event === "SIGNED_IN" && session?.user?.id) {
         const uid = session.user.id;
         setAuthUser({ id: uid, email: session.user.email });
+        // Clear stale data from any previous user before loading this user's data
+        Object.keys(localStorage)
+          .filter(k => k.startsWith("lifeos_"))
+          .forEach(k => localStorage.removeItem(k));
         const { data } = await window._supabase.from("user_data").select("key").limit(1);
         if (!data || data.length === 0) await window.sbAuth.pushLocal(uid);
         else { await window.sbAuth.syncDown(uid); reloadPovsFromLS(); }
@@ -264,8 +268,10 @@ function App() {
       } else if (event === "SIGNED_OUT") {
         window.posthog?.reset();
         setAuthUser(null);
-        localStorage.removeItem("lifeos_access");
-        localStorage.removeItem("lifeos_access_ts");
+        // Wipe ALL lifeos data — next user must not see previous user's content
+        Object.keys(localStorage)
+          .filter(k => k.startsWith("lifeos_"))
+          .forEach(k => localStorage.removeItem(k));
         setHasAccess(false);
         setAuthStatus("login");
       }
