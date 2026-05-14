@@ -367,7 +367,14 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
               fontSize: 10, letterSpacing: "0.16em", fontWeight: 700, cursor: "pointer",
             }}>ARCHIV ({archivedProjects.length})</button>
           )}
-          <button onClick={() => { setNewModalPov(mcFilter !== "alle" ? mcFilter : null); setShowNewModal(true); }} style={{
+          <button onClick={() => {
+            // Free-tier limit: max 2 projects
+            if (window.checkFreeLimit && !window.checkFreeLimit("projects")) {
+              window.triggerUpgrade?.("projects");
+              return;
+            }
+            setNewModalPov(mcFilter !== "alle" ? mcFilter : null); setShowNewModal(true);
+          }} style={{
             padding: "8px 16px", background: "var(--accent)", color: "#0a0a0c",
             border: "none", fontSize: 10.5, letterSpacing: "0.16em", fontWeight: 700, cursor: "pointer",
             display: "flex", alignItems: "center", gap: 7,

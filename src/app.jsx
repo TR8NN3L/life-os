@@ -166,6 +166,18 @@ function App() {
   const [hasAccess, setHasAccess] = React.useState(() => localStorage.getItem("lifeos_access") === "1");
   const [authUser,  setAuthUser]  = React.useState(null); // { id, email }
 
+  // Upgrade modal — triggered by window.triggerUpgrade(feature)
+  const [upgradeFeature, setUpgradeFeature] = React.useState(null); // null = hidden
+
+  React.useEffect(() => {
+    window.triggerUpgrade = (feature) => {
+      if (hasAccess) return; // Pro users never see the modal
+      window.posthog?.capture("upgrade_modal_shown", { feature });
+      setUpgradeFeature(feature);
+    };
+    return () => { delete window.triggerUpgrade; };
+  }, [hasAccess]);
+
   // Paywall launch date — accounts created before this date get automatic beta access
   const PAYWALL_LAUNCH = "2026-05-14";
   // Free trial after tutorial: 7 days
@@ -835,6 +847,20 @@ function App() {
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}
          data-screen-label={"Life OS · " + route}>
+      {upgradeFeature && (
+        <UpgradeModal
+          feature={upgradeFeature}
+          userId={authUser?.id || ""}
+          email={authUser?.email || ""}
+          onClose={() => setUpgradeFeature(null)}
+          onAccessGranted={() => {
+            localStorage.setItem("lifeos_access", "1");
+            localStorage.setItem("lifeos_access_ts", String(Date.now()));
+            setHasAccess(true);
+            setUpgradeFeature(null);
+          }}
+        />
+      )}
       {!focusMode && <Sidebar route={route} setRoute={setRoute} pov={pov} setPov={setPov} userPovs={userPovs} setUserPovs={setUserPovs} />}
       <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--bg)" }}>
         {focusMode && (

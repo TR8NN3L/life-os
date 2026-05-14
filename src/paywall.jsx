@@ -246,3 +246,191 @@ function PaywallScreen({ userId, email, onAccessGranted }) {
 }
 
 window.PaywallScreen = PaywallScreen;
+
+// ── Free-tier limit tracking ──────────────────────────────────────────────────
+// Stored in localStorage as lifeos_free_usage = { okr_gen: N, mission_gen: N, projects: N }
+const FREE_LIMITS = {
+  okr_gen:     { max: 1, label: "OKR-Generierung" },
+  mission_gen: { max: 1, label: "Missions-Generator" },
+  projects:    { max: 2, label: "Projekte" },
+};
+
+function getFreeUsage() {
+  try { return JSON.parse(localStorage.getItem("lifeos_free_usage") || "{}"); } catch { return {}; }
+}
+
+// Returns true if allowed (and increments counter), false if limit hit
+function checkFreeLimit(feature) {
+  const usage = getFreeUsage();
+  const limit = FREE_LIMITS[feature];
+  if (!limit) return true; // unknown feature → allow
+  const count = usage[feature] || 0;
+  if (count >= limit.max) return false;
+  usage[feature] = count + 1;
+  localStorage.setItem("lifeos_free_usage", JSON.stringify(usage));
+  return true;
+}
+
+window.checkFreeLimit = checkFreeLimit;
+
+// ── Upgrade Modal ─────────────────────────────────────────────────────────────
+// Feature-specific copy shown when a free limit is hit.
+const UPGRADE_COPY = {
+  okr_gen:     { icon: "crosshair", title: "OKRs generieren — Pro Feature", sub: "Du hast deine kostenlose Generierung verbraucht." },
+  mission_gen: { icon: "wand",      title: "Missions-Generator — Pro Feature", sub: "Du hast deinen kostenlosen Durchlauf verbraucht." },
+  projects:    { icon: "layers",    title: "Mehr Projekte — Pro Feature", sub: "Im Free-Plan sind max. 2 Projekte möglich." },
+  default:     { icon: "zap",       title: "Pro Feature", sub: "Diese Funktion ist nur mit Pro verfügbar." },
+};
+
+function UpgradeModal({ feature, userId, email, onClose, onAccessGranted }) {
+  const [tab,     setTab]     = React.useState("code");
+  const [code,    setCode]    = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [err,     setErr]     = React.useState(null);
+  const [success, setSuccess] = React.useState(false);
+
+  const copy = UPGRADE_COPY[feature] || UPGRADE_COPY.default;
+
+  const redeemCode = async () => {
+    const c = code.trim();
+    if (!c || loading) return;
+    setLoading(true); setErr(null);
+    try {
+      const r = await fetch("/api/redeem-beta", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, email, code: c }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Ungültiger Code");
+      setSuccess(true);
+      localStorage.setItem("lifeos_access", "1");
+      localStorage.setItem("lifeos_access_ts", String(Date.now()));
+      window.posthog?.capture("paywall_code_redeemed", { source: "upgrade_modal", feature });
+      setTimeout(() => { onAccessGranted(); onClose(); }, 1200);
+    } catch (e) { setErr(e.message); } finally { setLoading(false); }
+  };
+
+  const goStripe = async () => {
+    if (loading) return;
+    setLoading(true); setErr(null);
+    try {
+      const r = await fetch("/api/create-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, email, plan: "monthly" }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Fehler");
+      window.posthog?.capture("paywall_checkout_started", { source: "upgrade_modal", feature });
+      window.location.href = d.url;
+    } catch (e) { setErr(e.message); setLoading(false); }
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(10,10,12,0.82)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      zIndex: 9999, padding: "0 20px", backdropFilter: "blur(6px)",
+    }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{
+        width: "100%", maxWidth: 420, background: "var(--panel)",
+        border: "1px solid var(--line)", padding: "32px 28px", position: "relative",
+      }}>
+        {/* Close */}
+        <button onClick={onClose} style={{
+          position: "absolute", top: 14, right: 14, background: "none",
+          border: "none", cursor: "pointer", padding: 4, color: "var(--text-faint)",
+        }}>
+          <Icon name="x" size={16} color="var(--text-faint)" />
+        </button>
+
+        {/* Icon + headline */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+          <div style={{
+            width: 36, height: 36, background: "var(--accent-soft)",
+            border: "1px solid var(--accent-line)",
+            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+          }}>
+            <Icon name={copy.icon} size={16} color="var(--accent)" />
+          </div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.01em" }}>{copy.title}</div>
+            <div style={{ fontSize: 11.5, color: "var(--text-faint)", marginTop: 2 }}>{copy.sub}</div>
+          </div>
+        </div>
+
+        {/* Tab toggle */}
+        <div style={{ display: "flex", background: "var(--bg)", border: "1px solid var(--line)", padding: 3, marginBottom: 20 }}>
+          {[["code", "Beta-Code"], ["pay", "Pro freischalten"]].map(([id, label]) => (
+            <button key={id} onClick={() => { setTab(id); setErr(null); }} style={{
+              flex: 1, padding: "8px 0", border: "none", cursor: "pointer",
+              fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
+              background: tab === id ? "var(--accent)" : "transparent",
+              color: tab === id ? "#0a0a0c" : "var(--text-faint)",
+              transition: "all .15s",
+            }}>{label.toUpperCase()}</button>
+          ))}
+        </div>
+
+        {/* Code tab */}
+        {tab === "code" && !success && (
+          <div>
+            <input autoFocus value={code} onChange={e => setCode(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && redeemCode()}
+              placeholder="z.B. BETA100"
+              style={{
+                width: "100%", background: "var(--bg)", border: "1px solid var(--line)",
+                borderLeft: "2px solid var(--accent)",
+                color: "var(--text)", padding: "11px 14px", fontSize: 15,
+                fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.06em",
+                outline: "none", boxSizing: "border-box", marginBottom: 10,
+              }}
+            />
+            {err && <div style={{ fontSize: 11.5, color: "var(--danger)", marginBottom: 10 }}>{err}</div>}
+            <button onClick={redeemCode} disabled={loading || !code.trim()} style={{
+              width: "100%", padding: "12px",
+              background: code.trim() && !loading ? "var(--accent)" : "var(--panel)",
+              color: code.trim() && !loading ? "#0a0a0c" : "var(--text-faint)",
+              border: `1px solid ${code.trim() ? "var(--accent)" : "var(--line)"}`,
+              fontWeight: 700, fontSize: 10.5, letterSpacing: "0.2em",
+              cursor: code.trim() && !loading ? "pointer" : "default",
+            }}>{loading ? "PRÜFE…" : "EINLÖSEN →"}</button>
+          </div>
+        )}
+
+        {tab === "code" && success && (
+          <div style={{ textAlign: "center", padding: "16px 0" }}>
+            <div style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--accent)", margin: "0 auto 12px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Icon name="check" size={20} color="#0a0a0c" strokeWidth={2.5} />
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", color: "var(--accent)" }}>ZUGANG AKTIVIERT</div>
+          </div>
+        )}
+
+        {/* Pay tab */}
+        {tab === "pay" && (
+          <div>
+            <div style={{ marginBottom: 16, padding: "14px 16px", background: "var(--accent-soft)", border: "1px solid var(--accent-line)" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", letterSpacing: "0.14em", marginBottom: 4 }}>PRO — 9,99 €/MONAT</div>
+              <div style={{ fontSize: 11.5, color: "var(--text-dim)" }}>Alle Features, unbegrenzte Projekte & OKRs, volle Insights. Jederzeit kündbar.</div>
+            </div>
+            {err && <div style={{ fontSize: 11.5, color: "var(--danger)", marginBottom: 10 }}>{err}</div>}
+            <button onClick={goStripe} disabled={loading} style={{
+              width: "100%", padding: "12px",
+              background: loading ? "var(--panel)" : "var(--accent)",
+              color: loading ? "var(--text-faint)" : "#0a0a0c",
+              border: "none", fontWeight: 700, fontSize: 10.5, letterSpacing: "0.2em",
+              cursor: loading ? "default" : "pointer",
+            }}>{loading ? "WIRD GELADEN…" : "JETZT UPGRADEN →"}</button>
+            <div style={{ marginTop: 10, fontSize: 10, color: "var(--text-faint)", textAlign: "center", letterSpacing: "0.04em" }}>
+              Sichere Zahlung via Stripe · Jederzeit kündbar
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+window.UpgradeModal = UpgradeModal;

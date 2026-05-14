@@ -170,6 +170,11 @@ function OKRWizard({ onClose, onSave, defaultPov, customProjects, initialDraft }
   const goNext = () => step < STEPS.length - 1 ? setStep(s => s + 1) : startGeneration();
 
   const startGeneration = async () => {
+    // Free-tier limit: 1 OKR generation
+    if (window.checkFreeLimit && !window.checkFreeLimit("okr_gen")) {
+      window.triggerUpgrade?.("okr_gen");
+      return;
+    }
     setPhase("generating");
     setGenLog([]);
     setGenError(null);

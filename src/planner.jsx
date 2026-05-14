@@ -876,7 +876,7 @@ function Planner() {
             <Icon name="sliders" size={13} strokeWidth={2} />
             TAGE VERTEILEN
           </button>
-          <button onClick={()=>setShowMissionGen(true)} style={{ padding:"9px 16px", background:"transparent", color:"var(--accent)", border:"1px solid var(--accent-line)", fontSize:10.5, fontWeight:700, letterSpacing:"0.16em", cursor:"pointer", display:"flex", alignItems:"center", gap:7 }}>
+          <button onClick={()=>{ if(window.checkFreeLimit && !window.checkFreeLimit("mission_gen")){ window.triggerUpgrade?.("mission_gen"); return; } setShowMissionGen(true); }} style={{ padding:"9px 16px", background:"transparent", color:"var(--accent)", border:"1px solid var(--accent-line)", fontSize:10.5, fontWeight:700, letterSpacing:"0.16em", cursor:"pointer", display:"flex", alignItems:"center", gap:7 }}>
             <Icon name="wand" size={13} color="var(--accent)" strokeWidth={2} />
             MISSIONS-GENERATOR
           </button>
