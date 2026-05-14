@@ -1163,39 +1163,54 @@ function StatsPanel({ taskTimes, pov }) {
   }, [tick, weekStart]);
 
   // ── Project data ─────────────────────────────────────────────────────────
-  const ringProjects = React.useMemo(() => {
-    const povColors = { personal: "#8b5cf6", founder: "#2f8bff", student: "#e11d48", athlete: "#10b981" };
-    const palette   = ["#10b981", "#2f8bff", "#8b5cf6", "#f97316", "#ec4899"];
+  // Helper: map project → stats object (shared by rings + table)
+  const buildProjStats = (proj, i, weekStart, todayDowIdx, allPovColors, palette) => {
+    const taskIds = new Set((proj.objectives || []).flatMap(o => (o.krs || []).flatMap(kr => (kr.tasks || []).map(t => t.id))));
+    const perDaySecs = DAYS_LABEL.map((_, di) => {
+      const d = new Date(weekStart); d.setDate(weekStart.getDate() + di);
+      const key = d.toISOString().slice(0, 10);
+      try {
+        const log = JSON.parse(LS.getItem(`lifeos_daily_${key}`) || "{}");
+        return [...taskIds].reduce((s, id) => s + (log[id] || 0), 0);
+      } catch { return 0; }
+    });
+    const todaySecs   = perDaySecs[todayDowIdx];
+    const weeklySecs  = perDaySecs.reduce((s, v) => s + v, 0);
+    const weeklyTarget = (proj.hoursPerWeek || 0) * 3600;
+    const color = allPovColors[proj.pov] || palette[i % palette.length];
+    return { id: proj.id, title: proj.title, color, hoursPerWeek: proj.hoursPerWeek || 0,
+      todaySecs, weeklySecs, weeklyTarget };
+  };
+
+  const [_allProjStats, _palette, _allPovColors] = React.useMemo(() => {
+    const povColors  = { personal: "#8b5cf6", founder: "#2f8bff", student: "#e11d48", athlete: "#10b981" };
+    const palette    = ["#10b981", "#2f8bff", "#8b5cf6", "#f97316", "#ec4899", "#f59e0b", "#6366f1", "#14b8a6"];
     let userPovs = []; try { userPovs = JSON.parse(LS.getItem("lifeos_user_povs") || "[]"); } catch {}
     const allPovColors = { ...povColors, ...Object.fromEntries(userPovs.map(p => [p.id, p.color])) };
     let archivedIds = new Set(); try { archivedIds = new Set(JSON.parse(LS.getItem("lifeos_archived_projects") || "[]")); } catch {}
     let projs = []; try { projs = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]"); } catch {}
-    return projs
-      .filter(p => !archivedIds.has(p.id) && (p.hoursPerWeek || 0) > 0)
+    const active = projs.filter(p => !archivedIds.has(p.id));
+    return [active, palette, allPovColors];
+  }, [tick, weekStart]);
+
+  // Rings: top 4 projects with hoursPerWeek > 0 (geometric SVG limit)
+  const ringProjects = React.useMemo(() => {
+    return _allProjStats
+      .filter(p => (p.hoursPerWeek || 0) > 0)
       .slice(0, 4)
       .map((proj, i) => {
-        const taskIds = new Set((proj.objectives || []).flatMap(o => (o.krs || []).flatMap(kr => (kr.tasks || []).map(t => t.id))));
-        // Per-day secs for THIS week
-        const perDaySecs = DAYS_LABEL.map((_, di) => {
-          const d = new Date(weekStart); d.setDate(weekStart.getDate() + di);
-          const key = d.toISOString().slice(0, 10);
-          try {
-            const log = JSON.parse(LS.getItem(`lifeos_daily_${key}`) || "{}");
-            return [...taskIds].reduce((s, id) => s + (log[id] || 0), 0);
-          } catch { return 0; }
-        });
-        const todaySecs  = perDaySecs[todayDowIdx];
-        const weeklySecs = perDaySecs.reduce((s, v) => s + v, 0);
-        const weeklyTarget = (proj.hoursPerWeek || 8) * 3600;
-        const color = allPovColors[proj.pov] || palette[i % palette.length];
-        return { id: proj.id, title: proj.title, color, hoursPerWeek: proj.hoursPerWeek || 8,
-          todaySecs, weeklySecs, weeklyTarget };
+        return buildProjStats(proj, i, weekStart, todayDowIdx, _allPovColors, _palette);
       });
+  }, [tick, weekStart]);
+
+  // Table: ALL non-archived projects (no hoursPerWeek filter, no slice cap)
+  const tableProjs = React.useMemo(() => {
+    return _allProjStats.map((proj, i) => buildProjStats(proj, i, weekStart, todayDowIdx, _allPovColors, _palette));
   }, [tick, weekStart]);
 
   // ── Per-project per-day weights ──────────────────────────────────────────
   // { [projId]: [w0..w6] } where wi = fraction of that project's weekly hours
-  const weeklyBudget = ringProjects.reduce((s, p) => s + p.hoursPerWeek, 0);
+  const weeklyBudget = tableProjs.filter(p => p.hoursPerWeek > 0).reduce((s, p) => s + p.hoursPerWeek, 0);
   const DEFAULT_PROJ_WEIGHTS = [0.2, 0.2, 0.2, 0.2, 0.2, 0, 0]; // Mon–Fri equal
   const [projDayWeights, setProjDayWeights] = React.useState(() => {
     try { return JSON.parse(LS.getItem("lifeos_proj_day_weights") || "{}"); } catch { return {}; }
@@ -1213,9 +1228,9 @@ function StatsPanel({ taskTimes, pov }) {
   };
   const resetProjWeights = (projId) => setProjDayWeights(prev => ({ ...prev, [projId]: [...DEFAULT_PROJ_WEIGHTS] }));
 
-  // planPerDay: sum of all project daily allocations
+  // planPerDay: sum of ALL projects with hoursPerWeek set
   const planPerDay = DAYS_LABEL.map((_, i) =>
-    ringProjects.reduce((s, p) => s + p.hoursPerWeek * getProjWeights(p.id)[i], 0)
+    tableProjs.filter(p => p.hoursPerWeek > 0).reduce((s, p) => s + p.hoursPerWeek * getProjWeights(p.id)[i], 0)
   );
   const planTotal = planPerDay.reduce((s, v) => s + v, 0);
 
@@ -1303,49 +1318,51 @@ function StatsPanel({ taskTimes, pov }) {
           </text>
         </svg>
 
-        {/* ── Soll/Ist table ── */}
+        {/* ── Soll/Ist table — ALL active projects ── */}
         <div style={{ minWidth: 0 }}>
-          {ringProjects.length === 0 ? (
+          {tableProjs.length === 0 ? (
             <div style={{ fontSize: 11, color: "var(--text-faint)", fontStyle: "italic", paddingTop: 10 }}>
-              Projekte mit Stunden/Woche aktivieren.
+              Noch keine Projekte erstellt.
             </div>
           ) : (
             <div>
               {/* Headers */}
               <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 54px 54px 54px 54px", gap: "0 6px", paddingBottom: 7, borderBottom: "1px solid var(--line-soft)", marginBottom: 2 }}>
                 <div />
-                {[["HEUTE","SOLL"],["HEUTE","IST"],["WOCHE","SOLL"],["WOCHE","IST"]].map(([a,b],i) => (
-                  <div key={i} style={{ textAlign: "right" }}>
+                {[["HEUTE","SOLL"],["HEUTE","IST"],["WOCHE","SOLL"],["WOCHE","IST"]].map(([a,b],ii) => (
+                  <div key={ii} style={{ textAlign: "right" }}>
                     <div style={{ fontSize: 7, letterSpacing: "0.1em", fontWeight: 700, color: "var(--text-faint)", lineHeight: 1.3 }}>{a}</div>
                     <div style={{ fontSize: 7, letterSpacing: "0.1em", fontWeight: 700, color: "var(--text-faint)", lineHeight: 1.3 }}>{b}</div>
                   </div>
                 ))}
               </div>
-              {ringProjects.map((proj, i) => {
-                // HEUTE SOLL = this project's allocation for today from per-project weights
-                const projWeights   = getProjWeights(proj.id);
-                const dailyTargetH  = proj.hoursPerWeek * projWeights[todayDowIdx];
-                const ds = dailyTargetH.toFixed(1);
-                const di = (proj.todaySecs / 3600).toFixed(1);
-                const ws = proj.hoursPerWeek.toFixed(1);
-                const wi = (proj.weeklySecs / 3600).toFixed(1);
-                const dayOk  = proj.todaySecs / 3600 >= dailyTargetH - 0.05;
-                const weekOk = proj.weeklySecs >= proj.weeklyTarget;
+              {tableProjs.map((proj, i) => {
+                const hasHours    = proj.hoursPerWeek > 0;
+                const projWeights = getProjWeights(proj.id);
+                const dailyTargetH = hasHours ? proj.hoursPerWeek * projWeights[todayDowIdx] : 0;
+                const ds  = hasHours ? dailyTargetH.toFixed(1) + "h" : "–";
+                const di  = (proj.todaySecs / 3600).toFixed(1) + "h";
+                const ws  = hasHours ? proj.hoursPerWeek.toFixed(1) + "h" : "–";
+                const wi  = (proj.weeklySecs / 3600).toFixed(1) + "h";
+                const dayOk  = hasHours && proj.todaySecs / 3600 >= dailyTargetH - 0.05;
+                const weekOk = hasHours && proj.weeklySecs >= proj.weeklyTarget;
                 return (
                   <div key={proj.id} style={{
                     display: "grid", gridTemplateColumns: "minmax(0,1fr) 54px 54px 54px 54px",
                     gap: "0 6px", alignItems: "center",
-                    padding: "8px 0",
-                    borderBottom: i < ringProjects.length - 1 ? "1px solid var(--line-soft)" : "none",
+                    padding: "7px 0",
+                    borderBottom: i < tableProjs.length - 1 ? "1px solid var(--line-soft)" : "none",
+                    opacity: hasHours ? 1 : 0.55,
                   }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
                       <div style={{ width: 6, height: 6, borderRadius: "50%", background: proj.color, flexShrink: 0 }} />
                       <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.title}</span>
+                      {!hasHours && <span style={{ fontSize: 8.5, color: "var(--text-faint)", letterSpacing: "0.08em", flexShrink: 0 }}>Kein Pensum</span>}
                     </div>
-                    <div className="mono" style={{ fontSize: 10.5, color: "var(--text-faint)", textAlign: "right" }}>{ds}h</div>
-                    <div className="mono" style={{ fontSize: 10.5, fontWeight: 700, color: dayOk ? proj.color : "var(--text)", textAlign: "right" }}>{di}h{dayOk ? "✓" : ""}</div>
-                    <div className="mono" style={{ fontSize: 10.5, color: "var(--text-faint)", textAlign: "right" }}>{ws}h</div>
-                    <div className="mono" style={{ fontSize: 10.5, fontWeight: 700, color: weekOk ? proj.color : "var(--text)", textAlign: "right" }}>{wi}h{weekOk ? "✓" : ""}</div>
+                    <div className="mono" style={{ fontSize: 10.5, color: "var(--text-faint)", textAlign: "right" }}>{ds}</div>
+                    <div className="mono" style={{ fontSize: 10.5, fontWeight: 700, color: dayOk ? proj.color : "var(--text)", textAlign: "right" }}>{di}{dayOk ? "✓" : ""}</div>
+                    <div className="mono" style={{ fontSize: 10.5, color: "var(--text-faint)", textAlign: "right" }}>{ws}</div>
+                    <div className="mono" style={{ fontSize: 10.5, fontWeight: 700, color: weekOk ? proj.color : "var(--text)", textAlign: "right" }}>{wi}{weekOk ? "✓" : ""}</div>
                   </div>
                 );
               })}
@@ -1436,7 +1453,7 @@ function StatsPanel({ taskTimes, pov }) {
         </svg>
 
         {/* ── Pro-Projekt Tages-Verteilung — Modal ── */}
-        {editMode && ringProjects.length > 0 && (
+        {editMode && tableProjs.filter(p => p.hoursPerWeek > 0).length > 0 && (
           <div
             onClick={() => setEditMode(false)}
             style={{ position: "fixed", inset: 0, zIndex: 900, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center" }}
@@ -1471,8 +1488,8 @@ function StatsPanel({ taskTimes, pov }) {
                   <div style={{ textAlign: "right", fontSize: 8, fontWeight: 700, color: "var(--text-faint)", letterSpacing: "0.08em" }}>GESAMT</div>
                 </div>
 
-                {/* Per-project rows */}
-                {ringProjects.map(proj => {
+                {/* Per-project rows — only projects with hoursPerWeek */}
+                {tableProjs.filter(p => p.hoursPerWeek > 0).map(proj => {
                   const weights = getProjWeights(proj.id);
                   const totalPct = weights.reduce((s, w) => s + w, 0);
                   const overBudget = totalPct > 1.02;
