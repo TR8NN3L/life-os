@@ -162,6 +162,36 @@ function App() {
   const [authStatus, setAuthStatus] = React.useState("loading");
   const [tutorialActive, setTutorialActive] = React.useState(false);
 
+  // Access gate (subscription or beta code)
+  const [hasAccess, setHasAccess] = React.useState(() => localStorage.getItem("lifeos_access") === "1");
+  const [authUser,  setAuthUser]  = React.useState(null); // { id, email }
+
+  const checkAccess = React.useCallback(async (userId) => {
+    // Guests bypass paywall
+    if (localStorage.getItem("lifeos_guest") === "1") { setHasAccess(true); return; }
+    // Cache: valid 6h
+    const cached   = localStorage.getItem("lifeos_access");
+    const cachedTs = localStorage.getItem("lifeos_access_ts");
+    if (cached === "1" && cachedTs && Date.now() - Number(cachedTs) < 6 * 3600 * 1000) {
+      setHasAccess(true); return;
+    }
+    try {
+      const r = await fetch(`/api/check-access?user_id=${userId}`);
+      const d = await r.json();
+      if (d.access) {
+        localStorage.setItem("lifeos_access", "1");
+        localStorage.setItem("lifeos_access_ts", String(Date.now()));
+        setHasAccess(true);
+      } else {
+        localStorage.removeItem("lifeos_access");
+        setHasAccess(false);
+      }
+    } catch {
+      // Fail open — never lock out on network/server errors
+      setHasAccess(true);
+    }
+  }, []);
+
   const reloadPovsFromLS = () => {
     try { setUserPovs(JSON.parse(LS.getItem("lifeos_user_povs") || "[]")); } catch {}
   };
@@ -171,6 +201,7 @@ function App() {
       const session = await window.sbAuth.getSession();
       if (session?.user?.id) {
         const uid = session.user.id;
+        setAuthUser({ id: uid, email: session.user.email });
         const { data } = await window._supabase.from("user_data").select("key").limit(1);
         if (!data || data.length === 0) await window.sbAuth.pushLocal(uid);
         else { await window.sbAuth.syncDown(uid); reloadPovsFromLS(); }
@@ -179,6 +210,7 @@ function App() {
           if (window.injectTutorialSeedData) window.injectTutorialSeedData();
           setTutorialActive(true);
         }
+        checkAccess(uid);
         setAuthStatus(done ? "ready" : "onboarding");
       } else {
         setAuthStatus("login");
@@ -188,6 +220,7 @@ function App() {
     const { data: { subscription } } = window._supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" && session?.user?.id) {
         const uid = session.user.id;
+        setAuthUser({ id: uid, email: session.user.email });
         const { data } = await window._supabase.from("user_data").select("key").limit(1);
         if (!data || data.length === 0) await window.sbAuth.pushLocal(uid);
         else { await window.sbAuth.syncDown(uid); reloadPovsFromLS(); }
@@ -196,8 +229,13 @@ function App() {
           if (window.injectTutorialSeedData) window.injectTutorialSeedData();
           setTutorialActive(true);
         }
+        checkAccess(uid);
         setAuthStatus(done ? "ready" : "onboarding");
       } else if (event === "SIGNED_OUT") {
+        setAuthUser(null);
+        localStorage.removeItem("lifeos_access");
+        localStorage.removeItem("lifeos_access_ts");
+        setHasAccess(false);
         setAuthStatus("login");
       }
     });
@@ -723,8 +761,20 @@ function App() {
       LS.setItem("lifeos_guest", "1");
       LS.removeItem("lifeos_onboarding_done");
       LS.removeItem("lifeos_tutorial_done");
+      setHasAccess(true); // guests bypass paywall
       setAuthStatus("onboarding");
     }} />
+  );
+  if (authStatus === "ready" && !hasAccess) return (
+    <PaywallScreen
+      userId={authUser?.id || ""}
+      email={authUser?.email || ""}
+      onAccessGranted={() => {
+        localStorage.setItem("lifeos_access", "1");
+        localStorage.setItem("lifeos_access_ts", String(Date.now()));
+        setHasAccess(true);
+      }}
+    />
   );
   if (authStatus === "onboarding") return (
     <OnboardingWizard onComplete={({ userName, userPovs: newPovs }) => {
