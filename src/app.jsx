@@ -255,10 +255,15 @@ function App() {
       if (event === "SIGNED_IN" && session?.user?.id) {
         const uid = session.user.id;
         setAuthUser({ id: uid, email: session.user.email });
-        // Clear stale data from any previous user before loading this user's data
-        Object.keys(localStorage)
-          .filter(k => k.startsWith("lifeos_"))
-          .forEach(k => localStorage.removeItem(k));
+        // Only wipe localStorage if a DIFFERENT user is logging in (prevents data leakage).
+        // If same user re-authenticates, keep local data and let syncDown merge.
+        const prevUid = localStorage.getItem("lifeos_last_uid");
+        if (prevUid && prevUid !== uid) {
+          Object.keys(localStorage)
+            .filter(k => k.startsWith("lifeos_"))
+            .forEach(k => localStorage.removeItem(k));
+        }
+        localStorage.setItem("lifeos_last_uid", uid);
         const { data } = await window._supabase.from("user_data").select("key").limit(1);
         if (!data || data.length === 0) await window.sbAuth.pushLocal(uid);
         else { await window.sbAuth.syncDown(uid); reloadPovsFromLS(); }
@@ -278,6 +283,7 @@ function App() {
         Object.keys(localStorage)
           .filter(k => k.startsWith("lifeos_"))
           .forEach(k => localStorage.removeItem(k));
+        localStorage.removeItem("lifeos_last_uid");
         setHasAccess(false);
         setAuthStatus("login");
       }
@@ -327,7 +333,15 @@ function App() {
   const [userPovs, setUserPovs] = React.useState(() => {
     try { return JSON.parse(LS.getItem("lifeos_user_povs") || "[]"); } catch { return []; }
   });
-  React.useEffect(() => { LS.setItem("lifeos_user_povs", JSON.stringify(userPovs)); }, [userPovs]);
+  React.useEffect(() => {
+    // Skip writing empty array on initial mount before syncDown has restored data.
+    // We still write if the user explicitly cleared all POVs (userPovs intentionally empty
+    // AND Supabase already has data → handled by the delete flow in sidebar.jsx).
+    // The guard: only skip the very first [] write; subsequent writes always go through.
+    const stored = LS.getItem("lifeos_user_povs");
+    if (userPovs.length === 0 && !stored) return; // nothing to write yet
+    LS.setItem("lifeos_user_povs", JSON.stringify(userPovs));
+  }, [userPovs]);
 
   const [activeTaskId, setActiveTaskId] = React.useState(() => LS.getItem("lifeos_active") || null);
   // Tracks which task was last actively running — survives pausing (activeTaskId → null)
