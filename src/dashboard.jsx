@@ -59,27 +59,52 @@ function ActivityRings({ pov, taskTimes }) {
 
   return (
     <div style={{ padding: "14px 28px", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "center", gap: 24, background: "rgba(255,255,255,0.01)" }}>
-      {/* SVG concentric rings */}
+      {/* SVG concentric rings — Apple Watch style */}
       <div style={{ flexShrink: 0, position: "relative" }}>
         <svg width={SVG_SIZE} height={SVG_SIZE} viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}>
+          <defs>
+            <filter id="aw-tip-shadow-lg" x="-80%" y="-80%" width="260%" height="260%">
+              <feDropShadow dx="0" dy="0" stdDeviation="3.5" floodColor="rgba(0,0,0,0.9)" />
+            </filter>
+            <filter id="aw-glow-lg" x="-60%" y="-60%" width="220%" height="220%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
           {ringProjects.map((proj, i) => {
             const r = baseRadius - i * (RING_W + GAP);
             if (r < RING_W) return null;
             const circ = 2 * Math.PI * r;
             const clampProg = Math.min(1, proj.progress);
             const offset = circ * (1 - clampProg);
+            const tipAngle = -Math.PI / 2 + clampProg * 2 * Math.PI;
+            const tipX = cx + r * Math.cos(tipAngle);
+            const tipY = cy + r * Math.sin(tipAngle);
+            const capR = RING_W / 2;
             return (
               <g key={proj.id}>
-                <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.055)" strokeWidth={RING_W} />
-                {clampProg > 0 && (
+                {/* Track: color-tinted dark background */}
+                <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color} strokeWidth={RING_W} opacity={0.12} />
+                {/* Progress arc (butt caps — manual rounded caps below) */}
+                {clampProg > 0.005 && (
                   <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color}
-                    strokeWidth={RING_W} strokeLinecap="round"
+                    strokeWidth={RING_W} strokeLinecap="butt"
                     strokeDasharray={circ} strokeDashoffset={offset}
                     transform={`rotate(-90 ${cx} ${cy})`}
-                    style={{ transition: "stroke-dashoffset 0.6s ease" }} />
+                    style={{ transition: "stroke-dashoffset 0.9s cubic-bezier(0.4,0,0.2,1)" }} />
                 )}
+                {/* Start cap at 12 o'clock */}
+                {clampProg > 0.005 && (
+                  <circle cx={cx} cy={cy - r} r={capR} fill={proj.color} />
+                )}
+                {/* Tip cap with shadow (Apple Watch depth illusion) */}
+                {clampProg > 0.02 && clampProg < 0.999 && (
+                  <circle cx={tipX} cy={tipY} r={capR} fill={proj.color} filter="url(#aw-tip-shadow-lg)" />
+                )}
+                {/* Complete ring: glow overlay */}
                 {proj.progress >= 1 && (
-                  <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color} strokeWidth={RING_W * 0.35} opacity={0.25} />
+                  <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color}
+                    strokeWidth={RING_W * 0.5} opacity={0.18} filter="url(#aw-glow-lg)" />
                 )}
               </g>
             );
@@ -1239,10 +1264,10 @@ function StatsPanel({ taskTimes, pov }) {
                   - realityPerDay.slice(0, todayDowIdx + 1).reduce((s, v) => s + v, 0);
   const debtOk = debtSoFar <= 0.05;
 
-  // Ring SVG
-  const SVG_SIZE = 120;
+  // Ring SVG — Apple Watch geometry (4 rings comfortable)
+  const SVG_SIZE = 130;
   const cx = SVG_SIZE / 2, cy = SVG_SIZE / 2;
-  const RING_W = 11, GAP = 4;
+  const RING_W = 10, GAP = 4;
   const baseRadius = cx - RING_W / 2 - 2;
   const topProgress = ringProjects.length > 0
     ? Math.min(1, ringProjects[0].todaySecs / ((ringProjects[0].hoursPerWeek / 5) * 3600))
@@ -1286,6 +1311,15 @@ function StatsPanel({ taskTimes, pov }) {
 
         {/* ── Rings ── */}
         <svg width={SVG_SIZE} height={SVG_SIZE} viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`} style={{ flexShrink: 0 }}>
+          <defs>
+            <filter id="aw-tip-shadow-sm" x="-80%" y="-80%" width="260%" height="260%">
+              <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="rgba(0,0,0,0.92)" />
+            </filter>
+            <filter id="aw-glow-sm" x="-60%" y="-60%" width="220%" height="220%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
           {ringProjects.length === 0 ? (
             <>
               <circle cx={cx} cy={cy} r={baseRadius} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={RING_W} />
@@ -1295,18 +1329,39 @@ function StatsPanel({ taskTimes, pov }) {
             const r = baseRadius - i * (RING_W + GAP);
             if (r < RING_W / 2) return null;
             const dailyTargetSecs = proj.hoursPerWeek * getProjWeights(proj.id)[todayDowIdx] * 3600;
-            const prog = dailyTargetSecs > 0 ? Math.min(1, proj.todaySecs / dailyTargetSecs) : 0;
+            const rawProg = dailyTargetSecs > 0 ? proj.todaySecs / dailyTargetSecs : 0;
+            const clampProg = Math.min(1, rawProg);
             const circ = 2 * Math.PI * r;
-            const offset = circ * (1 - prog);
+            const offset = circ * (1 - clampProg);
+            const tipAngle = -Math.PI / 2 + clampProg * 2 * Math.PI;
+            const tipX = cx + r * Math.cos(tipAngle);
+            const tipY = cy + r * Math.sin(tipAngle);
+            const capR = RING_W / 2;
             return (
               <g key={proj.id}>
-                <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={RING_W} />
-                {prog > 0 && <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color}
-                  strokeWidth={RING_W} strokeLinecap="round"
-                  strokeDasharray={circ} strokeDashoffset={offset}
-                  transform={`rotate(-90 ${cx} ${cy})`}
-                  style={{ transition: "stroke-dashoffset 0.5s ease" }} />}
-                {prog >= 1 && <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color} strokeWidth={RING_W * 0.3} opacity={0.2} />}
+                {/* Color-tinted track */}
+                <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color} strokeWidth={RING_W} opacity={0.12} />
+                {/* Progress arc (butt caps) */}
+                {clampProg > 0.005 && (
+                  <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color}
+                    strokeWidth={RING_W} strokeLinecap="butt"
+                    strokeDasharray={circ} strokeDashoffset={offset}
+                    transform={`rotate(-90 ${cx} ${cy})`}
+                    style={{ transition: "stroke-dashoffset 0.9s cubic-bezier(0.4,0,0.2,1)" }} />
+                )}
+                {/* Start cap at 12 o'clock */}
+                {clampProg > 0.005 && (
+                  <circle cx={cx} cy={cy - r} r={capR} fill={proj.color} />
+                )}
+                {/* Tip cap + Apple Watch shadow */}
+                {clampProg > 0.02 && clampProg < 0.999 && (
+                  <circle cx={tipX} cy={tipY} r={capR} fill={proj.color} filter="url(#aw-tip-shadow-sm)" />
+                )}
+                {/* Complete: glow overlay */}
+                {rawProg >= 1 && (
+                  <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color}
+                    strokeWidth={RING_W * 0.5} opacity={0.2} filter="url(#aw-glow-sm)" />
+                )}
               </g>
             );
           })}
