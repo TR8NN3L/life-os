@@ -378,27 +378,38 @@ function App() {
     }
   }, [activeTaskId]);
 
-  // Tick the active task across whole app
+  // Tick the active task across whole app — wall-clock accurate, immune to tab throttling
   React.useEffect(() => {
     if (!activeTaskId) {
       localStorage.removeItem("lifeos_timer_start");
       return;
     }
-    // Save anchor: baseTime = elapsed so far, startedAt = wall clock now
-    // On next load, recovered = baseTime + (now - startedAt) gives correct total
-    const baseTime = taskTimes[activeTaskId] ?? 0;
-    localStorage.setItem("lifeos_timer_start", JSON.stringify({ taskId: activeTaskId, startedAt: Date.now(), baseTime }));
+    // Anchor: baseTime = elapsed so far, startedAt = wall-clock now.
+    // All time computed as: baseTime + floor((Date.now() - startedAt) / 1000)
+    // This is correct even when the browser throttles setInterval in background tabs.
+    const baseTime  = taskTimes[activeTaskId] ?? 0;
+    const startedAt = Date.now();
+    localStorage.setItem("lifeos_timer_start", JSON.stringify({ taskId: activeTaskId, startedAt, baseTime }));
+
+    let lastDailyTotal = baseTime; // track how many secs already written to daily log
+
     const id = setInterval(() => {
-      setTaskTimes(prev => ({ ...prev, [activeTaskId]: (prev[activeTaskId] ?? 0) + 1 }));
-      // Daily time log (resets per date) for Activity Rings
+      const nowElapsed = baseTime + Math.floor((Date.now() - startedAt) / 1000);
+      setTaskTimes(prev => ({ ...prev, [activeTaskId]: nowElapsed }));
+
+      // Daily time log — write delta (wall-clock accurate, not +1 per tick)
       try {
-        const today = new Date().toISOString().slice(0, 10);
-        const dk = `lifeos_daily_${today}`;
-        const daily = JSON.parse(localStorage.getItem(dk) || "{}");
-        daily[activeTaskId] = (daily[activeTaskId] || 0) + 1;
-        localStorage.setItem(dk, JSON.stringify(daily));
+        const delta = nowElapsed - lastDailyTotal;
+        if (delta > 0) {
+          const today = new Date().toISOString().slice(0, 10);
+          const dk = `lifeos_daily_${today}`;
+          const daily = JSON.parse(localStorage.getItem(dk) || "{}");
+          daily[activeTaskId] = (daily[activeTaskId] || 0) + delta;
+          localStorage.setItem(dk, JSON.stringify(daily));
+          lastDailyTotal = nowElapsed;
+        }
       } catch {}
-    }, 1000);
+    }, 500); // 2× per second for smooth display; accuracy comes from Date.now(), not tick rate
     return () => clearInterval(id);
   }, [activeTaskId]);
 

@@ -27,22 +27,33 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
     } catch { return []; }
   }, [freeMode]);
 
+  const freeStartedAt = React.useRef(0);
+  const freeBaseTime  = React.useRef(0);
+
   React.useEffect(() => {
     if (!freeRunning) { clearInterval(freeRef.current); return; }
-    freeRef.current = setInterval(() => setFreeSecs(s => s + 1), 1000);
+    // Wall-clock anchor — immune to browser tab throttling
+    freeRef.current = setInterval(() => {
+      const nowSecs = freeBaseTime.current + Math.floor((Date.now() - freeStartedAt.current) / 1000);
+      setFreeSecs(nowSecs);
+    }, 500);
     return () => clearInterval(freeRef.current);
   }, [freeRunning]);
 
   const startFree = () => {
     if (!freeProjId) return;
+    freeBaseTime.current  = 0;
+    freeStartedAt.current = Date.now();
     setFreeSecs(0); setFreeRunning(true); setShowFreeNote(false); setFreeNote("");
   };
 
   const stopFree = () => {
     clearInterval(freeRef.current);
     setFreeRunning(false);
-    if (freeSecs < 1) return;
-    const dur    = freeSecs;
+    // Always compute from wall-clock refs — state may be stale if tab was throttled
+    const dur = freeBaseTime.current + Math.floor((Date.now() - freeStartedAt.current) / 1000);
+    if (dur < 1) return;
+    setFreeSecs(dur);
     const today  = new Date().toISOString().slice(0, 10);
     const dayKey = `lifeos_daily_${today}`;
     const freeKey = `free_${freeProjId}`;
