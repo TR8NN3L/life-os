@@ -613,8 +613,44 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
     </div>
   ); };
 
+  // Trial banner — shown to free users with trial_start set, 0–7 days remaining
+  const trialBanner = (() => {
+    if (window.__lifeos_hasAccess) return null;
+    const ts = localStorage.getItem("lifeos_trial_start");
+    if (!ts) return null;
+    const msLeft = 7 * 24 * 3600 * 1000 - (Date.now() - Number(ts));
+    if (msLeft <= 0) return null;
+    const daysLeft = Math.ceil(msLeft / (24 * 3600 * 1000));
+    const urgent = daysLeft <= 2;
+    return (
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "9px 20px",
+        background: urgent ? "var(--danger-soft)" : "var(--accent-soft)",
+        borderBottom: `1px solid ${urgent ? "var(--danger)" : "var(--accent-line)"}`,
+        flexShrink: 0,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Icon name="clock" size={13} color={urgent ? "var(--danger)" : "var(--accent)"} />
+          <span style={{ fontSize: 11.5, color: urgent ? "var(--danger)" : "var(--accent)", fontWeight: 600 }}>
+            {daysLeft === 1 ? "Letzter Trial-Tag" : `Trial läuft ab in ${daysLeft} Tagen`}
+          </span>
+          <span style={{ fontSize: 11, color: "var(--text-faint)" }}>—</span>
+          <span style={{ fontSize: 11, color: "var(--text-faint)" }}>danach Beta-Code oder Pro nötig</span>
+        </div>
+        <button onClick={() => window.__lifeos_openSettings?.("abo")} style={{
+          background: urgent ? "var(--danger)" : "var(--accent)",
+          color: "#0a0a0c", border: "none", padding: "4px 12px",
+          fontSize: 9.5, fontWeight: 700, letterSpacing: "0.14em", cursor: "pointer",
+        }}>PRO FREISCHALTEN →</button>
+      </div>
+    );
+  })();
+
   return (
-    <div style={{ flex: 1, display: "flex", overflow: "hidden", background: "var(--bg)" }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--bg)" }}>
+      {trialBanner}
+      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
       {renderAnchor()}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
@@ -1822,6 +1858,7 @@ function TruthLoop({ truthPlan, setTruthPlan }) {
           <span style={{ fontSize: 10, color: "var(--text-faint)", letterSpacing: "0.08em" }}>DEBT</span>
         </div>
       </div>
+    </div>
     </div>
   );
 }
