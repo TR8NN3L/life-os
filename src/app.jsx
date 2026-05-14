@@ -1062,7 +1062,7 @@ function App() {
             onChange={(v) => setTweak("showTruthLoop", v)} />
         </TweakSection>
 
-        <TweakSection title="Account">
+        <TweakSection label="Account">
           <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 8 }}>
             {hasAccess
               ? (localStorage.getItem("lifeos_guest") === "1" ? "Gast-Zugang" : "Pro-Zugang aktiv ✓")
