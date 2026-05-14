@@ -300,6 +300,40 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
                 {apiKey
                   ? <div style={{ fontSize: 11, color: "var(--good)", marginTop: 8, letterSpacing: "0.06em" }}>✓ Key gespeichert</div>
                   : <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 8, lineHeight: 1.5 }}>Key unter <b>console.anthropic.com</b> → API Keys → Create Key.</div>}
+              </div>,
+              <div style={{ padding: "16px 0" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>Langfuse Observability</div>
+                  <div style={{ fontSize: 10, letterSpacing: "0.12em", fontWeight: 700, color: (langfusePk && langfuseSk) ? "var(--good)" : "var(--text-faint)", background: (langfusePk && langfuseSk) ? "var(--good-soft)" : "var(--panel-2)", padding: "2px 7px" }}>
+                    {(langfusePk && langfuseSk) ? "AKTIV" : "OPTIONAL"}
+                  </div>
+                </div>
+                <div style={{ fontSize: 11.5, color: "var(--text-faint)", lineHeight: 1.55, marginBottom: 12 }}>
+                  Trackt alle KI-Aufrufe (Latenz, Token, Prompts). Dashboard auf <b>cloud.langfuse.com</b> → EU-Region → Project Keys.
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 4, letterSpacing: "0.06em" }}>PUBLIC KEY</div>
+                    <input
+                      type="text"
+                      value={langfusePk}
+                      onChange={e => { const v = e.target.value.trim(); setLangfusePk(v); localStorage.setItem("lifeos_langfuse_pk", v); }}
+                      placeholder="pk-lf-..."
+                      style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "9px 12px", fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+                    />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 4, letterSpacing: "0.06em" }}>SECRET KEY</div>
+                    <input
+                      type="password"
+                      value={langfuseSk}
+                      onChange={e => { const v = e.target.value.trim(); setLangfuseSk(v); localStorage.setItem("lifeos_langfuse_sk", v); }}
+                      placeholder="sk-lf-..."
+                      style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "9px 12px", fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+                    />
+                  </div>
+                </div>
+                {(langfusePk && langfuseSk) && <div style={{ fontSize: 11, color: "var(--good)", marginTop: 8, letterSpacing: "0.06em" }}>✓ Alle KI-Calls werden getrackt</div>}
               </div>
             )}
 
@@ -669,6 +703,8 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs, onOpenPa
     try { const p = JSON.parse(raw); return typeof p === "string" ? p : raw; } catch { return raw; }
   });
   const [apiKey, setApiKey]             = React.useState(() => LS.getItem("lifeos_openai_key") || "");
+  const [langfusePk, setLangfusePk]     = React.useState(() => LS.getItem("lifeos_langfuse_pk") || "");
+  const [langfuseSk, setLangfuseSk]     = React.useState(() => LS.getItem("lifeos_langfuse_sk") || "");
   const [pushStatus, setPushStatus]     = React.useState(() => window.Push?.permissionState?.() || "default");
   const [pushLoading, setPushLoading]   = React.useState(false);
 

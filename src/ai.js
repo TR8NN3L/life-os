@@ -39,13 +39,58 @@
     return null;
   }
 
-  async function callAI(system, userMessage, { maxTokens = 800 } = {}) {
+  // ── Langfuse tracing (fire-and-forget) ──────────────────────────────────────
+  function sendToLangfuse(name, system, userMessage, outputText, startTime, endTime, usage) {
+    const pk = localStorage.getItem("lifeos_langfuse_pk");
+    const sk = localStorage.getItem("lifeos_langfuse_sk");
+    if (!pk || !sk) return;
+    const traceId = "lf-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+    const genId   = traceId + "-gen";
+    const payload = {
+      batch: [
+        {
+          id: traceId,
+          type: "trace-create",
+          timestamp: new Date(startTime).toISOString(),
+          body: { id: traceId, name, timestamp: new Date(startTime).toISOString() },
+        },
+        {
+          id: genId,
+          type: "generation-create",
+          timestamp: new Date(startTime).toISOString(),
+          body: {
+            id: genId,
+            traceId,
+            name,
+            model: "claude-haiku-4-5-20251001",
+            startTime: new Date(startTime).toISOString(),
+            endTime:   new Date(endTime).toISOString(),
+            input:  [{ role: "system", content: system }, { role: "user", content: userMessage }],
+            output: outputText,
+            usage: usage ? { input: usage.input_tokens, output: usage.output_tokens } : undefined,
+          },
+        },
+      ],
+    };
+    fetch("https://eu.cloud.langfuse.com/api/public/ingestion", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Basic " + btoa(pk + ":" + sk),
+      },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    }).catch(() => {});
+  }
+
+  async function callAI(system, userMessage, { maxTokens = 800, langfuseName } = {}) {
     const key = localStorage.getItem("lifeos_openai_key");
     if (!key) {
       const e = new Error("Kein API Key. Bitte in den Einstellungen (⚙) eintragen.");
       e.code = "NO_KEY";
       throw e;
     }
+    const startTime = Date.now();
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -66,7 +111,12 @@
       throw new Error(err.error?.message || `API Fehler (${res.status})`);
     }
     const data = await res.json();
+    const endTime = Date.now();
     const text = data.content[0].text;
+    // Fire-and-forget Langfuse trace
+    if (langfuseName) {
+      sendToLangfuse(langfuseName, system, userMessage, text, startTime, endTime, data.usage);
+    }
     // Try direct parse, then repair truncated JSON
     const direct = text.match(/\{[\s\S]*\}/);
     try { return JSON.parse(direct ? direct[0] : text); } catch {}
@@ -80,7 +130,7 @@
       return callAI(
         `Du bist ein OKR-Experte. Generiere 3-5 Key Results für ein gegebenes Hauptziel. Jeder KR muss spezifisch und messbar sein. Antworte NUR mit validem JSON ohne zusätzlichen Text: { "keyResults": [{ "label": "KR1", "title": "..." }, ...] }`,
         `POV: ${povLabel}\nHauptziel: ${mainQuestTitle}${period ? `\nZeitraum: ${period}` : ""}\n\nGeneriere 3-5 Key Results auf Deutsch. Jeder KR soll ein konkretes, messbares Ergebnis beschreiben — kein vages "verbessern" oder "mehr machen".`,
-        { maxTokens: 600 }
+        { maxTokens: 600, langfuseName: "kr-generation" }
       );
     },
 
@@ -98,7 +148,7 @@
       return callAI(
         `Du bist ein Produktivitaets-Coach. Generiere genau 3 konkrete Aufgaben fuer heute passend zum Energie-Level. Aufgaben muessen realistisch in der verfuegbaren Zeit machbar sein. Antworte NUR mit validem JSON ohne zusaetzlichen Text: { "tasks": [{ "title": "...", "sub": "...", "krLabel": "KR1 oder null", "est": 30 }], "motivation": "Ein kurzer motivierender Satz auf Deutsch." }`,
         `${userName ? `Name: ${userName}\n` : ""}POV: ${povLabel}\nHauptziel: ${mainQuestTitle}\n${energyDesc ? energyDesc + "\n" : ""}${timeDesc ? timeDesc + "\n" : ""}\nKey Results:\n${krText}\n\n${energyGuide}\n\nGeneriere 3 passende Aufgaben fuer heute auf Deutsch. Konkret, umsetzbar. Est in Minuten anpassen an verfuegbare Zeit.`,
-        { maxTokens: 500 }
+        { maxTokens: 500, langfuseName: "daily-mission" }
       );
     },
 
@@ -129,7 +179,7 @@ Erzwinge diese Struktur — kein deep-work nach 13:00, keine basic-Tasks vor 13:
       return callAI(
         `Du bist ein Elite-Tagesplaner. Generiere einen Tagesplan nach dem Maker/Manager-Prinzip. Antworte NUR mit validem JSON ohne Kommentare: { "blocks": [{ "name": "Aussagekraeftiger Blockname", "start": "HH:MM", "end": "HH:MM", "type": "deep-work|basic|flex", "bucket": "founder|personal|student|athlete", "durationMins": 60 }] }. Zeiten im Format HH:MM, keine Ueberschneidungen, keine Bloecke vor 06:00 oder nach 23:00.`,
         `${povSpec}\nEnergie: ${energyDesc}\nMentale Fokus-Kapazitaet: ${focusDesc}\nGesamtzeit: ${availableTime}\n${blockSpec}\n${goal ? `Tagesziel: ${goal}\n` : ""}${dayStr ? `Datum: ${dayStr}\n` : ""}Modus: ${mode === "fill" ? "Ergaenzende Bloecke" : "Kompletter Tagesplan"}\n\n${makerManagerRule}\n\nBlocknamen sollen konkret und motivierend sein (z.B. "Leads abtelefonieren", "OKR-Review", "E-Mails & Admin" statt generischem "Arbeit"). deep-work=Flow-State Arbeit, basic=schnelle Erledigungen, flex=gemischtes.`,
-        { maxTokens: 800 }
+        { maxTokens: 800, langfuseName: "day-plan" }
       );
     },
 
@@ -222,7 +272,7 @@ Subtasks generieren: ${d.generateSubtasks ? "JA" : "NEIN"}
 Erstelle jetzt den Projektplan. Alle KRs und Tasks müssen direkt aus dem Kontext (${d.bigGoal}) abgeleitet sein — keine generischen Placeholder.`;
 
       const maxT = d.complexity === "complex" ? 8192 : d.complexity === "medium" ? 8192 : 4096;
-      return callAI(system, user, { maxTokens: maxT });
+      return callAI(system, user, { maxTokens: maxT, langfuseName: "okr-generation" });
     },
   };
 })();
