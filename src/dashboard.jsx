@@ -994,6 +994,7 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
         }}>{doneToast}</div>
       )}
     </div>
+    </div>
   );
 }
 
@@ -1858,7 +1859,6 @@ function TruthLoop({ truthPlan, setTruthPlan }) {
           <span style={{ fontSize: 10, color: "var(--text-faint)", letterSpacing: "0.08em" }}>DEBT</span>
         </div>
       </div>
-    </div>
     </div>
   );
 }
