@@ -92,6 +92,7 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
   const [pwResetSent,    setPwResetSent]    = React.useState(false);
   const [pwResetLoading, setPwResetLoading] = React.useState(false);
   const [pwResetError,   setPwResetError]   = React.useState(null);
+  const [signingOut, setSigningOut] = React.useState(false);
   // Abo-Tab state
   const [aboSubTab,  setAboSubTab]  = React.useState("code");
   const [aboCode,    setAboCode]    = React.useState("");
@@ -615,19 +616,31 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
                     fontSize: 11, letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
                   }}>DATEN ZURÜCKSETZEN</button>
                 )}
-                {renderRow("Abo & Zugang", "Beta-Code einlösen oder auf Pro upgraden.",
-                  <button onClick={() => setActiveTab("abo")} style={{
-                    width: "100%", padding: "9px 0", background: "var(--accent-soft)",
-                    border: "1px solid var(--accent-line)", color: "var(--accent)",
-                    fontSize: 11, letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
-                  }}>UPGRADE / BETA-CODE →</button>
-                )}
                 {renderRow("Account", "Meldet dich aus diesem Gerät ab.",
-                  <button onClick={() => { signOut(); onClose(); }} style={{
-                    width: "100%", padding: "9px 0", background: "var(--danger-soft)",
-                    border: "1px solid var(--danger)", color: "var(--danger)",
-                    fontSize: 11, letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
-                  }}>ABMELDEN</button>
+                  <button onClick={async function() {
+                    if (signingOut) return;
+                    setSigningOut(true);
+                    try {
+                      var isGuest = LS.getItem("lifeos_guest") === "1";
+                      if (isGuest) {
+                        LS.removeItem("lifeos_guest");
+                      } else {
+                        await Promise.race([
+                          window.sbAuth.signOut(),
+                          new Promise(function(r) { setTimeout(r, 4000); }),
+                        ]);
+                      }
+                    } catch(e) {}
+                    window.location.reload();
+                  }} disabled={signingOut} style={{
+                    width: "100%", padding: "9px 0",
+                    background: signingOut ? "var(--panel)" : "var(--danger-soft)",
+                    border: "1px solid var(--danger)",
+                    color: signingOut ? "var(--text-faint)" : "var(--danger)",
+                    fontSize: 11, letterSpacing: "0.1em", fontWeight: 700,
+                    cursor: signingOut ? "default" : "pointer", fontFamily: "inherit",
+                    opacity: signingOut ? 0.7 : 1,
+                  }}>{signingOut ? "WIRD ABGEMELDET…" : "ABMELDEN"}</button>
                 )}
               </div>
             )}

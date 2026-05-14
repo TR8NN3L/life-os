@@ -431,6 +431,48 @@ function Planner() {
   });
   React.useEffect(() => { LS.setItem("lifeos_block_selections", JSON.stringify(blockSelections)); }, [blockSelections]);
 
+  // ── Promised vs. Delivered für die angezeigte Woche ──────────────────────────
+  const weekPvdStats = React.useMemo(function() {
+    var weekBlockIds = new Set();
+    for (var d = 0; d < 7; d++) {
+      var dateStr = (dispWeek.days[d] || {}).dateStr || "";
+      var deleted = new Set(weekBlocks["del_" + d] || []);
+      recurring.filter(function(rb) {
+        if (deleted.has(rb.id)) return false;
+        if (rb.startDateStr && rb.startDateStr > dateStr) return false;
+        if (rb.recurrence === "daily") return true;
+        if (rb.recurrence === "weekdays") return d <= 4;
+        if (rb.recurrence === "weekly") return rb.dayIndex === d;
+        return false;
+      }).forEach(function(rb) { weekBlockIds.add(rb.id); });
+      (weekBlocks[d] || []).forEach(function(b) { weekBlockIds.add(b.id); });
+    }
+    var promisedByPov = {};
+    weekBlockIds.forEach(function(blockId) {
+      (blockSelections[blockId] || []).forEach(function(tk) {
+        var lastUnd = tk.lastIndexOf("_");
+        if (lastUnd === -1) return;
+        var povId  = tk.slice(lastUnd + 1);
+        var taskId = tk.slice(0, lastUnd);
+        if (!promisedByPov[povId]) promisedByPov[povId] = [];
+        promisedByPov[povId].push(taskId);
+      });
+    });
+    var stats = [];
+    var totalP = 0, totalD = 0;
+    Object.keys(promisedByPov).forEach(function(povId) {
+      var doneSet = new Set();
+      try { doneSet = new Set(JSON.parse(LS.getItem("lifeos_done_" + povId) || "[]")); } catch {}
+      var taskIds = promisedByPov[povId];
+      var done    = taskIds.filter(function(id) { return doneSet.has(id); }).length;
+      var total   = taskIds.length;
+      totalP += total; totalD += done;
+      var povMeta = allPovs.find(function(p) { return p.id === povId; });
+      stats.push({ povId: povId, label: povMeta ? povMeta.label : povId, color: povMeta ? povMeta.color : "var(--accent)", total: total, done: done, pct: total > 0 ? done / total : 0 });
+    });
+    return { stats: stats, totalPromised: totalP, totalDone: totalD, totalPct: totalP > 0 ? totalD / totalP : 0 };
+  }, [weekBlocks, recurring, blockSelections, dispWeek, allPovs]);
+
   // ── Truth Loop distribution (per-project, per-day weights) ─────────────────
   const DIST_DEF = [0.2, 0.2, 0.2, 0.2, 0.2, 0, 0];
   const [projDayWeights, setProjDayWeights] = React.useState(() => {
@@ -1062,10 +1104,59 @@ function Planner() {
         {/* ── Right: Task suggestions ──────────────────────────────────────── */}
         <div data-tutorial="task-suggestions" style={{ overflow:"auto", padding:"20px 24px" }}>
           {!selBlock ? (
-            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100%", color:"var(--text-faint)", textAlign:"center" }}>
-              <div style={{ fontSize:48, marginBottom:14, opacity:0.12 }}>◎</div>
-              <div style={{ fontSize:13.5, fontWeight:600, marginBottom:6 }}>Block auswählen</div>
-              <div style={{ fontSize:11 }}>um passende Task-Vorschläge zu sehen</div>
+            <div>
+              <div style={{ marginBottom:20 }}>
+                <div className="uppercase-label" style={{ marginBottom:4 }}>Promised vs. Delivered</div>
+                <div style={{ fontSize:11, color:"var(--text-faint)", marginBottom:2 }}>
+                  Zugeteilte Tasks vs. tatsächlich abgehakt · KW {dispWeek.kw}
+                </div>
+              </div>
+
+              {weekPvdStats.totalPromised === 0 ? (
+                <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"52px 0", color:"var(--text-faint)", textAlign:"center" }}>
+                  <div style={{ fontSize:38, marginBottom:12, opacity:0.1 }}>◎</div>
+                  <div style={{ fontSize:13, fontWeight:600, marginBottom:6 }}>Keine zugeteilten Tasks</div>
+                  <div style={{ fontSize:11 }}>Block auswählen → Tasks anhaken</div>
+                </div>
+              ) : (
+                <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+                  {weekPvdStats.stats.map(function(s) {
+                    return (
+                      <div key={s.povId}>
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:6 }}>
+                          <span style={{ fontSize:11, fontWeight:700, letterSpacing:"0.12em", color:s.color }}>{s.label.toUpperCase()}</span>
+                          <span className="mono" style={{ fontSize:11.5, fontWeight:700, color:s.pct>=0.8?"var(--good)":s.pct>=0.4?"var(--warn)":"var(--danger)" }}>
+                            {s.done}/{s.total} · {Math.round(s.pct*100)}%
+                          </span>
+                        </div>
+                        <div style={{ height:8, background:"var(--line-soft)", overflow:"hidden" }}>
+                          <div style={{ height:"100%", width:(s.pct*100)+"%", background:s.color, transition:"width .4s ease" }} />
+                        </div>
+                        <div style={{ display:"flex", gap:12, marginTop:5 }}>
+                          <span style={{ fontSize:9.5, color:"var(--good)", letterSpacing:"0.08em" }}>✓ {s.done} erledigt</span>
+                          <span style={{ fontSize:9.5, color:"var(--text-faint)", letterSpacing:"0.08em" }}>◯ {s.total - s.done} offen</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  <div style={{ paddingTop:14, borderTop:"1px solid var(--line-soft)" }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
+                      <span style={{ fontSize:10.5, letterSpacing:"0.12em", fontWeight:700, color:"var(--text-dim)" }}>GESAMT</span>
+                      <span className="mono" style={{ fontSize:12, fontWeight:700, color:weekPvdStats.totalPct>=0.7?"var(--good)":"var(--danger)" }}>
+                        {weekPvdStats.totalDone}/{weekPvdStats.totalPromised} · {Math.round(weekPvdStats.totalPct*100)}%
+                      </span>
+                    </div>
+                    <div style={{ height:5, background:"var(--line-soft)" }}>
+                      <div style={{ height:"100%", width:(weekPvdStats.totalPct*100)+"%", background:weekPvdStats.totalPct>=0.7?"var(--good)":"var(--danger)", transition:"width .4s ease" }} />
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop:4, padding:"10px 14px", background:"var(--panel)", border:"1px solid var(--line-soft)", fontSize:11, color:"var(--text-faint)", textAlign:"center" }}>
+                    Block auswählen → Tasks zuteilen
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <>

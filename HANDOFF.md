@@ -168,5 +168,38 @@ Beta-Code-Einlösung und Access-Check funktionieren erst dann korrekt.
 
 ## Aktuelle Cache-Bust-Version
 
-`?v=20260514p` — alle Script-Tags in `index.html` auf diesem Stand.
-Nächste Version wäre: `?v=20260514q`
+`?v=20260514u` — alle Script-Tags in `index.html` auf diesem Stand.
+Nächste Version wäre: `?v=20260514v`
+
+---
+
+## Feature Ideas — Backlog (Stand: 14.05.2026)
+
+### 1. Punch Card (Warren Buffett Commitment System)
+Jeder User bekommt **4 System-Karten pro Quartal**. Eine Karte = eine strukturelle Veränderung an seinem Setup (neue Routine, neues OKR-Format, neue Priorität). Karte verbraucht → Entscheidung locked für den Rest des Quartals. Erzwingt echtes Commitment statt wöchentlichem Umschwenken.
+
+- UI: 4 Lochkarten-Slots in Mission Control oder Dashboard
+- Logik: `lifeos_punch_cards_Q[quarter]` in LS, max 4 Einträge
+- Gamification: "Du hast noch 2 Karten — setz sie bewusst ein."
+
+### 2. Failure Resume
+Insights-Sektion, die **absichtlich gescheiterte Versuche** trackt und gamifiziert. Statt Fehler zu verstecken — öffentlich machen (für sich selbst). Jeder fehlgeschlagene Sprint oder Reset erzeugt einen Eintrag mit Datum, Grund, Lerneffekt.
+
+- UI: Timeline in Insights, eigene Sektion "Meine Niederlagen"
+- Logik: Manueller Eintrag oder automatisch bei OKR-Reset
+- Psychologie: Normalisiert Scheitern, baut Resilienz-Tracking auf
+
+### 3. 12x30 Sprint Mode
+**30-Tage-Modus** der 12h fokussierte Output pro Tag fordert. Kein Snooze-Button, keine Ausreden. Timer läuft — oder er läuft nicht. Sichtbar für den User wie ein Kriegszustand.
+
+- UI: Rotes Banner/Overlay in der App, Countdown der Tage
+- Logik: `lifeos_sprint_active`, Tages-Timer-Ziel (12h), tägliche Abrechnung
+- Trigger: Manuell starten, kann nicht pausiert werden — nur abgebrochen (mit Bestätigung)
+
+### 4. Say-Do Metric ⭐ (Stärkster Kandidat)
+Ersetzt "Produktivität" durch eine ehrliche Zahl: **% Übereinstimmung zwischen Planer (gesagt) und Focus Timer (getan)**. Wenn du Montag planst "3h Deep Work" und tatsächlich nur 1h loggst → 33%. Woche für Woche.
+
+- Datenquellen: Bereits vorhanden — Planner-Blöcke + Focus Timer Sessions
+- UI: Neue Zahl im Dashboard War Room (neben den anderen Ringen) oder eigene Insights-Sektion
+- Logik: Planner-Block-Dauer vs. tatsächlich getimerte Zeit pro Tag/Woche
+- Warum stark: Verbindet zwei bestehende Features, schafft echte Accountability ohne neues Daten-Tracking
