@@ -194,9 +194,13 @@ function App() {
       localStorage.setItem("lifeos_access_ts", String(Date.now()));
       setHasAccess(true); return;
     }
-    // Free trial: 7 days from first post-tutorial app open (trial_start written in render gate)
-    const trialStart = localStorage.getItem("lifeos_trial_start");
-    if (trialStart && Date.now() - Number(trialStart) < TRIAL_DAYS * 24 * 3600 * 1000) {
+    // Free trial: 7 days — start clock on first checkAccess call if not already running
+    let trialStart = localStorage.getItem("lifeos_trial_start");
+    if (!trialStart) {
+      trialStart = String(Date.now());
+      localStorage.setItem("lifeos_trial_start", trialStart);
+    }
+    if (Date.now() - Number(trialStart) < TRIAL_DAYS * 24 * 3600 * 1000) {
       setHasAccess(true); return;
     }
     // Cache: valid 6h
