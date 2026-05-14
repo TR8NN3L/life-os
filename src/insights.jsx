@@ -211,7 +211,10 @@ function Insights({ taskTimes, pov }) {
 
   return (
     <div data-tutorial="insights-content-area" style={{ flex: 1, overflow: "auto", padding: "20px 28px" }}>
-      <div className="uppercase-label" style={{ marginBottom: 20 }}>Insights</div>
+      <div className="uppercase-label" style={{ marginBottom: 20, display: "flex", alignItems: "center", gap: 6 }}>
+        <Icon name="bar-chart-2" size={11} color="var(--text-faint)" />
+        Insights
+      </div>
 
       {/* ── Hero Stats ─────────────────────────────────────────── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 32 }}>

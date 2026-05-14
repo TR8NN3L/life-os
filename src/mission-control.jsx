@@ -215,7 +215,10 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div>
-            <div className="uppercase-label">Quick Capture · {inbox.length} Item{inbox.length !== 1 ? "s" : ""}</div>
+            <div className="uppercase-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Icon name="zap" size={11} color="var(--text-faint)" />
+              Quick Capture · {inbox.length} Item{inbox.length !== 1 ? "s" : ""}
+            </div>
             <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 4 }}>POV und Key Result zuweisen, dann Task erstellen.</div>
           </div>
           {inbox.length > 0 && setInbox && (
@@ -351,7 +354,10 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
 
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <div className="uppercase-label">Mission Control</div>
+        <div className="uppercase-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Icon name="crosshair" size={11} color="var(--text-faint)" />
+          Mission Control
+        </div>
         <div style={{ display: "flex", gap: 8 }}>
           {archivedProjects.length > 0 && (
             <button onClick={() => setShowArchived(v => !v)} style={{
@@ -362,9 +368,13 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
             }}>ARCHIV ({archivedProjects.length})</button>
           )}
           <button onClick={() => { setNewModalPov(mcFilter !== "alle" ? mcFilter : null); setShowNewModal(true); }} style={{
-            padding: "8px 18px", background: "var(--accent)", color: "#0a0a0c",
+            padding: "8px 16px", background: "var(--accent)", color: "#0a0a0c",
             border: "none", fontSize: 10.5, letterSpacing: "0.16em", fontWeight: 700, cursor: "pointer",
-          }}>+ NEUES PROJEKT</button>
+            display: "flex", alignItems: "center", gap: 7,
+          }}>
+            <Icon name="plus" size={13} color="#0a0a0c" strokeWidth={2.5} />
+            NEUES PROJEKT
+          </button>
         </div>
       </div>
 

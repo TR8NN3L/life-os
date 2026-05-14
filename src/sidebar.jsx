@@ -539,11 +539,11 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs }) {
   const initials = userName ? userName.slice(0, 2).toUpperCase() : "?";
 
   const navItems = [
-    { id: "dashboard",      label: "Dashboard" },
-    { id: "focus",          label: "Focus" },
-    { id: "missioncontrol", label: "Mission Control" },
-    { id: "planner",        label: "Planner" },
-    { id: "insights",       label: "Insights" },
+    { id: "dashboard",      label: "Dashboard",       icon: "layout-dashboard" },
+    { id: "focus",          label: "Focus",            icon: "zap" },
+    { id: "missioncontrol", label: "Mission Control",  icon: "crosshair" },
+    { id: "planner",        label: "Planner",          icon: "calendar" },
+    { id: "insights",       label: "Insights",         icon: "bar-chart-2" },
   ];
 
   return (
@@ -555,8 +555,10 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs }) {
       }}>
         {/* brand */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 20px 24px" }}>
-          <div style={{ width: 22, height: 22, background: "#e8e8ec", borderRadius: 3 }} />
-          <div style={{ fontWeight: 700, fontSize: 13, letterSpacing: "0.16em", color: "#e8e8ec" }}>LIFE OS</div>
+          <div style={{ width: 26, height: 26, background: "var(--accent)", borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Icon name="layers" size={14} color="#0a0a0c" strokeWidth={2.2} />
+          </div>
+          <div style={{ fontWeight: 800, fontSize: 13, letterSpacing: "0.18em", color: "#e8e8ec" }}>LIFE OS</div>
         </div>
 
         {/* main quest */}
@@ -650,7 +652,12 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs }) {
                 }}
                 onMouseEnter={(e) => { if (!active) e.currentTarget.style.color = "var(--text-dim)"; }}
                 onMouseLeave={(e) => { if (!active) e.currentTarget.style.color = "var(--text-faint)"; }}
-              >{it.label}</button>
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                  <Icon name={it.icon} size={14} strokeWidth={active ? 2.2 : 1.75} color={active ? "var(--accent)" : "currentColor"} />
+                  {it.label}
+                </span>
+              </button>
             );
           })}
         </nav>

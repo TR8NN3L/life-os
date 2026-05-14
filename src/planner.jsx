@@ -503,7 +503,10 @@ function Planner() {
             {/* Header */}
             <div style={{ padding:"18px 24px 14px", borderBottom:"1px solid var(--line)", display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0 }}>
               <div>
-                <div className="uppercase-label" style={{ color:"var(--accent)", marginBottom:3 }}>Tage verteilen</div>
+                <div className="uppercase-label" style={{ color:"var(--accent)", marginBottom:3, display:"flex", alignItems:"center", gap:6 }}>
+                  <Icon name="sliders" size={11} color="var(--accent)" />
+                  Tage verteilen
+                </div>
                 <div style={{ fontSize:12, color:"var(--text-faint)" }}>Wochenpensum je Projekt auf Tage aufteilen</div>
               </div>
               <button onClick={()=>setShowDistModal(false)} style={{ background:"none", border:"none", color:"var(--text-faint)", cursor:"pointer", fontSize:18 }}>✕</button>
@@ -586,7 +589,10 @@ function Planner() {
           <div style={{ background:"var(--panel)", border:"1px solid var(--accent-line)", padding:32, width:520, maxHeight:"90vh", overflowY:"auto", boxShadow:"0 0 80px rgba(109,40,217,0.3)" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
               <div>
-                <div className="uppercase-label" style={{ color:"var(--accent)", marginBottom:4 }}>Missions-Generator</div>
+                <div className="uppercase-label" style={{ color:"var(--accent)", marginBottom:4, display:"flex", alignItems:"center", gap:6 }}>
+                  <Icon name="wand" size={11} color="var(--accent)" />
+                  Missions-Generator
+                </div>
                 <div style={{ fontSize:12, color:"var(--text-faint)" }}>{dispWeek.days[selDay]?.dateStr} — {DAY_KEYS[selDay]}</div>
               </div>
               <button onClick={()=>setShowMissionGen(false)} style={{ background:"none", border:"none", color:"var(--text-faint)", cursor:"pointer", fontSize:20, padding:0 }}>x</button>
@@ -866,9 +872,18 @@ function Planner() {
           )}
         </div>
         <div style={{ display:"flex", gap:8 }}>
-          <button onClick={()=>setShowDistModal(true)} style={{ padding:"9px 20px", background:"transparent", color:"var(--text-faint)", border:"1px solid var(--line)", fontSize:10.5, fontWeight:700, letterSpacing:"0.16em", cursor:"pointer" }}>⊞ TAGE VERTEILEN</button>
-          <button onClick={()=>setShowMissionGen(true)} style={{ padding:"9px 20px", background:"transparent", color:"var(--accent)", border:"1px solid var(--accent-line)", fontSize:10.5, fontWeight:700, letterSpacing:"0.16em", cursor:"pointer" }}>MISSIONS-GENERATOR</button>
-          <button onClick={()=>openAdd()} style={{ padding:"9px 20px", background:"var(--accent)", color:"#0a0a0c", border:"none", fontSize:10.5, fontWeight:700, letterSpacing:"0.16em", cursor:"pointer" }}>+ BLOCK</button>
+          <button onClick={()=>setShowDistModal(true)} style={{ padding:"9px 16px", background:"transparent", color:"var(--text-faint)", border:"1px solid var(--line)", fontSize:10.5, fontWeight:700, letterSpacing:"0.16em", cursor:"pointer", display:"flex", alignItems:"center", gap:7 }}>
+            <Icon name="sliders" size={13} strokeWidth={2} />
+            TAGE VERTEILEN
+          </button>
+          <button onClick={()=>setShowMissionGen(true)} style={{ padding:"9px 16px", background:"transparent", color:"var(--accent)", border:"1px solid var(--accent-line)", fontSize:10.5, fontWeight:700, letterSpacing:"0.16em", cursor:"pointer", display:"flex", alignItems:"center", gap:7 }}>
+            <Icon name="wand" size={13} color="var(--accent)" strokeWidth={2} />
+            MISSIONS-GENERATOR
+          </button>
+          <button onClick={()=>openAdd()} style={{ padding:"9px 16px", background:"var(--accent)", color:"#0a0a0c", border:"none", fontSize:10.5, fontWeight:700, letterSpacing:"0.16em", cursor:"pointer", display:"flex", alignItems:"center", gap:7 }}>
+            <Icon name="plus" size={13} color="#0a0a0c" strokeWidth={2.5} />
+            BLOCK
+          </button>
         </div>
       </div>
 

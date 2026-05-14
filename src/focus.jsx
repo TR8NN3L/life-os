@@ -112,7 +112,10 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
 
       {/* ── Top bar ── */}
       <div style={{ padding: "16px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div className="uppercase-label">Focus</div>
+        <div className="uppercase-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Icon name="zap" size={11} color="var(--text-faint)" />
+          Focus
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {/* Pomodoro toggle */}
           <button

@@ -505,7 +505,10 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
       {/* ── PROJEKTE ── */}
       <div style={{ padding: "20px 20px 0", flex: 1 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <div className="uppercase-label">Projekte</div>
+          <div className="uppercase-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Icon name="layers" size={11} color="var(--text-faint)" />
+            Projekte
+          </div>
           {activeKR && (
             <button onClick={() => setActiveKR(null)} style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 9.5, letterSpacing: "0.12em", fontWeight: 700, cursor: "pointer", padding: 0 }}>ALLE x</button>
           )}
@@ -669,10 +672,11 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
 
         {/* Tasks today */}
         <div style={{ padding: "20px 28px 8px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <div className="uppercase-label">
+          <div className="uppercase-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Icon name="list" size={11} color="var(--text-faint)" />
             Aufgaben Heute
             {activeKR && (
-              <span style={{ marginLeft: 10, color: "var(--accent)" }}>
+              <span style={{ marginLeft: 4, color: "var(--accent)" }}>
                 · {findKRLabel(activeKR)}
               </span>
             )}
@@ -1290,7 +1294,10 @@ function StatsPanel({ taskTimes, pov }) {
       {/* ── Header ── */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div className="uppercase-label">War Room · Stats</div>
+          <div className="uppercase-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Icon name="activity" size={11} color="var(--text-faint)" />
+            War Room · Stats
+          </div>
           {weeklyBudget > 0 && (
             <span style={{ fontSize: 9, color: "var(--text-faint)", letterSpacing: "0.06em" }}>
               {weeklyBudget}h/Woche aus Projekten · verteilt {planTotal.toFixed(1)}h
@@ -1665,7 +1672,10 @@ function TruthLoop({ truthPlan, setTruthPlan }) {
     >
       {/* header row */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-        <div className="uppercase-label">The Truth Loop</div>
+        <div className="uppercase-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Icon name="trending-up" size={11} color="var(--text-faint)" />
+          The Truth Loop
+        </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           {/* NUR-Buttons — erscheinen nur bei Hover */}
           {[["plan", "NUR PLAN"], ["reality", "NUR REALITÄT"]].map(([id, label]) => {

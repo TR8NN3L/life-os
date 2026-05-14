@@ -110,6 +110,52 @@ function MiniBars({ data, days, fill = "transparent", stroke = "var(--text-faint
   );
 }
 
+// ── Icon System ──────────────────────────────────────────────────────────────
+// Inline SVG paths (Lucide-style, viewBox 0 0 24 24, stroke-based).
+// Usage: <Icon name="zap" size={16} /> — no external dependency, no CDN.
+const ICON_SVG = {
+  "layout-dashboard": `<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>`,
+  "zap":              `<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>`,
+  "crosshair":        `<circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/>`,
+  "calendar":         `<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>`,
+  "bar-chart-2":      `<line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/>`,
+  "settings":         `<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>`,
+  "plus":             `<path d="M5 12h14"/><path d="M12 5v14"/>`,
+  "x":                `<path d="M18 6 6 18"/><path d="M6 6l12 12"/>`,
+  "check":            `<path d="M20 6 9 17l-5-5"/>`,
+  "clock":            `<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>`,
+  "target":           `<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>`,
+  "trending-up":      `<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>`,
+  "layers":           `<path d="m12.83 2.18-8.58 3.91a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>`,
+  "activity":         `<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>`,
+  "wand":             `<path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8 19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2 19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/>`,
+  "archive":          `<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>`,
+  "chevron-right":    `<path d="m9 18 6-6-6-6"/>`,
+  "chevron-left":     `<path d="m15 18-6-6 6-6"/>`,
+  "sliders":          `<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><circle cx="12" cy="4" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="14" cy="20" r="2"/>`,
+  "user":             `<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>`,
+  "flame":            `<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>`,
+  "trophy":           `<line x1="12" x2="12" y1="17" y2="21"/><line x1="8" x2="16" y1="21" y2="21"/><path d="M7 4V2H17V4"/><path d="M17 4c0 4.418-2.239 8-5 8S7 8.418 7 4"/><path d="M5 9.5C3.5 9 2 7.5 2 5V4h5"/><path d="M19 9.5c1.5-.5 3-2 3-4.5V4h-5"/>`,
+  "circle-dot":       `<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="1"/>`,
+  "grid":             `<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>`,
+  "list":             `<line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/>`,
+  "search":           `<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>`,
+  "bell":             `<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>`,
+  "refresh":          `<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>`,
+};
+
+function Icon({ name, size = 16, color = "currentColor", strokeWidth = 1.75, style: extraStyle }) {
+  const inner = ICON_SVG[name];
+  if (!inner) return null;
+  return React.createElement("svg", {
+    width: size, height: size, viewBox: "0 0 24 24",
+    fill: "none", stroke: color, strokeWidth,
+    strokeLinecap: "round", strokeLinejoin: "round",
+    style: { flexShrink: 0, display: "inline-block", verticalAlign: "middle", ...(extraStyle || {}) },
+    dangerouslySetInnerHTML: { __html: inner },
+  });
+}
+
 // Hook: ticking active timer. Returns elapsed seconds + control.
 function useTimer(initial = 0, running = false) {
   const [sec, setSec] = React.useState(initial);
@@ -615,5 +661,5 @@ function TaskDetail({ task, onBack, taskTimes, setTaskTimes, activeTaskId, setAc
 }
 
 Object.assign(window, {
-  fmtTime, fmtH, ProgressBar, StatusBadge, POVChip, FlowTag, MiniBars, useTimer, TaskDetail,
+  fmtTime, fmtH, ProgressBar, StatusBadge, POVChip, FlowTag, MiniBars, ICON_SVG, Icon, useTimer, TaskDetail,
 });
