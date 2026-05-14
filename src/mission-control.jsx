@@ -80,12 +80,18 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
   const [customProjects, setCustomProjects] = React.useState(() => {
     try { return JSON.parse(LS.getItem("lifeos_custom_projects") || "[]"); } catch { return []; }
   });
-  React.useEffect(() => { LS.setItem("lifeos_custom_projects", JSON.stringify(customProjects)); }, [customProjects]);
+  React.useEffect(() => {
+    LS.setItem("lifeos_custom_projects", JSON.stringify(customProjects));
+    window.dispatchEvent(new CustomEvent("lifeos-projects-updated"));
+  }, [customProjects]);
 
   const [archivedIds, setArchivedIds] = React.useState(() => {
     try { return new Set(JSON.parse(LS.getItem("lifeos_archived_projects") || "[]")); } catch { return new Set(); }
   });
-  React.useEffect(() => { LS.setItem("lifeos_archived_projects", JSON.stringify([...archivedIds])); }, [archivedIds]);
+  React.useEffect(() => {
+    LS.setItem("lifeos_archived_projects", JSON.stringify([...archivedIds]));
+    window.dispatchEvent(new CustomEvent("lifeos-projects-updated"));
+  }, [archivedIds]);
   const [showArchived, setShowArchived] = React.useState(false);
   React.useEffect(() => { if (archivedIds.size === 0) setShowArchived(false); }, [archivedIds]);
 

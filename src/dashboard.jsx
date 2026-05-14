@@ -14,6 +14,14 @@ function ActivityRings({ pov, taskTimes }) {
   React.useEffect(() => {
     try { setDailyTimes(JSON.parse(LS.getItem(`lifeos_daily_${today}`) || "{}")); } catch {}
   }, [taskTimes]);
+  // Refresh when a project is created/archived in Mission Control
+  React.useEffect(() => {
+    const handler = () => {
+      try { setDailyTimes(JSON.parse(LS.getItem(`lifeos_daily_${today}`) || "{}")); } catch {}
+    };
+    window.addEventListener("lifeos-projects-updated", handler);
+    return () => window.removeEventListener("lifeos-projects-updated", handler);
+  }, [today]);
 
   const ringProjects = React.useMemo(() => {
     const povColors = { personal: "#8b5cf6", founder: "#2f8bff", student: "#e11d48", athlete: "#10b981" };
@@ -270,6 +278,15 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
   const [projTasks, setProjTasks] = React.useState(() => loadProjTasks(pov));
   React.useEffect(() => { setProjTasks(loadProjTasks(pov)); }, [pov]);
   React.useEffect(() => { setAllObjectives(loadAllObjectives(pov)); }, [projTasks]);
+  // Reload when a project is created/updated/archived in Mission Control
+  React.useEffect(() => {
+    const handler = () => {
+      setProjTasks(loadProjTasks(pov));
+      setAllObjectives(loadAllObjectives(pov));
+    };
+    window.addEventListener("lifeos-projects-updated", handler);
+    return () => window.removeEventListener("lifeos-projects-updated", handler);
+  }, [pov]);
 
   const tasksToday = [...data.tasksToday, ...customTasks, ...projTasks];
 
@@ -1123,9 +1140,14 @@ function StatsPanel({ taskTimes, pov }) {
 
   const todayDowIdx = (() => { const d = new Date().getDay(); return d === 0 ? 6 : d - 1; })();
 
-  // ── Refresh trigger on timer tick ───────────────────────────────────────
+  // ── Refresh trigger on timer tick or project change ─────────────────────
   const [tick, setTick] = React.useState(0);
   React.useEffect(() => { setTick(t => t + 1); }, [taskTimes]);
+  React.useEffect(() => {
+    const handler = () => setTick(t => t + 1);
+    window.addEventListener("lifeos-projects-updated", handler);
+    return () => window.removeEventListener("lifeos-projects-updated", handler);
+  }, []);
 
   // ── Daily times per weekday of current week ──────────────────────────────
   const realityPerDay = React.useMemo(() => {
