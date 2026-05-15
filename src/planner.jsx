@@ -36,10 +36,14 @@ function computeWeekInfo(monday) {
   const range  = `${monday.getDate()}.–${sun.getDate()}. ${DE_MONTHS[sun.getMonth()]} ${sun.getFullYear()}`;
   const days   = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday); d.setDate(monday.getDate() + i);
+    // Use local date components — toISOString() returns UTC which shifts the date
+    // at midnight in UTC+1/+2 timezones (e.g. CEST = UTC+2: midnight local = 22:00 UTC prev day)
+    const pad = n => String(n).padStart(2, "0");
+    const localDateStr = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
     return {
       k: DAY_KEYS[i],
       n: String(d.getDate()).padStart(2, "0"),
-      dateStr: d.toISOString().slice(0, 10),
+      dateStr: localDateStr,
       monthShort: DE_MONTHS_S[d.getMonth()],
     };
   });
@@ -69,23 +73,29 @@ function parseICS(text, dateStr) {
   // Unfold folded lines (RFC 5545: CRLF + space/tab = continuation)
   const unfolded = text.replace(/\r\n[ \t]/g, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   const events = [];
-  const rawDateStr = dateStr.replace(/-/g, ""); // "2026-05-15" → "20260515"
 
-  const parseMins = function(dtStr) {
-    // Formats: 20260515T090000, 20260515T090000Z, 20260515T090000+0200
+  const pad2 = function(n) { return String(n).padStart(2, "0"); };
+
+  // Parse a DTSTART/DTEND value → { localDateStr: "YYYY-MM-DD", mins: number }
+  const parseDt = function(dtStr) {
     if (!dtStr || dtStr.length < 15) return null;
-    const hh = parseInt(dtStr.slice(9, 11), 10);
-    const mm = parseInt(dtStr.slice(11, 13), 10);
+    var hh = parseInt(dtStr.slice(9, 11), 10);
+    var mm = parseInt(dtStr.slice(11, 13), 10);
     if (isNaN(hh) || isNaN(mm)) return null;
     if (dtStr.endsWith("Z")) {
-      // UTC → local
-      const d = new Date(Date.UTC(
+      // UTC → local: use Date so JS applies the local timezone correctly
+      var d = new Date(Date.UTC(
         parseInt(dtStr.slice(0,4),10), parseInt(dtStr.slice(4,6),10)-1,
         parseInt(dtStr.slice(6,8),10), hh, mm, 0
       ));
-      return d.getHours() * 60 + d.getMinutes();
+      return {
+        localDateStr: d.getFullYear() + "-" + pad2(d.getMonth()+1) + "-" + pad2(d.getDate()),
+        mins: d.getHours() * 60 + d.getMinutes(),
+      };
     }
-    return hh * 60 + mm;
+    // No Z / TZID-aware → treat as local time, take the date directly from string
+    var localDateStr = dtStr.slice(0,4) + "-" + dtStr.slice(4,6) + "-" + dtStr.slice(6,8);
+    return { localDateStr: localDateStr, mins: hh * 60 + mm };
   };
 
   const veventBlocks = unfolded.split("BEGIN:VEVENT");
@@ -97,12 +107,15 @@ function parseICS(text, dateStr) {
     if (!dtStartMatch) continue;
     const dtStart = dtStartMatch[1].trim();
     if (dtStart.length === 8) continue; // all-day event — skip
-    if (dtStart.slice(0, 8) !== rawDateStr) continue;
     const dtEnd   = dtEndMatch   ? dtEndMatch[1].trim()   : "";
     const summary = summaryMatch ? summaryMatch[1].trim() : "Termin";
-    const startMins = parseMins(dtStart);
-    const endMins   = parseMins(dtEnd) || (startMins !== null ? startMins + 60 : null);
-    if (startMins === null || endMins === null) continue;
+    const startDt = parseDt(dtStart);
+    if (!startDt) continue;
+    // Filter by LOCAL date — fixes UTC midnight shift (toISOString was wrong)
+    if (startDt.localDateStr !== dateStr) continue;
+    const endDt   = parseDt(dtEnd);
+    const startMins = startDt.mins;
+    const endMins   = endDt ? endDt.mins : startMins + 60;
     if (endMins <= GRID_START_H * 60 || startMins >= GRID_END_H * 60) continue;
     events.push({
       id: "cal_" + i + "_" + dtStart,
