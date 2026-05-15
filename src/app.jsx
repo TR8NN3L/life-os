@@ -157,6 +157,47 @@ function LoginScreen({ onGuest }) {
   );
 }
 
+// ── Cookie Consent Banner ────────────────────────────────────────────────────
+function CookieBanner({ onDecide }) {
+  return (
+    <div style={{
+      position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 9000,
+      background: "var(--panel)", borderTop: "1px solid var(--line)",
+      padding: "14px 20px", display: "flex", alignItems: "center",
+      gap: 16, flexWrap: "wrap",
+    }}>
+      <div style={{ flex: 1, minWidth: 240 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 3 }}>
+          Wir verwenden Cookies
+        </div>
+        <div style={{ fontSize: 11, color: "var(--text-faint)", lineHeight: 1.5 }}>
+          Hormetic nutzt PostHog Analytics (EU-Server) fuer anonymisierte Nutzungsstatistiken.
+          Technisch notwendige Cookies sind immer aktiv.{" "}
+          <a href="/datenschutz" target="_blank" style={{ color: "var(--accent)", textDecoration: "none" }}>Datenschutz</a>
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+        <button
+          onClick={function() { onDecide("no"); }}
+          style={{
+            padding: "7px 14px", background: "none", border: "1px solid var(--line)",
+            color: "var(--text-faint)", fontSize: 11, fontWeight: 600,
+            letterSpacing: "0.1em", cursor: "pointer", fontFamily: "inherit",
+          }}
+        >NUR NOTWENDIGE</button>
+        <button
+          onClick={function() { onDecide("yes"); }}
+          style={{
+            padding: "7px 14px", background: "var(--accent)", border: "1px solid var(--accent)",
+            color: "#0a0a0c", fontSize: 11, fontWeight: 700,
+            letterSpacing: "0.1em", cursor: "pointer", fontFamily: "inherit",
+          }}
+        >ALLE AKZEPTIEREN</button>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   // Auth gate
   const [authStatus, setAuthStatus] = React.useState("loading");
@@ -165,6 +206,16 @@ function App() {
   // Access gate (subscription or beta code)
   const [hasAccess, setHasAccess] = React.useState(() => localStorage.getItem("lifeos_access") === "1");
   const [authUser,  setAuthUser]  = React.useState(null); // { id, email }
+
+  // Cookie consent
+  const [cookieConsent, setCookieConsent] = React.useState(function() {
+    return localStorage.getItem("lifeos_analytics_consent"); // "yes" | "no" | null
+  });
+  const handleCookieDecide = function(decision) {
+    localStorage.setItem("lifeos_analytics_consent", decision);
+    setCookieConsent(decision);
+    if (decision === "yes" && window.initPosthog) window.initPosthog();
+  };
 
   // Upgrade modal — triggered by window.triggerUpgrade(feature)
   const [upgradeFeature, setUpgradeFeature] = React.useState(null); // null = hidden
@@ -1040,6 +1091,11 @@ function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Cookie Consent Banner — shown until user decides */}
+      {cookieConsent === null && (
+        <CookieBanner onDecide={handleCookieDecide} />
       )}
 
       <TweaksPanel title="Tweaks">
