@@ -103,6 +103,7 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
   const [langfusePk, setLangfusePk]       = React.useState(function() { return localStorage.getItem("lifeos_langfuse_pk") || ""; });
   const [langfuseSk, setLangfuseSk]       = React.useState(function() { return localStorage.getItem("lifeos_langfuse_sk") || ""; });
   const [icalImportUrl, setIcalImportUrl] = React.useState(function() { return localStorage.getItem("lifeos_ical_import_url") || ""; });
+  const [icalSubTab, setIcalSubTab]       = React.useState("url");
 
   React.useEffect(() => {
     window._supabase?.auth?.getSession().then(({ data }) => {
@@ -556,20 +557,81 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
               <div>
                 {renderSection("Kalender importieren",
                   <div>
-                    <div style={{ fontSize: 11.5, color: "var(--text-faint)", lineHeight: 1.6, marginBottom: 14 }}>
-                      Zeigt deine Termine im Planner als Overlays. iCal-URL einfuegen (Apple Kalender: Kalender teilen, Google: Einstellungen / Privatadresse im iCal-Format, Outlook: Kalender veroeffentlichen).
+                    <div style={{ display: "flex", background: "var(--bg)", border: "1px solid var(--line)", padding: 3, marginBottom: 20 }}>
+                      {[["url", "URL eingeben"], ["guide", "Anleitung"]].map(function(item) {
+                        return React.createElement("button", {
+                          key: item[0],
+                          onClick: function() { setIcalSubTab(item[0]); },
+                          style: {
+                            flex: 1, padding: "8px 0", border: "none", cursor: "pointer",
+                            fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
+                            background: icalSubTab === item[0] ? "var(--accent)" : "transparent",
+                            color: icalSubTab === item[0] ? "#0a0a0c" : "var(--text-faint)",
+                            transition: "all .15s", fontFamily: "inherit",
+                          }
+                        }, item[1].toUpperCase());
+                      })}
                     </div>
-                    <input
-                      type="text"
-                      value={icalImportUrl}
-                      onChange={e => { var v = e.target.value.trim(); setIcalImportUrl(v); localStorage.setItem("lifeos_ical_import_url", v); }}
-                      placeholder="webcal://..."
-                      style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "9px 12px", fontSize: 12, outline: "none", fontFamily: "monospace", letterSpacing: "0.02em", boxSizing: "border-box" }}
-                    />
-                    {icalImportUrl
-                      ? <div style={{ fontSize: 11, color: "var(--good)", marginTop: 8, letterSpacing: "0.06em" }}>&#x2713; Termine werden im Planner angezeigt</div>
-                      : <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 8 }}>URL wird nur lokal gespeichert, nie in die Cloud uebertragen.</div>
-                    }
+
+                    {icalSubTab === "url" && (
+                      <div>
+                        <div style={{ fontSize: 11.5, color: "var(--text-faint)", lineHeight: 1.6, marginBottom: 12 }}>
+                          iCal-Feed-URL deines Kalenders einfuegen. Termine erscheinen dann als blaue Overlays im Planner.
+                        </div>
+                        <input
+                          type="text"
+                          value={icalImportUrl}
+                          onChange={function(e) { var v = e.target.value.trim(); setIcalImportUrl(v); localStorage.setItem("lifeos_ical_import_url", v); }}
+                          placeholder="webcal://..."
+                          style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "9px 12px", fontSize: 12, outline: "none", fontFamily: "monospace", letterSpacing: "0.02em", boxSizing: "border-box" }}
+                        />
+                        {icalImportUrl
+                          ? <div style={{ fontSize: 11, color: "var(--good)", marginTop: 8, letterSpacing: "0.06em" }}>&#x2713; Termine werden im Planner angezeigt</div>
+                          : <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 8 }}>URL lokal gespeichert, nie in die Cloud uebertragen.</div>
+                        }
+                      </div>
+                    )}
+
+                    {icalSubTab === "guide" && (
+                      <div>
+                        <div style={{ fontSize: 11, color: "var(--text-faint)", letterSpacing: "0.12em", fontWeight: 700, marginBottom: 12 }}>KALENDER WAHLEN:</div>
+                        {[
+                          {
+                            name: "Apple Kalender (Mac)",
+                            steps: ["Kalender-App oeffnen", "Rechtsklick auf den Kalender in der linken Spalte", "Kalenderinformationen... / dann Link kopieren", "URL oben einfuegen"],
+                          },
+                          {
+                            name: "Apple Kalender (iPhone / iPad)",
+                            steps: ["Kalender-App oeffnen", "Kalender (unten Mitte) antippen", "Kalender-Name antippen / Kalender teilen", "Oeffentlicher Kalender aktivieren / Link kopieren", "URL oben einfuegen"],
+                          },
+                          {
+                            name: "Google Calendar",
+                            steps: ["calendar.google.com oeffnen", "Kalender-Name (links) / drei Punkte / Einstellungen", "Runterscrollen zu Privatadresse im iCal-Format", "URL kopieren und oben einfuegen"],
+                          },
+                          {
+                            name: "Outlook (Web)",
+                            steps: ["outlook.com / Kalender oeffnen", "Einstellungen (Zahnrad) / Kalender veroeffentlichen", "Kalender auswaehlen / ICS-Link kopieren", "URL oben einfuegen"],
+                          },
+                          {
+                            name: "Samsung / Android",
+                            steps: ["Google Calendar App installieren (falls nicht vorhanden)", "Dann wie Google Calendar oben vorgehen"],
+                          },
+                        ].map(function(platform) {
+                          return React.createElement("div", {
+                            key: platform.name,
+                            style: { marginBottom: 14, padding: "12px 14px", background: "var(--panel-2)", border: "1px solid var(--line-soft)" }
+                          },
+                            React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 8 } }, platform.name),
+                            platform.steps.map(function(s, i) {
+                              return React.createElement("div", { key: i, style: { display: "flex", gap: 8, marginBottom: 4 } },
+                                React.createElement("span", { style: { fontSize: 11, color: "var(--accent)", fontWeight: 700, flexShrink: 0 } }, (i + 1) + "."),
+                                React.createElement("span", { style: { fontSize: 11, color: "var(--text-dim)", lineHeight: 1.5 } }, s)
+                              );
+                            })
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
                 {renderSection("Kalender-Abo",
