@@ -56,6 +56,14 @@ function getWeekKey(monday) {
   return `${yr}-W${String(kw).padStart(2, "0")}`;
 }
 
+// ── Calendar feed colors ─────────────────────────────────────────────────────
+var FEED_COLORS = [
+  { bg: "rgba(47,139,255,0.08)",  border: "rgba(47,139,255,0.25)",  left: "rgba(47,139,255,0.5)",  label: "rgba(47,139,255,0.65)",  text: "rgba(255,255,255,0.55)" },
+  { bg: "rgba(139,92,246,0.08)",  border: "rgba(139,92,246,0.25)",  left: "rgba(139,92,246,0.5)",  label: "rgba(139,92,246,0.65)",  text: "rgba(255,255,255,0.55)" },
+  { bg: "rgba(6,148,101,0.08)",   border: "rgba(6,148,101,0.25)",   left: "rgba(6,148,101,0.5)",   label: "rgba(6,148,101,0.65)",   text: "rgba(255,255,255,0.55)" },
+  { bg: "rgba(212,162,60,0.08)",  border: "rgba(212,162,60,0.25)",  left: "rgba(212,162,60,0.5)",  label: "rgba(212,162,60,0.65)",  text: "rgba(255,255,255,0.55)" },
+];
+
 // ── ICS parser ───────────────────────────────────────────────────────────────
 function parseICS(text, dateStr) {
   // Unfold folded lines (RFC 5545: CRLF + space/tab = continuation)
@@ -248,18 +256,34 @@ function Planner() {
   const [calEvents, setCalEvents] = React.useState([]);
 
   React.useEffect(function() {
-    var icalUrl = localStorage.getItem("lifeos_ical_import_url");
-    if (!icalUrl) { setCalEvents([]); return; }
     var dateStr = dispWeek.days[selDay] && dispWeek.days[selDay].dateStr;
     if (!dateStr) return;
+    // Load multi-feed array; fall back to legacy single URL
+    var feeds = [];
+    try {
+      var stored = localStorage.getItem("lifeos_ical_feeds");
+      if (stored) {
+        feeds = JSON.parse(stored);
+      } else {
+        var legacy = localStorage.getItem("lifeos_ical_import_url");
+        if (legacy) feeds = [{ id: "f_0", url: legacy, label: "Kalender" }];
+      }
+    } catch(e) { feeds = []; }
+    if (!feeds.length) { setCalEvents([]); return; }
     var cancelled = false;
-    fetch("/api/ical-proxy?url=" + encodeURIComponent(icalUrl))
-      .then(function(r) { return r.text(); })
-      .then(function(text) {
-        if (cancelled) return;
-        setCalEvents(parseICS(text, dateStr));
-      })
-      .catch(function() { if (!cancelled) setCalEvents([]); });
+    Promise.all(feeds.map(function(feed, idx) {
+      return fetch("/api/ical-proxy?url=" + encodeURIComponent(feed.url))
+        .then(function(r) { return r.text(); })
+        .then(function(text) {
+          return parseICS(text, dateStr).map(function(ev) {
+            return Object.assign({}, ev, { colorIdx: idx % FEED_COLORS.length, feedLabel: feed.label });
+          });
+        })
+        .catch(function() { return []; });
+    })).then(function(results) {
+      if (cancelled) return;
+      setCalEvents([].concat.apply([], results));
+    });
     return function() { cancelled = true; };
   }, [selDay, dispWeek]);
 
@@ -1099,17 +1123,18 @@ function Planner() {
               {calEvents.map(function(ev) {
                 var top    = minsToY(ev.startMins);
                 var height = Math.max(minsToY(ev.endMins) - top, 18);
+                var c      = FEED_COLORS[ev.colorIdx != null ? ev.colorIdx : 0];
                 return (
                   <div key={ev.id} style={{
                     position: "absolute", top: top, left: LABEL_W + 2, right: 4, height: height,
-                    background: "rgba(47,139,255,0.08)",
-                    border: "1px solid rgba(47,139,255,0.25)",
-                    borderLeft: "3px solid rgba(47,139,255,0.5)",
+                    background: c.bg,
+                    border: "1px solid " + c.border,
+                    borderLeft: "3px solid " + c.left,
                     zIndex: 1, pointerEvents: "none", overflow: "hidden", boxSizing: "border-box",
                   }}>
                     <div style={{ padding: "3px 6px" }}>
-                      <div style={{ fontSize: 8, color: "rgba(47,139,255,0.65)", fontWeight: 700, letterSpacing: "0.12em", marginBottom: 1 }}>TERMIN</div>
-                      <div style={{ fontSize: 10.5, fontWeight: 600, color: "rgba(255,255,255,0.55)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ev.summary}</div>
+                      <div style={{ fontSize: 8, color: c.label, fontWeight: 700, letterSpacing: "0.12em", marginBottom: 1 }}>TERMIN</div>
+                      <div style={{ fontSize: 10.5, fontWeight: 600, color: c.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ev.summary}</div>
                       {height > 40 && (
                         <div className="mono" style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>
                           {strFromMins(ev.startMins)} – {strFromMins(ev.endMins)}
