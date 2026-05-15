@@ -285,55 +285,57 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
 
             {/* ── KI ── */}
             {activeTab === "ai" && renderSection("Künstliche Intelligenz",
-              <div style={{ padding: "16px 0", borderBottom: "1px solid var(--line-soft)" }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 5 }}>Anthropic API Key</div>
-                <div style={{ fontSize: 11.5, color: "var(--text-faint)", lineHeight: 1.55, marginBottom: 12 }}>
-                  Für KI-Funktionen (OKR-Wizard, Daily Missions, Tagesplan). Wird nur lokal gespeichert — nie übertragen.
-                </div>
-                <input
-                  type="password"
-                  value={apiKey}
-                  onChange={e => { const v = e.target.value; setApiKey(v); LS.setItem("lifeos_openai_key", v.trim()); if (v.trim()) window.TUTORIAL?.onAction?.("api-key-set"); }}
-                  placeholder="sk-ant-..."
-                  style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "9px 12px", fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
-                />
-                {apiKey
-                  ? <div style={{ fontSize: 11, color: "var(--good)", marginTop: 8, letterSpacing: "0.06em" }}>✓ Key gespeichert</div>
-                  : <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 8, lineHeight: 1.5 }}>Key unter <b>console.anthropic.com</b> → API Keys → Create Key.</div>}
-              </div>,
-              <div style={{ padding: "16px 0" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>Langfuse Observability</div>
-                  <div style={{ fontSize: 10, letterSpacing: "0.12em", fontWeight: 700, color: (langfusePk && langfuseSk) ? "var(--good)" : "var(--text-faint)", background: (langfusePk && langfuseSk) ? "var(--good-soft)" : "var(--panel-2)", padding: "2px 7px" }}>
-                    {(langfusePk && langfuseSk) ? "AKTIV" : "OPTIONAL"}
+              <div>
+                <div style={{ padding: "16px 0", borderBottom: "1px solid var(--line-soft)" }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 5 }}>Anthropic API Key</div>
+                  <div style={{ fontSize: 11.5, color: "var(--text-faint)", lineHeight: 1.55, marginBottom: 12 }}>
+                    Fuer KI-Funktionen (OKR-Wizard, Daily Missions, Tagesplan). Wird nur lokal gespeichert.
                   </div>
+                  <input
+                    type="password"
+                    value={apiKey}
+                    onChange={e => { const v = e.target.value; setApiKey(v); LS.setItem("lifeos_openai_key", v.trim()); if (v.trim()) window.TUTORIAL?.onAction?.("api-key-set"); }}
+                    placeholder="sk-ant-..."
+                    style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "9px 12px", fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+                  />
+                  {apiKey
+                    ? <div style={{ fontSize: 11, color: "var(--good)", marginTop: 8, letterSpacing: "0.06em" }}>&#x2713; Key gespeichert</div>
+                    : <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 8, lineHeight: 1.5 }}>Key unter console.anthropic.com / API Keys / Create Key.</div>}
                 </div>
-                <div style={{ fontSize: 11.5, color: "var(--text-faint)", lineHeight: 1.55, marginBottom: 12 }}>
-                  Trackt alle KI-Aufrufe (Latenz, Token, Prompts). Dashboard auf <b>cloud.langfuse.com</b> → EU-Region → Project Keys.
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  <div>
-                    <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 4, letterSpacing: "0.06em" }}>PUBLIC KEY</div>
-                    <input
-                      type="text"
-                      value={langfusePk}
-                      onChange={e => { const v = e.target.value.trim(); setLangfusePk(v); localStorage.setItem("lifeos_langfuse_pk", v); }}
-                      placeholder="pk-lf-..."
-                      style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "9px 12px", fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
-                    />
+                <div style={{ padding: "16px 0" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>Langfuse Observability</div>
+                    <div style={{ fontSize: 10, letterSpacing: "0.12em", fontWeight: 700, color: (langfusePk && langfuseSk) ? "var(--good)" : "var(--text-faint)", background: (langfusePk && langfuseSk) ? "var(--good-soft)" : "var(--panel-2)", padding: "2px 7px" }}>
+                      {(langfusePk && langfuseSk) ? "AKTIV" : "OPTIONAL"}
+                    </div>
                   </div>
-                  <div>
-                    <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 4, letterSpacing: "0.06em" }}>SECRET KEY</div>
-                    <input
-                      type="password"
-                      value={langfuseSk}
-                      onChange={e => { const v = e.target.value.trim(); setLangfuseSk(v); localStorage.setItem("lifeos_langfuse_sk", v); }}
-                      placeholder="sk-lf-..."
-                      style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "9px 12px", fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
-                    />
+                  <div style={{ fontSize: 11.5, color: "var(--text-faint)", lineHeight: 1.55, marginBottom: 12 }}>
+                    Trackt alle KI-Aufrufe (Latenz, Token, Prompts). Dashboard auf cloud.langfuse.com / EU-Region / Project Keys.
                   </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 4, letterSpacing: "0.06em" }}>PUBLIC KEY</div>
+                      <input
+                        type="text"
+                        value={langfusePk}
+                        onChange={e => { const v = e.target.value.trim(); setLangfusePk(v); localStorage.setItem("lifeos_langfuse_pk", v); }}
+                        placeholder="pk-lf-..."
+                        style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "9px 12px", fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+                      />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, color: "var(--text-faint)", marginBottom: 4, letterSpacing: "0.06em" }}>SECRET KEY</div>
+                      <input
+                        type="password"
+                        value={langfuseSk}
+                        onChange={e => { const v = e.target.value.trim(); setLangfuseSk(v); localStorage.setItem("lifeos_langfuse_sk", v); }}
+                        placeholder="sk-lf-..."
+                        style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "9px 12px", fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+                      />
+                    </div>
+                  </div>
+                  {(langfusePk && langfuseSk) && <div style={{ fontSize: 11, color: "var(--good)", marginTop: 8, letterSpacing: "0.06em" }}>&#x2713; Alle KI-Calls werden getrackt</div>}
                 </div>
-                {(langfusePk && langfuseSk) && <div style={{ fontSize: 11, color: "var(--good)", marginTop: 8, letterSpacing: "0.06em" }}>✓ Alle KI-Calls werden getrackt</div>}
               </div>
             )}
 
@@ -552,19 +554,18 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
                 {renderSection("Kalender importieren",
                   <div>
                     <div style={{ fontSize: 11.5, color: "var(--text-faint)", lineHeight: 1.6, marginBottom: 14 }}>
-                      Zeigt deine Termine im Planner als schreibgeschützte Overlays an — so siehst du sofort wo freie Zeitfenster sind.
-                      iCal-Feed-URL einfügen (Apple Kalender → Kalender teilen → Link, Google Calendar → Kalender-Einstellungen → Privater iCal-Link).
+                      Zeigt deine Termine im Planner als Overlays. iCal-URL einfuegen (Apple Kalender: Kalender teilen, Google: Einstellungen / Privatadresse im iCal-Format, Outlook: Kalender veroeffentlichen).
                     </div>
                     <input
                       type="text"
                       value={icalImportUrl}
-                      onChange={e => { const v = e.target.value.trim(); setIcalImportUrl(v); localStorage.setItem("lifeos_ical_import_url", v); }}
-                      placeholder="https://p12-caldav.icloud.com/..."
-                      style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "9px 12px", fontSize: 12, outline: "none", fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.02em", boxSizing: "border-box" }}
+                      onChange={e => { var v = e.target.value.trim(); setIcalImportUrl(v); localStorage.setItem("lifeos_ical_import_url", v); }}
+                      placeholder="webcal://..."
+                      style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "9px 12px", fontSize: 12, outline: "none", fontFamily: "monospace", letterSpacing: "0.02em", boxSizing: "border-box" }}
                     />
                     {icalImportUrl
-                      ? <div style={{ fontSize: 11, color: "var(--good)", marginTop: 8, letterSpacing: "0.06em" }}>✓ Termine werden im Planner angezeigt</div>
-                      : <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 8, lineHeight: 1.5 }}>URL wird nur lokal gespeichert — nie in die Cloud übertragen.</div>
+                      ? <div style={{ fontSize: 11, color: "var(--good)", marginTop: 8, letterSpacing: "0.06em" }}>&#x2713; Termine werden im Planner angezeigt</div>
+                      : <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 8 }}>URL wird nur lokal gespeichert, nie in die Cloud uebertragen.</div>
                     }
                   </div>
                 )}
