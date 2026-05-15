@@ -549,6 +549,25 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
             {/* ── KALENDER ── */}
             {activeTab === "kalender" && (
               <div>
+                {renderSection("Kalender importieren",
+                  <div>
+                    <div style={{ fontSize: 11.5, color: "var(--text-faint)", lineHeight: 1.6, marginBottom: 14 }}>
+                      Zeigt deine Termine im Planner als schreibgeschützte Overlays an — so siehst du sofort wo freie Zeitfenster sind.
+                      iCal-Feed-URL einfügen (Apple Kalender → Kalender teilen → Link, Google Calendar → Kalender-Einstellungen → Privater iCal-Link).
+                    </div>
+                    <input
+                      type="text"
+                      value={icalImportUrl}
+                      onChange={e => { const v = e.target.value.trim(); setIcalImportUrl(v); localStorage.setItem("lifeos_ical_import_url", v); }}
+                      placeholder="https://p12-caldav.icloud.com/..."
+                      style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "9px 12px", fontSize: 12, outline: "none", fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.02em", boxSizing: "border-box" }}
+                    />
+                    {icalImportUrl
+                      ? <div style={{ fontSize: 11, color: "var(--good)", marginTop: 8, letterSpacing: "0.06em" }}>✓ Termine werden im Planner angezeigt</div>
+                      : <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 8, lineHeight: 1.5 }}>URL wird nur lokal gespeichert — nie in die Cloud übertragen.</div>
+                    }
+                  </div>
+                )}
                 {renderSection("Kalender-Abo",
                   <div>
                     <div style={{ fontSize: 12.5, color: "var(--text-dim)", lineHeight: 1.7, marginBottom: 18 }}>
@@ -705,6 +724,7 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs, onOpenPa
   const [apiKey, setApiKey]             = React.useState(() => LS.getItem("lifeos_openai_key") || "");
   const [langfusePk, setLangfusePk]     = React.useState(() => LS.getItem("lifeos_langfuse_pk") || "");
   const [langfuseSk, setLangfuseSk]     = React.useState(() => LS.getItem("lifeos_langfuse_sk") || "");
+  const [icalImportUrl, setIcalImportUrl] = React.useState(() => localStorage.getItem("lifeos_ical_import_url") || "");
   const [pushStatus, setPushStatus]     = React.useState(() => window.Push?.permissionState?.() || "default");
   const [pushLoading, setPushLoading]   = React.useState(false);
 

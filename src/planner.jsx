@@ -56,6 +56,56 @@ function getWeekKey(monday) {
   return `${yr}-W${String(kw).padStart(2, "0")}`;
 }
 
+// ── ICS parser ───────────────────────────────────────────────────────────────
+function parseICS(text, dateStr) {
+  // Unfold folded lines (RFC 5545: CRLF + space/tab = continuation)
+  const unfolded = text.replace(/\r\n[ \t]/g, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const events = [];
+  const rawDateStr = dateStr.replace(/-/g, ""); // "2026-05-15" → "20260515"
+
+  const parseMins = function(dtStr) {
+    // Formats: 20260515T090000, 20260515T090000Z, 20260515T090000+0200
+    if (!dtStr || dtStr.length < 15) return null;
+    const hh = parseInt(dtStr.slice(9, 11), 10);
+    const mm = parseInt(dtStr.slice(11, 13), 10);
+    if (isNaN(hh) || isNaN(mm)) return null;
+    if (dtStr.endsWith("Z")) {
+      // UTC → local
+      const d = new Date(Date.UTC(
+        parseInt(dtStr.slice(0,4),10), parseInt(dtStr.slice(4,6),10)-1,
+        parseInt(dtStr.slice(6,8),10), hh, mm, 0
+      ));
+      return d.getHours() * 60 + d.getMinutes();
+    }
+    return hh * 60 + mm;
+  };
+
+  const veventBlocks = unfolded.split("BEGIN:VEVENT");
+  for (let i = 1; i < veventBlocks.length; i++) {
+    const block = veventBlocks[i];
+    const dtStartMatch = block.match(/\nDTSTART[^:]*:(\S+)/);
+    const dtEndMatch   = block.match(/\nDTEND[^:]*:(\S+)/);
+    const summaryMatch = block.match(/\nSUMMARY[^:]*:(.*)/);
+    if (!dtStartMatch) continue;
+    const dtStart = dtStartMatch[1].trim();
+    if (dtStart.length === 8) continue; // all-day event — skip
+    if (dtStart.slice(0, 8) !== rawDateStr) continue;
+    const dtEnd   = dtEndMatch   ? dtEndMatch[1].trim()   : "";
+    const summary = summaryMatch ? summaryMatch[1].trim() : "Termin";
+    const startMins = parseMins(dtStart);
+    const endMins   = parseMins(dtEnd) || (startMins !== null ? startMins + 60 : null);
+    if (startMins === null || endMins === null) continue;
+    if (endMins <= GRID_START_H * 60 || startMins >= GRID_END_H * 60) continue;
+    events.push({
+      id: "cal_" + i + "_" + dtStart,
+      summary,
+      startMins: Math.max(startMins, GRID_START_H * 60),
+      endMins:   Math.min(endMins,   GRID_END_H   * 60),
+    });
+  }
+  return events.sort((a, b) => a.startMins - b.startMins);
+}
+
 // ── Planner component ────────────────────────────────────────────────────────
 function Planner() {
   const todayRaw = new Date().getDay();
@@ -193,6 +243,25 @@ function Planner() {
       setMgLoading(false);
     }
   };
+
+  // ── Calendar import ────────────────────────────────────────────────────────
+  const [calEvents, setCalEvents] = React.useState([]);
+
+  React.useEffect(function() {
+    var icalUrl = localStorage.getItem("lifeos_ical_import_url");
+    if (!icalUrl) { setCalEvents([]); return; }
+    var dateStr = dispWeek.days[selDay] && dispWeek.days[selDay].dateStr;
+    if (!dateStr) return;
+    var cancelled = false;
+    fetch("/api/ical-proxy?url=" + encodeURIComponent(icalUrl))
+      .then(function(r) { return r.text(); })
+      .then(function(text) {
+        if (cancelled) return;
+        setCalEvents(parseICS(text, dateStr));
+      })
+      .catch(function() { if (!cancelled) setCalEvents([]); });
+    return function() { cancelled = true; };
+  }, [selDay, dispWeek]);
 
   // ── Modal ──────────────────────────────────────────────────────────────────
   const [showModal, setShowModal] = React.useState(false);
@@ -1025,6 +1094,31 @@ function Planner() {
                   <div style={{ position:"absolute", left:LABEL_W, right:0, borderTop:"1px solid rgba(139,92,246,0.3)" }} />
                 </div>
               )}
+
+              {/* Calendar event overlays (read-only) */}
+              {calEvents.map(function(ev) {
+                var top    = minsToY(ev.startMins);
+                var height = Math.max(minsToY(ev.endMins) - top, 18);
+                return (
+                  <div key={ev.id} style={{
+                    position: "absolute", top: top, left: LABEL_W + 2, right: 4, height: height,
+                    background: "rgba(47,139,255,0.08)",
+                    border: "1px solid rgba(47,139,255,0.25)",
+                    borderLeft: "3px solid rgba(47,139,255,0.5)",
+                    zIndex: 1, pointerEvents: "none", overflow: "hidden", boxSizing: "border-box",
+                  }}>
+                    <div style={{ padding: "3px 6px" }}>
+                      <div style={{ fontSize: 8, color: "rgba(47,139,255,0.65)", fontWeight: 700, letterSpacing: "0.12em", marginBottom: 1 }}>TERMIN</div>
+                      <div style={{ fontSize: 10.5, fontWeight: 600, color: "rgba(255,255,255,0.55)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ev.summary}</div>
+                      {height > 40 && (
+                        <div className="mono" style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>
+                          {strFromMins(ev.startMins)} – {strFromMins(ev.endMins)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
 
               {/* Blocks */}
               {dayBlocks.map(block => {
