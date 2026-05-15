@@ -104,6 +104,8 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
   const [langfuseSk, setLangfuseSk]       = React.useState(function() { return localStorage.getItem("lifeos_langfuse_sk") || ""; });
   const [icalImportUrl, setIcalImportUrl] = React.useState(function() { return localStorage.getItem("lifeos_ical_import_url") || ""; });
   const [icalSubTab, setIcalSubTab]       = React.useState("url");
+  const [icalImportOpen, setIcalImportOpen] = React.useState(true);
+  const [icalAboOpen, setIcalAboOpen]       = React.useState(false);
 
   React.useEffect(() => {
     window._supabase?.auth?.getSession().then(({ data }) => {
@@ -555,166 +557,127 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
             {/* ── KALENDER ── */}
             {activeTab === "kalender" && (
               <div>
-                {renderSection("Kalender importieren",
-                  <div>
-                    <div style={{ display: "flex", background: "var(--bg)", border: "1px solid var(--line)", padding: 3, marginBottom: 20 }}>
-                      {[["url", "URL eingeben"], ["guide", "Anleitung"]].map(function(item) {
-                        return React.createElement("button", {
-                          key: item[0],
-                          onClick: function() { setIcalSubTab(item[0]); },
-                          style: {
-                            flex: 1, padding: "8px 0", border: "none", cursor: "pointer",
-                            fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
-                            background: icalSubTab === item[0] ? "var(--accent)" : "transparent",
-                            color: icalSubTab === item[0] ? "#0a0a0c" : "var(--text-faint)",
-                            transition: "all .15s", fontFamily: "inherit",
-                          }
-                        }, item[1].toUpperCase());
-                      })}
-                    </div>
 
-                    {icalSubTab === "url" && (
-                      <div>
-                        <div style={{ fontSize: 11.5, color: "var(--text-faint)", lineHeight: 1.6, marginBottom: 12 }}>
-                          iCal-Feed-URL deines Kalenders einfuegen. Termine erscheinen dann als blaue Overlays im Planner.
-                        </div>
-                        <input
-                          type="text"
-                          value={icalImportUrl}
-                          onChange={function(e) { var v = e.target.value.trim(); setIcalImportUrl(v); localStorage.setItem("lifeos_ical_import_url", v); }}
-                          placeholder="webcal://..."
-                          style={{ width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text)", padding: "9px 12px", fontSize: 12, outline: "none", fontFamily: "monospace", letterSpacing: "0.02em", boxSizing: "border-box" }}
-                        />
-                        {icalImportUrl
-                          ? <div style={{ fontSize: 11, color: "var(--good)", marginTop: 8, letterSpacing: "0.06em" }}>&#x2713; Termine werden im Planner angezeigt</div>
-                          : <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 8 }}>URL lokal gespeichert, nie in die Cloud uebertragen.</div>
-                        }
-                      </div>
-                    )}
-
-                    {icalSubTab === "guide" && (
-                      <div>
-                        <div style={{ fontSize: 11, color: "var(--text-faint)", letterSpacing: "0.12em", fontWeight: 700, marginBottom: 12 }}>KALENDER WAHLEN:</div>
-                        {[
-                          {
-                            name: "Apple Kalender (Mac)",
-                            steps: ["Kalender-App oeffnen", "Rechtsklick auf den Kalender in der linken Spalte", "Kalenderinformationen... / dann Link kopieren", "URL oben einfuegen"],
-                          },
-                          {
-                            name: "Apple Kalender (iPhone / iPad)",
-                            steps: ["Kalender-App oeffnen", "Kalender (unten Mitte) antippen", "Kalender-Name antippen / Kalender teilen", "Oeffentlicher Kalender aktivieren / Link kopieren", "URL oben einfuegen"],
-                          },
-                          {
-                            name: "Google Calendar",
-                            steps: ["calendar.google.com oeffnen", "Kalender-Name (links) / drei Punkte / Einstellungen", "Runterscrollen zu Privatadresse im iCal-Format", "URL kopieren und oben einfuegen"],
-                          },
-                          {
-                            name: "Outlook (Web)",
-                            steps: ["outlook.com / Kalender oeffnen", "Einstellungen (Zahnrad) / Kalender veroeffentlichen", "Kalender auswaehlen / ICS-Link kopieren", "URL oben einfuegen"],
-                          },
-                          {
-                            name: "Samsung / Android",
-                            steps: ["Google Calendar App installieren (falls nicht vorhanden)", "Dann wie Google Calendar oben vorgehen"],
-                          },
-                        ].map(function(platform) {
-                          return React.createElement("div", {
-                            key: platform.name,
-                            style: { marginBottom: 14, padding: "12px 14px", background: "var(--panel-2)", border: "1px solid var(--line-soft)" }
-                          },
-                            React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 8 } }, platform.name),
-                            platform.steps.map(function(s, i) {
-                              return React.createElement("div", { key: i, style: { display: "flex", gap: 8, marginBottom: 4 } },
-                                React.createElement("span", { style: { fontSize: 11, color: "var(--accent)", fontWeight: 700, flexShrink: 0 } }, (i + 1) + "."),
-                                React.createElement("span", { style: { fontSize: 11, color: "var(--text-dim)", lineHeight: 1.5 } }, s)
-                              );
-                            })
-                          );
+                {/* Accordion: Kalender importieren */}
+                <div style={{ marginBottom: 8, border: "1px solid var(--line)", background: "var(--panel-2)" }}>
+                  <button onClick={function() { setIcalImportOpen(function(v) { return !v; }); }} style={{
+                    width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "12px 16px", background: "none", border: "none", cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}>
+                    <span style={{ fontSize: 10, letterSpacing: "0.18em", fontWeight: 600, color: "var(--text-faint)", textTransform: "uppercase" }}>Kalender importieren</span>
+                    <span style={{ fontSize: 10, color: "var(--text-faint)", marginLeft: 8 }}>{icalImportOpen ? "&#9650;" : "&#9660;"}</span>
+                  </button>
+                  {icalImportOpen && (
+                    <div style={{ padding: "0 16px 16px" }}>
+                      <div style={{ display: "flex", background: "var(--bg)", border: "1px solid var(--line)", padding: 3, marginBottom: 16 }}>
+                        {[["url", "URL eingeben"], ["guide", "Anleitung"]].map(function(item) {
+                          return React.createElement("button", {
+                            key: item[0],
+                            onClick: function() { setIcalSubTab(item[0]); },
+                            style: {
+                              flex: 1, padding: "7px 0", border: "none", cursor: "pointer",
+                              fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
+                              background: icalSubTab === item[0] ? "var(--accent)" : "transparent",
+                              color: icalSubTab === item[0] ? "#0a0a0c" : "var(--text-faint)",
+                              transition: "all .15s", fontFamily: "inherit",
+                            }
+                          }, item[1].toUpperCase());
                         })}
                       </div>
-                    )}
-                  </div>
-                )}
-                {renderSection("Kalender-Abo",
-                  <div>
-                    <div style={{ fontSize: 12.5, color: "var(--text-dim)", lineHeight: 1.7, marginBottom: 18 }}>
-                      Abonniere deine Planner-Blöcke als iCal-Feed — funktioniert in jedem Kalender: Apple, Google, Outlook, Samsung und mehr. Die URL bleibt immer gleich, Änderungen synchronisieren sich automatisch.
-                    </div>
-
-                    {calUrl ? (
-                      <div>
-                        {/* URL Box */}
-                        <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-                          <div style={{
-                            flex: 1, padding: "9px 12px", background: "var(--panel-2)",
-                            border: "1px solid var(--line)", fontSize: 10.5,
-                            color: "var(--text-faint)", fontFamily: "monospace",
-                            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                            letterSpacing: "0.02em",
-                          }}>{calUrl}</div>
-                          <button onClick={copyCalUrl} style={{
-                            padding: "9px 16px", background: calCopied ? "var(--good)" : "var(--accent-soft)",
-                            border: `1px solid ${calCopied ? "var(--good)" : "var(--accent-line)"}`,
-                            color: calCopied ? "#0a0a0c" : "var(--accent)",
-                            fontSize: 11, letterSpacing: "0.1em", fontWeight: 700,
-                            cursor: "pointer", fontFamily: "inherit", flexShrink: 0,
-                            transition: "all .2s",
-                          }}>{calCopied ? "✓ KOPIERT" : "KOPIEREN"}</button>
-                        </div>
-
-                        {/* Platform instructions */}
-                        <div style={{ fontSize: 11, color: "var(--text-faint)", letterSpacing: "0.12em", fontWeight: 700, marginBottom: 12 }}>
-                          ANLEITUNG - KALENDER WAHLEN:
-                        </div>
-
-                        {[
-                          {
-                            name: "Apple Kalender (Mac)",
-                            steps: ["Kalender-App oeffnen", "Menue: Ablage > Neues Kalenderabonnement", "URL einfuegen > Abonnieren klicken"],
-                          },
-                          {
-                            name: "Apple Kalender (iPhone / iPad)",
-                            steps: ["Einstellungen > Kalender > Accounts > Account hinzufuegen", "Andere > Kalenderabo hinzufuegen", "URL einfuegen > Weiter > Sichern"],
-                          },
-                          {
-                            name: "Google Calendar",
-                            steps: ["calendar.google.com oeffnen", "Linke Spalte: + neben 'Weitere Kalender' > Per URL", "URL einfuegen > Kalender hinzufuegen"],
-                          },
-                          {
-                            name: "Outlook (Web / Desktop)",
-                            steps: ["Kalender oeffnen", "Kalender hinzufuegen > Aus dem Internet abonnieren", "URL einfuegen > Importieren"],
-                          },
-                          {
-                            name: "Samsung / Android",
-                            steps: ["Google Calendar installieren (falls nicht vorhanden)", "Dann wie Google Calendar oben"],
-                          },
-                        ].map(platform => (
-                          <div key={platform.name} style={{
-                            marginBottom: 14, padding: "12px 14px",
-                            background: "var(--panel-2)", border: "1px solid var(--line-soft)",
-                          }}>
-                            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 8 }}>
-                              {platform.name}
-                            </div>
-                            {platform.steps.map((s, i) => (
-                              <div key={i} style={{ display: "flex", gap: 8, marginBottom: 4 }}>
-                                <span style={{ fontSize: 11, color: "var(--accent)", fontWeight: 700, flexShrink: 0 }}>{i + 1}.</span>
-                                <span style={{ fontSize: 11, color: "var(--text-dim)", lineHeight: 1.5 }}>{s}</span>
-                              </div>
-                            ))}
+                      {icalSubTab === "url" && (
+                        <div>
+                          <div style={{ fontSize: 11.5, color: "var(--text-faint)", lineHeight: 1.6, marginBottom: 12 }}>
+                            iCal-Feed-URL einfuegen. Termine erscheinen als blaue Overlays im Planner.
                           </div>
-                        ))}
-
-                        <div style={{ fontSize: 11, color: "var(--text-faint)", lineHeight: 1.6, marginTop: 8 }}>
-                          Kalender-Apps synchronisieren alle paar Stunden automatisch. Mac: Ablage &gt; Alle Accounts aktualisieren fuer sofortiges Update.
+                          <input
+                            type="text"
+                            value={icalImportUrl}
+                            onChange={function(e) { var v = e.target.value.trim(); setIcalImportUrl(v); localStorage.setItem("lifeos_ical_import_url", v); }}
+                            placeholder="webcal://..."
+                            style={{ width: "100%", background: "var(--bg)", border: "1px solid var(--line)", color: "var(--text)", padding: "9px 12px", fontSize: 12, outline: "none", fontFamily: "monospace", letterSpacing: "0.02em", boxSizing: "border-box" }}
+                          />
+                          {icalImportUrl
+                            ? <div style={{ fontSize: 11, color: "var(--good)", marginTop: 8, letterSpacing: "0.06em" }}>&#x2713; Termine werden im Planner angezeigt</div>
+                            : <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 8 }}>URL wird lokal gespeichert, nie in die Cloud uebertragen.</div>
+                          }
                         </div>
+                      )}
+                      {icalSubTab === "guide" && (
+                        <div>
+                          {[
+                            { name: "Apple Kalender (Mac)",          steps: ["Kalender-App oeffnen", "Rechtsklick auf Kalender in linker Spalte", "Kalenderinformationen... / Link kopieren", "URL oben einfuegen"] },
+                            { name: "Apple Kalender (iPhone / iPad)", steps: ["Kalender-App / Kalender (unten) antippen", "Kalender-Name / Kalender teilen", "Oeffentlicher Kalender aktivieren / Link kopieren", "URL oben einfuegen"] },
+                            { name: "Google Calendar",                steps: ["calendar.google.com oeffnen", "Kalender-Name (links) / drei Punkte / Einstellungen", "Privatadresse im iCal-Format kopieren", "URL oben einfuegen"] },
+                            { name: "Outlook (Web)",                  steps: ["outlook.com / Kalender oeffnen", "Einstellungen / Kalender veroeffentlichen", "ICS-Link kopieren", "URL oben einfuegen"] },
+                            { name: "Samsung / Android",              steps: ["Google Calendar App nutzen", "Dann wie Google Calendar oben"] },
+                          ].map(function(p) {
+                            return React.createElement("div", { key: p.name, style: { marginBottom: 10, padding: "10px 12px", background: "var(--bg)", border: "1px solid var(--line-soft)" } },
+                              React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "var(--text)", marginBottom: 6 } }, p.name),
+                              p.steps.map(function(s, i) {
+                                return React.createElement("div", { key: i, style: { display: "flex", gap: 8, marginBottom: 3 } },
+                                  React.createElement("span", { style: { fontSize: 10, color: "var(--accent)", fontWeight: 700, flexShrink: 0 } }, (i + 1) + "."),
+                                  React.createElement("span", { style: { fontSize: 11, color: "var(--text-dim)", lineHeight: 1.45 } }, s)
+                                );
+                              })
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Accordion: Kalender-Abo */}
+                <div style={{ marginBottom: 8, border: "1px solid var(--line)", background: "var(--panel-2)" }}>
+                  <button onClick={function() { setIcalAboOpen(function(v) { return !v; }); }} style={{
+                    width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "12px 16px", background: "none", border: "none", cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}>
+                    <span style={{ fontSize: 10, letterSpacing: "0.18em", fontWeight: 600, color: "var(--text-faint)", textTransform: "uppercase" }}>Kalender-Abo</span>
+                    <span style={{ fontSize: 10, color: "var(--text-faint)", marginLeft: 8 }}>{icalAboOpen ? "&#9650;" : "&#9660;"}</span>
+                  </button>
+                  {icalAboOpen && (
+                    <div style={{ padding: "0 16px 16px" }}>
+                      <div style={{ fontSize: 11.5, color: "var(--text-dim)", lineHeight: 1.6, marginBottom: 16 }}>
+                        Planner-Bloecke als iCal-Feed abonnieren. Funktioniert in Apple, Google, Outlook, Samsung.
                       </div>
-                    ) : (
-                      <div style={{ fontSize: 12, color: "var(--text-faint)", fontStyle: "italic" }}>
-                        Lade Benutzerdaten…
-                      </div>
-                    )}
-                  </div>
-                )}
+                      {calUrl ? (
+                        <div>
+                          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                            <div style={{ flex: 1, padding: "9px 12px", background: "var(--bg)", border: "1px solid var(--line)", fontSize: 10.5, color: "var(--text-faint)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{calUrl}</div>
+                            <button onClick={copyCalUrl} style={{ padding: "9px 14px", background: calCopied ? "var(--good)" : "var(--accent-soft)", border: "1px solid " + (calCopied ? "var(--good)" : "var(--accent-line)"), color: calCopied ? "#0a0a0c" : "var(--accent)", fontSize: 11, letterSpacing: "0.1em", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>{calCopied ? "&#x2713; KOPIERT" : "KOPIEREN"}</button>
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--text-faint)", letterSpacing: "0.12em", fontWeight: 700, marginBottom: 10 }}>ANLEITUNG:</div>
+                          {[
+                            { name: "Apple Kalender (Mac)",          steps: ["Kalender-App / Ablage / Neues Kalenderabonnement", "URL einfuegen / Abonnieren"] },
+                            { name: "Apple Kalender (iPhone / iPad)", steps: ["Einstellungen / Kalender / Accounts / Account hinzufuegen", "Andere / Kalenderabo / URL einfuegen / Sichern"] },
+                            { name: "Google Calendar",                steps: ["calendar.google.com / + neben Weitere Kalender / Per URL", "URL einfuegen / Kalender hinzufuegen"] },
+                            { name: "Outlook (Web / Desktop)",        steps: ["Kalender / Kalender hinzufuegen / Aus dem Internet", "URL einfuegen / Importieren"] },
+                            { name: "Samsung / Android",              steps: ["Google Calendar App nutzen", "Dann wie Google Calendar oben"] },
+                          ].map(function(p) {
+                            return React.createElement("div", { key: p.name, style: { marginBottom: 10, padding: "10px 12px", background: "var(--bg)", border: "1px solid var(--line-soft)" } },
+                              React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "var(--text)", marginBottom: 6 } }, p.name),
+                              p.steps.map(function(s, i) {
+                                return React.createElement("div", { key: i, style: { display: "flex", gap: 8, marginBottom: 3 } },
+                                  React.createElement("span", { style: { fontSize: 10, color: "var(--accent)", fontWeight: 700, flexShrink: 0 } }, (i + 1) + "."),
+                                  React.createElement("span", { style: { fontSize: 11, color: "var(--text-dim)", lineHeight: 1.45 } }, s)
+                                );
+                              })
+                            );
+                          })}
+                          <div style={{ fontSize: 10.5, color: "var(--text-faint)", lineHeight: 1.6, marginTop: 10 }}>
+                            Kalender-Apps synchronisieren alle paar Stunden automatisch.
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 12, color: "var(--text-faint)", fontStyle: "italic" }}>Lade Benutzerdaten...</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
               </div>
             )}
 
