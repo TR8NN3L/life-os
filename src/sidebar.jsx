@@ -308,7 +308,7 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
                     Fuer KI-Funktionen (OKR-Wizard, Daily Missions, Tagesplan). Wird nur lokal gespeichert.
                   </div>
                   <div style={{ fontSize: 10.5, color: "var(--text-faint)", background: "var(--panel-2)", border: "1px solid var(--line-soft)", padding: "8px 10px", lineHeight: 1.55, marginBottom: 12 }}>
-                    &#9432; Datenschutzhinweis: Deine Eingaben (OKR-Titel, Ziele, Aufgaben) werden zur KI-Generierung direkt an Anthropic-Server (USA) uebertragen. Anthropic verarbeitet diese Daten gem. DSGVO-konformem Auftragsverarbeitungsvertrag. Keine Speicherung durch Hormetic.
+                    {"DATENSCHUTZ: Deine Eingaben (OKR-Titel, Ziele, Aufgaben) werden zur KI-Generierung direkt an Anthropic-Server (USA) uebertragen. Anthropic verarbeitet diese Daten gemaess DSGVO-konformem Auftragsverarbeitungsvertrag. Keine Speicherung durch Hormetic."}
                   </div>
                   <input
                     type="password"

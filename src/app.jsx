@@ -171,9 +171,8 @@ function CookieBanner({ onDecide }) {
           Wir verwenden Cookies
         </div>
         <div style={{ fontSize: 11, color: "var(--text-faint)", lineHeight: 1.5 }}>
-          Hormetic nutzt PostHog Analytics (EU-Server) fuer anonymisierte Nutzungsstatistiken.
-          Technisch notwendige Cookies sind immer aktiv.{" "}
-          <a href="/datenschutz" target="_blank" style={{ color: "var(--accent)", textDecoration: "none" }}>Datenschutz</a>
+          {"Hormetic nutzt PostHog Analytics (EU-Server) fuer anonymisierte Nutzungsstatistiken. Technisch notwendige Cookies sind immer aktiv. "}
+          <a href="/datenschutz" target="_blank" style={{ color: "var(--accent)", textDecoration: "none" }}>{"Datenschutz"}</a>
         </div>
       </div>
       <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
