@@ -1,5 +1,76 @@
 // Insights — echte Daten aus localStorage: Zeit pro KR, Promised vs. Delivered, Debt.
 
+// ── Weekly helpers ────────────────────────────────────────────────────────────
+function getMonday(weekOffset) {
+  const now = new Date();
+  const day = now.getDay() === 0 ? 6 : now.getDay() - 1; // 0=Mo … 6=So
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - day + weekOffset * 7);
+  mon.setHours(0, 0, 0, 0);
+  return mon;
+}
+
+function localDateStr(d) {
+  var pad = function(n) { return String(n).padStart(2, "0"); };
+  return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+}
+
+// ── Weekly bar chart ─────────────────────────────────────────────────────────
+function WeeklyBarChart({ days }) {
+  // days = [{label, dateStr, totalH, isToday, isFuture}]
+  var W = 560, H = 140;
+  var PAD = { top: 10, right: 12, bottom: 30, left: 38 };
+  var cW = W - PAD.left - PAD.right;
+  var cH = H - PAD.top - PAD.bottom;
+  var maxH = Math.max.apply(null, days.map(function(d) { return d.totalH; }).concat([1]));
+  var scale = maxH < 4 ? Math.ceil(maxH + 1) : maxH < 8 ? Math.ceil(maxH * 1.25) : Math.ceil(maxH * 1.2);
+  var barW = Math.floor(cW / days.length * 0.55);
+  var gap  = cW / days.length;
+
+  var yTicks = [];
+  var step = scale <= 4 ? 1 : scale <= 8 ? 2 : 4;
+  for (var v = 0; v <= scale; v += step) yTicks.push(v);
+
+  return (
+    <svg viewBox={"0 0 " + W + " " + H} style={{ width: "100%", height: "auto", overflow: "visible", display: "block" }}>
+      {yTicks.map(function(v) {
+        var y = PAD.top + cH * (1 - v / scale);
+        return (
+          <g key={v}>
+            <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
+            <text x={PAD.left - 5} y={y + 3.5} textAnchor="end" fill="var(--text-faint)" fontSize={8.5} fontFamily="'JetBrains Mono',monospace">{v + "h"}</text>
+          </g>
+        );
+      })}
+      {days.map(function(day, i) {
+        var x = PAD.left + gap * i + gap / 2;
+        var barH = Math.max(cH * (day.totalH / scale), day.totalH > 0 ? 2 : 0);
+        var barX = x - barW / 2;
+        var barY = PAD.top + cH - barH;
+        var col = day.isToday ? "var(--accent)" : day.isFuture ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.22)";
+        return (
+          <g key={day.dateStr}>
+            {day.totalH > 0 && (
+              <rect x={barX} y={barY} width={barW} height={barH} fill={col} rx={2} />
+            )}
+            {day.totalH > 0 && (
+              <text x={x} y={barY - 4} textAnchor="middle" fill={day.isToday ? "var(--accent)" : "var(--text-faint)"} fontSize={8.5} fontFamily="'JetBrains Mono',monospace">
+                {day.totalH.toFixed(1) + "h"}
+              </text>
+            )}
+            <text x={x} y={H - 13} textAnchor="middle" fill={day.isToday ? "var(--accent)" : "var(--text-faint)"} fontSize={9} fontWeight={day.isToday ? 700 : 400} fontFamily="inherit">
+              {day.label}
+            </text>
+            <text x={x} y={H - 3} textAnchor="middle" fill="var(--text-faint)" fontSize={7.5} fontFamily="'JetBrains Mono',monospace">
+              {day.dateStr.slice(5).replace("-", ".")}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 // ── Grafana-inspired SVG Time Series Chart ─────────────────────────────────
 function TruthLoopChart({ days, plan, reality }) {
   const W = 560, H = 160;
@@ -106,6 +177,96 @@ function GaugeRing({ pct, color, label, size = 96 }) {
 
 function Insights({ taskTimes, pov }) {
   const times = taskTimes || {};
+
+  // ── Week navigation ────────────────────────────────────────────────────────
+  const [weekOffset, setWeekOffset] = React.useState(0);
+  const monday = React.useMemo(function() { return getMonday(weekOffset); }, [weekOffset]);
+
+  const todayIso = localDateStr(new Date());
+
+  const weeklyDays = React.useMemo(function() {
+    var days = [];
+    var DAY_LABELS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+    for (var i = 0; i < 7; i++) {
+      var d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      var ds = localDateStr(d);
+      var daily = {};
+      try { daily = JSON.parse(LS.getItem("lifeos_daily_" + ds) || "{}"); } catch {}
+      var totalSec = Object.values(daily).reduce(function(s, v) { return s + v; }, 0);
+      days.push({
+        label: DAY_LABELS[i],
+        dateStr: ds,
+        totalH: parseFloat((totalSec / 3600).toFixed(2)),
+        totalSec: totalSec,
+        isToday: ds === todayIso,
+        isFuture: ds > todayIso,
+        daily: daily,
+      });
+    }
+    return days;
+  }, [monday, todayIso]);
+
+  const weeklyTotalH = weeklyDays.reduce(function(s, d) { return s + d.totalH; }, 0);
+  const weeklyTrackedDays = weeklyDays.filter(function(d) { return d.totalH > 0 && !d.isFuture; }).length;
+  const weeklyBestDay = weeklyDays.reduce(function(best, d) { return d.totalH > (best ? best.totalH : 0) ? d : best; }, null);
+  const weeklyAvgH = weeklyTrackedDays > 0 ? weeklyTotalH / weeklyTrackedDays : 0;
+
+  // Weekly KR breakdown: merge all task IDs from this week's daily logs, look up KR
+  const weeklyKrTimes = React.useMemo(function() {
+    var taskSecs = {};
+    weeklyDays.forEach(function(day) {
+      Object.entries(day.daily).forEach(function(entry) {
+        var id = entry[0], sec = entry[1];
+        taskSecs[id] = (taskSecs[id] || 0) + sec;
+      });
+    });
+    // Find KR label for each task ID
+    var krMap = {};
+    var krOverrides = {};
+    try { krOverrides = JSON.parse(LS.getItem("lifeos_task_kr_overrides") || "{}"); } catch {}
+    for (var povId of Object.keys(POV_DATA)) {
+      var data = POV_DATA[povId];
+      var customTasks = [];
+      try { customTasks = JSON.parse(LS.getItem("lifeos_tasks_" + povId) || "[]"); } catch {}
+      var allPovTasks = [].concat(data.tasksToday, customTasks);
+      allPovTasks.forEach(function(t) {
+        if (!taskSecs[t.id]) return;
+        var krId = t.kr || krOverrides[t.id];
+        var kr = data.objective.keyResults.find(function(k) { return k.id === krId; });
+        var label = kr ? kr.label : "Side Quest";
+        if (!krMap[label]) krMap[label] = { label: label, sec: 0, isSideQuest: !kr };
+        krMap[label].sec += taskSecs[t.id];
+      });
+    }
+    // Also include uncategorised project tasks
+    try {
+      var projects = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]");
+      projects.forEach(function(proj) {
+        (proj.objectives || []).forEach(function(obj) {
+          (obj.krs || []).forEach(function(kr) {
+            (kr.tasks || []).forEach(function(t) {
+              if (!taskSecs[t.id]) return;
+              var label = kr.title || "KR";
+              if (!krMap[label]) krMap[label] = { label: label, sec: 0, isSideQuest: false };
+              krMap[label].sec += taskSecs[t.id];
+            });
+          });
+        });
+      });
+    } catch {}
+    return Object.values(krMap).filter(function(k) { return k.sec > 0; }).sort(function(a, b) { return b.sec - a.sec; });
+  }, [weeklyDays]);
+
+  var weeklyOkrSec = weeklyKrTimes.filter(function(k) { return !k.isSideQuest; }).reduce(function(s, k) { return s + k.sec; }, 0);
+  var weeklyTotalSec = weeklyDays.reduce(function(s, d) { return s + d.totalSec; }, 0);
+  var weeklyFocusPct = weeklyTotalSec > 0 ? Math.round((weeklyOkrSec / weeklyTotalSec) * 100) : null;
+
+  // Week label
+  var weekStart = monday;
+  var weekEnd = new Date(monday); weekEnd.setDate(monday.getDate() + 6);
+  var pad2 = function(n) { return String(n).padStart(2, "0"); };
+  var weekLabel = pad2(weekStart.getDate()) + "." + pad2(weekStart.getMonth() + 1) + ". – " + pad2(weekEnd.getDate()) + "." + pad2(weekEnd.getMonth() + 1) + "." + weekEnd.getFullYear();
 
   // ── Alle Tasks aller POVs zusammensammeln ──────────────────────────────────
   const allTasks = React.useMemo(() => {
@@ -214,6 +375,71 @@ function Insights({ taskTimes, pov }) {
       <div className="uppercase-label" style={{ marginBottom: 20, display: "flex", alignItems: "center", gap: 6 }}>
         <Icon name="bar-chart-2" size={11} color="var(--text-faint)" />
         Insights
+      </div>
+
+      {/* ── Weekly Section ─────────────────────────────────────── */}
+      <div style={{ background: "var(--panel)", border: "1px solid var(--line-soft)", padding: "20px 24px", marginBottom: 20 }}>
+        {/* Header + week nav */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div>
+            <div className="uppercase-label" style={{ marginBottom: 3 }}>{"Weekly Breakdown"}</div>
+            <div style={{ fontSize: 12, color: "var(--text-dim)", fontWeight: 600 }}>{weekLabel}</div>
+          </div>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <button onClick={function() { setWeekOffset(function(o) { return o - 1; }); }} style={{ background: "var(--panel-2)", border: "1px solid var(--line)", color: "var(--text-faint)", padding: "5px 12px", fontSize: 11, cursor: "pointer", fontFamily: "inherit", fontWeight: 600 }}>{"< PREV"}</button>
+            {weekOffset !== 0 && (
+              <button onClick={function() { setWeekOffset(0); }} style={{ background: "none", border: "1px solid var(--line)", color: "var(--text-faint)", padding: "5px 10px", fontSize: 10, cursor: "pointer", fontFamily: "inherit", letterSpacing: "0.1em" }}>{"HEUTE"}</button>
+            )}
+            <button onClick={function() { setWeekOffset(function(o) { return o + 1; }); }} disabled={weekOffset >= 0} style={{ background: "var(--panel-2)", border: "1px solid var(--line)", color: weekOffset >= 0 ? "var(--text-faint)" : "var(--text-faint)", opacity: weekOffset >= 0 ? 0.35 : 1, padding: "5px 12px", fontSize: 11, cursor: weekOffset >= 0 ? "default" : "pointer", fontFamily: "inherit", fontWeight: 600 }}>{"NEXT >"}</button>
+          </div>
+        </div>
+
+        {/* 4 mini stats */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
+          {[
+            { label: "GESAMT", value: weeklyTotalH.toFixed(1) + "h", sub: "diese Woche" },
+            { label: "SCHNITT", value: weeklyAvgH > 0 ? weeklyAvgH.toFixed(1) + "h" : "--", sub: "pro aktivem Tag" },
+            { label: "BESTER TAG", value: weeklyBestDay && weeklyBestDay.totalH > 0 ? weeklyBestDay.label : "--", sub: weeklyBestDay && weeklyBestDay.totalH > 0 ? weeklyBestDay.totalH.toFixed(1) + "h" : "noch kein Tag" },
+            { label: "OKR FOKUS", value: weeklyFocusPct !== null ? weeklyFocusPct + "%" : "--", sub: weeklyFocusPct !== null ? (weeklyFocusPct >= 70 ? "stark" : weeklyFocusPct >= 50 ? "ok" : "zu viel drift") : "keine Daten" },
+          ].map(function(s) {
+            return (
+              <div key={s.label} style={{ background: "var(--bg)", border: "1px solid var(--line-soft)", padding: "12px 14px" }}>
+                <div style={{ fontSize: 8.5, letterSpacing: "0.16em", color: "var(--text-faint)", fontWeight: 600, marginBottom: 6 }}>{s.label}</div>
+                <div className="mono" style={{ fontSize: 20, fontWeight: 700, color: "var(--accent)", lineHeight: 1, marginBottom: 4 }}>{s.value}</div>
+                <div style={{ fontSize: 10, color: "var(--text-faint)" }}>{s.sub}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Bar chart */}
+        <WeeklyBarChart days={weeklyDays} />
+
+        {/* KR breakdown for this week */}
+        {weeklyKrTimes.length > 0 && (
+          <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--line-soft)" }}>
+            <div style={{ fontSize: 9, letterSpacing: "0.16em", fontWeight: 600, color: "var(--text-faint)", marginBottom: 12 }}>{"ZEIT PRO KEY RESULT — DIESE WOCHE"}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {weeklyKrTimes.slice(0, 6).map(function(kr) {
+                var maxSec = weeklyKrTimes[0].sec;
+                var pct = Math.max((kr.sec / maxSec) * 100, 1);
+                var ofWeek = weeklyTotalSec > 0 ? Math.round((kr.sec / weeklyTotalSec) * 100) : 0;
+                var col = kr.isSideQuest ? "var(--warn)" : "var(--accent)";
+                return (
+                  <div key={kr.label}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: kr.isSideQuest ? "var(--warn)" : "var(--text)", maxWidth: "72%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{kr.label}</span>
+                      <span className="mono" style={{ fontSize: 10.5, color: "var(--text-faint)" }}>{(kr.sec / 3600).toFixed(1) + "h · " + ofWeek + "%"}</span>
+                    </div>
+                    <div style={{ height: 6, background: "var(--line-soft)", position: "relative" }}>
+                      <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: pct + "%", background: col, transition: "width .4s ease" }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Hero Stats ─────────────────────────────────────────── */}
