@@ -100,6 +100,9 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
   const [aboErr,     setAboErr]     = React.useState(null);
   const [aboSuccess, setAboSuccess] = React.useState(false);
   const [aboPlan,    setAboPlan]    = React.useState("monthly");
+  const [langfusePk, setLangfusePk]       = React.useState(function() { return localStorage.getItem("lifeos_langfuse_pk") || ""; });
+  const [langfuseSk, setLangfuseSk]       = React.useState(function() { return localStorage.getItem("lifeos_langfuse_sk") || ""; });
+  const [icalImportUrl, setIcalImportUrl] = React.useState(function() { return localStorage.getItem("lifeos_ical_import_url") || ""; });
 
   React.useEffect(() => {
     window._supabase?.auth?.getSession().then(({ data }) => {
@@ -723,9 +726,6 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs, onOpenPa
     try { const p = JSON.parse(raw); return typeof p === "string" ? p : raw; } catch { return raw; }
   });
   const [apiKey, setApiKey]             = React.useState(() => LS.getItem("lifeos_openai_key") || "");
-  const [langfusePk, setLangfusePk]     = React.useState(() => LS.getItem("lifeos_langfuse_pk") || "");
-  const [langfuseSk, setLangfuseSk]     = React.useState(() => LS.getItem("lifeos_langfuse_sk") || "");
-  const [icalImportUrl, setIcalImportUrl] = React.useState(() => localStorage.getItem("lifeos_ical_import_url") || "");
   const [pushStatus, setPushStatus]     = React.useState(() => window.Push?.permissionState?.() || "default");
   const [pushLoading, setPushLoading]   = React.useState(false);
 
