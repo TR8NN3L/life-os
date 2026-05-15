@@ -3,8 +3,11 @@ export default async function handler(req, res) {
   const { url } = req.query;
   if (!url) return res.status(400).send("Missing ?url= parameter");
 
+  // webcal:// is functionally identical to https://
+  const normalizedUrl = url.replace(/^webcal:\/\//i, "https://");
+
   let target;
-  try { target = new URL(url); } catch {
+  try { target = new URL(normalizedUrl); } catch {
     return res.status(400).send("Invalid URL");
   }
   // Only allow http/https
@@ -13,7 +16,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const upstream = await fetch(target.toString(), {
+    const upstream = await fetch(normalizedUrl, {
       headers: { "User-Agent": "LifeOS-Calendar/1.0" },
       signal: AbortSignal.timeout(8000),
     });

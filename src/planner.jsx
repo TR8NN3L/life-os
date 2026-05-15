@@ -272,7 +272,9 @@ function Planner() {
     if (!feeds.length) { setCalEvents([]); return; }
     var cancelled = false;
     Promise.all(feeds.map(function(feed, idx) {
-      return fetch("/api/ical-proxy?url=" + encodeURIComponent(feed.url))
+      // webcal:// is identical to https:// — proxy only allows http/https
+      var fetchUrl = feed.url.replace(/^webcal:\/\//i, "https://");
+      return fetch("/api/ical-proxy?url=" + encodeURIComponent(fetchUrl))
         .then(function(r) { return r.text(); })
         .then(function(text) {
           return parseICS(text, dateStr).map(function(ev) {

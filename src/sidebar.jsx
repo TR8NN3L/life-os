@@ -102,7 +102,17 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
   const [aboPlan,    setAboPlan]    = React.useState("monthly");
   const [langfusePk, setLangfusePk]       = React.useState(function() { return localStorage.getItem("lifeos_langfuse_pk") || ""; });
   const [langfuseSk, setLangfuseSk]       = React.useState(function() { return localStorage.getItem("lifeos_langfuse_sk") || ""; });
-  const [icalImportUrl, setIcalImportUrl] = React.useState(function() { return localStorage.getItem("lifeos_ical_import_url") || ""; });
+  const [icalFeeds, setIcalFeeds]         = React.useState(function() {
+    try {
+      var stored = localStorage.getItem("lifeos_ical_feeds");
+      if (stored) return JSON.parse(stored);
+      var old = localStorage.getItem("lifeos_ical_import_url");
+      if (old) return [{ id: "f_0", url: old, label: "Mein Kalender" }];
+      return [];
+    } catch(e) { return []; }
+  });
+  const [icalNewUrl,   setIcalNewUrl]     = React.useState("");
+  const [icalNewLabel, setIcalNewLabel]   = React.useState("");
   const [icalSubTab, setIcalSubTab]       = React.useState("url");
   const [icalImportOpen, setIcalImportOpen] = React.useState(true);
   const [icalAboOpen, setIcalAboOpen]       = React.useState(false);
@@ -566,7 +576,7 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
                     fontFamily: "inherit",
                   }}>
                     <span style={{ fontSize: 10, letterSpacing: "0.18em", fontWeight: 600, color: "var(--text-faint)", textTransform: "uppercase" }}>Kalender importieren</span>
-                    <span style={{ fontSize: 10, color: "var(--text-faint)", marginLeft: 8 }}>{icalImportOpen ? "&#9650;" : "&#9660;"}</span>
+                    <span style={{ fontSize: 10, color: "var(--text-faint)", marginLeft: 8 }}>{icalImportOpen ? "▲" : "▼"}</span>
                   </button>
                   {icalImportOpen && (
                     <div style={{ padding: "0 16px 16px" }}>
@@ -587,20 +597,69 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
                       </div>
                       {icalSubTab === "url" && (
                         <div>
-                          <div style={{ fontSize: 11.5, color: "var(--text-faint)", lineHeight: 1.6, marginBottom: 12 }}>
-                            iCal-Feed-URL einfuegen. Termine erscheinen als blaue Overlays im Planner.
+                          {/* Existing feeds */}
+                          {icalFeeds.length > 0 && (
+                            <div style={{ marginBottom: 14 }}>
+                              {icalFeeds.map(function(feed, idx) {
+                                var dotColors = ["#2f8bff","#8b5cf6","#069465","#d4a23c"];
+                                return React.createElement("div", {
+                                  key: feed.id,
+                                  style: { display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "var(--bg)", border: "1px solid var(--line-soft)", marginBottom: 6 }
+                                },
+                                  React.createElement("div", { style: { width: 8, height: 8, borderRadius: "50%", background: dotColors[idx % 4], flexShrink: 0 } }),
+                                  React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                                    React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: "var(--text)", marginBottom: 2 } }, feed.label || "Kalender"),
+                                    React.createElement("div", { style: { fontSize: 10, color: "var(--text-faint)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, feed.url)
+                                  ),
+                                  React.createElement("button", {
+                                    onClick: function() {
+                                      var next = icalFeeds.filter(function(f) { return f.id !== feed.id; });
+                                      setIcalFeeds(next);
+                                      localStorage.setItem("lifeos_ical_feeds", JSON.stringify(next));
+                                    },
+                                    style: { background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 14, padding: "0 4px", lineHeight: 1, flexShrink: 0 }
+                                  }, "x")
+                                );
+                              })}
+                            </div>
+                          )}
+                          {/* Add new feed */}
+                          <div style={{ fontSize: 10, letterSpacing: "0.14em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 8 }}>
+                            {icalFeeds.length === 0 ? "KALENDER HINZUFUEGEN" : "WEITEREN KALENDER HINZUFUEGEN"}
                           </div>
                           <input
                             type="text"
-                            value={icalImportUrl}
-                            onChange={function(e) { var v = e.target.value.trim(); setIcalImportUrl(v); localStorage.setItem("lifeos_ical_import_url", v); }}
-                            placeholder="webcal://..."
-                            style={{ width: "100%", background: "var(--bg)", border: "1px solid var(--line)", color: "var(--text)", padding: "9px 12px", fontSize: 12, outline: "none", fontFamily: "monospace", letterSpacing: "0.02em", boxSizing: "border-box" }}
+                            value={icalNewLabel}
+                            onChange={function(e) { setIcalNewLabel(e.target.value); }}
+                            placeholder="Name (z.B. Privat, Arbeit)"
+                            style={{ width: "100%", background: "var(--bg)", border: "1px solid var(--line)", color: "var(--text)", padding: "8px 10px", fontSize: 12, outline: "none", fontFamily: "inherit", boxSizing: "border-box", marginBottom: 6 }}
                           />
-                          {icalImportUrl
-                            ? <div style={{ fontSize: 11, color: "var(--good)", marginTop: 8, letterSpacing: "0.06em" }}>&#x2713; Termine werden im Planner angezeigt</div>
-                            : <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 8 }}>URL wird lokal gespeichert, nie in die Cloud uebertragen.</div>
-                          }
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <input
+                              type="text"
+                              value={icalNewUrl}
+                              onChange={function(e) { setIcalNewUrl(e.target.value); }}
+                              placeholder="webcal://..."
+                              style={{ flex: 1, background: "var(--bg)", border: "1px solid var(--line)", color: "var(--text)", padding: "8px 10px", fontSize: 12, outline: "none", fontFamily: "monospace", boxSizing: "border-box" }}
+                            />
+                            <button
+                              onClick={function() {
+                                var url = icalNewUrl.trim();
+                                if (!url) return;
+                                var feed = { id: "f_" + Date.now(), url: url, label: icalNewLabel.trim() || "Kalender" };
+                                var next = icalFeeds.concat([feed]);
+                                setIcalFeeds(next);
+                                localStorage.setItem("lifeos_ical_feeds", JSON.stringify(next));
+                                setIcalNewUrl("");
+                                setIcalNewLabel("");
+                              }}
+                              disabled={!icalNewUrl.trim()}
+                              style={{ padding: "8px 14px", background: icalNewUrl.trim() ? "var(--accent)" : "var(--panel-2)", border: "1px solid " + (icalNewUrl.trim() ? "var(--accent)" : "var(--line)"), color: icalNewUrl.trim() ? "#0a0a0c" : "var(--text-faint)", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", cursor: icalNewUrl.trim() ? "pointer" : "default", fontFamily: "inherit", flexShrink: 0 }}
+                            >+ ADD</button>
+                          </div>
+                          <div style={{ fontSize: 10.5, color: "var(--text-faint)", marginTop: 8 }}>
+                            {icalFeeds.length > 0 ? (icalFeeds.length + " Kalender aktiv. URLs lokal gespeichert.") : "URLs werden lokal gespeichert, nie in die Cloud uebertragen."}
+                          </div>
                         </div>
                       )}
                       {icalSubTab === "guide" && (
@@ -636,7 +695,7 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
                     fontFamily: "inherit",
                   }}>
                     <span style={{ fontSize: 10, letterSpacing: "0.18em", fontWeight: 600, color: "var(--text-faint)", textTransform: "uppercase" }}>Kalender-Abo</span>
-                    <span style={{ fontSize: 10, color: "var(--text-faint)", marginLeft: 8 }}>{icalAboOpen ? "&#9650;" : "&#9660;"}</span>
+                    <span style={{ fontSize: 10, color: "var(--text-faint)", marginLeft: 8 }}>{icalAboOpen ? "▲" : "▼"}</span>
                   </button>
                   {icalAboOpen && (
                     <div style={{ padding: "0 16px 16px" }}>
