@@ -1132,7 +1132,7 @@ function Planner() {
                     background: c.bg,
                     border: "1px solid " + c.border,
                     borderLeft: "3px solid " + c.left,
-                    zIndex: 1, pointerEvents: "none", overflow: "hidden", boxSizing: "border-box",
+                    zIndex: 3, pointerEvents: "none", overflow: "hidden", boxSizing: "border-box",
                   }}>
                     <div style={{ padding: "3px 6px" }}>
                       <div style={{ fontSize: 8, color: c.label, fontWeight: 700, letterSpacing: "0.12em", marginBottom: 1 }}>TERMIN</div>
@@ -1166,7 +1166,7 @@ function Planner() {
                     onMouseDown={e=>onBlockMouseDown(e,block,"move")}
                     style={{
                       position:"absolute", top, left:LABEL_W, right:4, height,
-                      background: isSel ? "rgba(139,92,246,0.15)" : "var(--panel-2)",
+                      background: isSel ? "rgba(139,92,246,0.22)" : "rgba(26,26,32,0.88)",
                       border:`1px solid ${isSel?"var(--accent)":t.color}`,
                       borderLeft:`3px solid ${t.color}`,
                       cursor: isDragging ? "grabbing" : "grab",
