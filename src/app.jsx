@@ -939,7 +939,7 @@ function App() {
           }}
         />
       )}
-      {!focusMode && <Sidebar route={route} setRoute={setRoute} pov={pov} setPov={setPov} userPovs={userPovs} setUserPovs={setUserPovs} onOpenPaywall={() => setHasAccess(false)} onAccessGranted={() => setHasAccess(true)} />}
+      {!focusMode && <Sidebar route={route} setRoute={setRoute} pov={pov} setPov={setPov} userPovs={userPovs} setUserPovs={setUserPovs} inbox={inbox} onOpenPaywall={() => setHasAccess(false)} onAccessGranted={() => setHasAccess(true)} />}
       <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--bg)" }}>
         {focusMode && (
           // tiny top bar with exit
@@ -977,6 +977,7 @@ function App() {
         )}
         {route === "planner" && <Planner />}
         {route === "insights" && <Insights taskTimes={taskTimes} pov={pov} />}
+        {route === "inbox" && <InboxPage inbox={inbox} setInbox={setInbox} userPovs={userPovs} />}
       </main>
 
       {/* Tutorial overlay */}

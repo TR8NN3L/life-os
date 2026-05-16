@@ -796,7 +796,7 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
   );
 }
 
-function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs, onOpenPaywall, onAccessGranted }) {
+function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs, inbox, onOpenPaywall, onAccessGranted }) {
   const [settingsOpen,      setSettingsOpen]      = React.useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = React.useState("profile");
 
@@ -815,14 +815,6 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs, onOpenPa
   const [apiKey, setApiKey]             = React.useState(() => LS.getItem("lifeos_openai_key") || "");
   const [pushStatus, setPushStatus]     = React.useState(() => window.Push?.permissionState?.() || "default");
   const [pushLoading, setPushLoading]   = React.useState(false);
-
-  // ── Quick Capture ────────────────────────────────────────────────────────
-  const [quickTasks, setQuickTasks] = React.useState(function() {
-    try { return JSON.parse(LS.getItem("lifeos_quick_tasks") || "[]"); } catch { return []; }
-  });
-  const [quickInput, setQuickInput] = React.useState("");
-  const [todayOpen, setTodayOpen] = React.useState(true);
-  const [assigningId, setAssigningId] = React.useState(null);
 
   const allPovs = [
     { id: "personal", label: "Personal", sub: "Persönliches Leben", color: "#8b5cf6" },
@@ -876,51 +868,15 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs, onOpenPa
   const activePov = allPovs.find(p => p.id === pov) || allPovs[0];
   const initials = userName ? userName.slice(0, 2).toUpperCase() : "?";
 
-  // ── Quick Capture helpers ────────────────────────────────────────────────
-  const saveQuickTasks = function(next) {
-    setQuickTasks(next);
-    LS.setItem("lifeos_quick_tasks", JSON.stringify(next));
-  };
-  const addQuickTask = function() {
-    var txt = quickInput.trim();
-    if (!txt) return;
-    var ts = new Date().toISOString().slice(0, 10);
-    saveQuickTasks(quickTasks.concat([{
-      id: "qt_" + Date.now(), text: txt, created: ts,
-      done: false, doneDate: null, projectId: null, projectName: null,
-    }]));
-    setQuickInput("");
-  };
-  const toggleQuickTask = function(id) {
-    var ts = new Date().toISOString().slice(0, 10);
-    saveQuickTasks(quickTasks.map(function(t) {
-      return t.id === id ? Object.assign({}, t, { done: !t.done, doneDate: t.done ? null : ts }) : t;
-    }));
-  };
-  const deleteQuickTask = function(id) {
-    saveQuickTasks(quickTasks.filter(function(t) { return t.id !== id; }));
-  };
-  const assignQuickTask = function(taskId, projId, projName) {
-    saveQuickTasks(quickTasks.map(function(t) {
-      return t.id === taskId ? Object.assign({}, t, { projectId: projId, projectName: projName }) : t;
-    }));
-    setAssigningId(null);
-  };
-
-  var qtToday = new Date().toISOString().slice(0, 10);
-  var qtPending = quickTasks.filter(function(t) { return !t.done; });
-  var qtDoneToday = quickTasks.filter(function(t) { return t.done && t.doneDate === qtToday; });
-  var qtVisible = qtPending.concat(qtDoneToday);
-  var qtPendingCount = qtPending.length;
-  var qtProjs = [];
-  try { qtProjs = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]"); } catch {}
+  var inboxCount = (inbox || []).filter(function(t) { return !t.done; }).length;
 
   const navItems = [
-    { id: "dashboard",      label: "Dashboard",       icon: "layout-dashboard" },
-    { id: "focus",          label: "Focus",            icon: "zap" },
-    { id: "missioncontrol", label: "Mission Control",  icon: "crosshair" },
-    { id: "planner",        label: "Planner",          icon: "calendar" },
-    { id: "insights",       label: "Insights",         icon: "bar-chart-2" },
+    { id: "dashboard",      label: "Dashboard",      icon: "layout-dashboard", badge: 0 },
+    { id: "focus",          label: "Focus",           icon: "zap",             badge: 0 },
+    { id: "missioncontrol", label: "Mission Control", icon: "crosshair",       badge: 0 },
+    { id: "planner",        label: "Planner",         icon: "calendar",        badge: 0 },
+    { id: "insights",       label: "Insights",        icon: "bar-chart-2",     badge: 0 },
+    { id: "inbox",          label: "Inbox",           icon: "list",            badge: inboxCount },
   ];
 
   return (
@@ -1030,158 +986,20 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs, onOpenPa
                 onMouseEnter={(e) => { if (!active) e.currentTarget.style.color = "var(--text-dim)"; }}
                 onMouseLeave={(e) => { if (!active) e.currentTarget.style.color = "var(--text-faint)"; }}
               >
-                <span style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 9, width: "100%" }}>
                   <Icon name={it.icon} size={14} strokeWidth={active ? 2.2 : 1.75} color={active ? "var(--accent)" : "currentColor"} />
-                  {it.label}
+                  <span style={{ flex: 1 }}>{it.label}</span>
+                  {it.badge > 0 && (
+                    <span style={{
+                      background: "var(--accent)", color: "#0a0a0c",
+                      fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 2, lineHeight: "1.5",
+                    }}>{it.badge}</span>
+                  )}
                 </span>
               </button>
             );
           })}
         </nav>
-
-        {/* ── Quick Capture / Heute ─────────────────────────────────────── */}
-        <div style={{ borderTop: "1px solid var(--line-soft)" }}>
-          <button onClick={function() { setTodayOpen(function(o) { return !o; }); }} style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            width: "100%", padding: "10px 20px 8px",
-            background: "none", border: "none", cursor: "pointer",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-              <span className="uppercase-label">Heute</span>
-              {qtPendingCount > 0 && (
-                <span style={{
-                  background: "var(--accent)", color: "#0a0a0c", fontSize: 9,
-                  fontWeight: 700, padding: "1px 5px", borderRadius: 2, lineHeight: "1.5",
-                }}>{qtPendingCount}</span>
-              )}
-            </div>
-            <span style={{ fontSize: 8, color: "var(--text-faint)" }}>{todayOpen ? "▲" : "▼"}</span>
-          </button>
-
-          {todayOpen && (
-            <div style={{ padding: "0 12px 10px" }}>
-
-              {/* Input */}
-              <div style={{ display: "flex", marginBottom: 8 }}>
-                <input
-                  value={quickInput}
-                  onChange={function(e) { setQuickInput(e.target.value); }}
-                  onKeyDown={function(e) { if (e.key === "Enter") { e.preventDefault(); addQuickTask(); } }}
-                  placeholder="Task hinzufuegen..."
-                  style={{
-                    flex: 1, background: "var(--panel-2)", border: "1px solid var(--line)",
-                    borderRight: "none", color: "var(--text)", padding: "6px 8px",
-                    fontSize: 11.5, outline: "none", fontFamily: "inherit", minWidth: 0,
-                  }}
-                />
-                <button onClick={addQuickTask} style={{
-                  background: "var(--accent-soft)", border: "1px solid var(--accent-line)",
-                  color: "var(--accent)", padding: "6px 10px", cursor: "pointer",
-                  fontSize: 16, lineHeight: 1, flexShrink: 0, fontFamily: "inherit",
-                }}>{"+"}</button>
-              </div>
-
-              {/* Task list */}
-              {qtVisible.length > 0 ? (
-                <div style={{ maxHeight: 200, overflowY: "auto" }}>
-                  {qtVisible.map(function(task) {
-                    var isOverdue = !task.done && task.created < qtToday;
-                    var isAssigning = assigningId === task.id;
-                    return (
-                      <div key={task.id} style={{ borderBottom: "1px solid var(--line-soft)", paddingBottom: 4, marginBottom: 4 }}>
-                        <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
-
-                          {/* Checkbox */}
-                          <button onClick={function() { toggleQuickTask(task.id); }} style={{
-                            width: 15, height: 15, borderRadius: 3, flexShrink: 0, marginTop: 2,
-                            background: task.done ? "var(--accent)" : "transparent",
-                            border: "1.5px solid " + (task.done ? "var(--accent)" : "var(--line)"),
-                            cursor: "pointer", padding: 0,
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                          }}>
-                            {task.done && <Icon name="check" size={9} color="#0a0a0c" strokeWidth={3} />}
-                          </button>
-
-                          {/* Text + meta */}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{
-                              fontSize: 11.5, lineHeight: 1.35, wordBreak: "break-word",
-                              color: task.done ? "var(--text-faint)" : isOverdue ? "var(--warn)" : "var(--text-dim)",
-                              textDecoration: task.done ? "line-through" : "none",
-                            }}>{task.text}</div>
-                            {task.projectName && !task.done && (
-                              <div style={{ fontSize: 9.5, color: "var(--accent)", letterSpacing: "0.06em", marginTop: 1 }}>
-                                {"-> " + task.projectName}
-                              </div>
-                            )}
-                            {isOverdue && (
-                              <div style={{ fontSize: 9, color: "var(--warn)", letterSpacing: "0.06em", marginTop: 1 }}>
-                                {"Ueberfaellig · " + task.created}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Actions: assign + delete */}
-                          {!task.done && (
-                            <div style={{ display: "flex", gap: 1, flexShrink: 0 }}>
-                              <button onClick={function() { setAssigningId(isAssigning ? null : task.id); }}
-                                title="Projekt zuweisen" style={{
-                                  background: "none", border: "none", cursor: "pointer",
-                                  color: task.projectId ? "var(--accent)" : "var(--text-faint)",
-                                  padding: "2px 3px", lineHeight: 1,
-                                }}>
-                                <Icon name="folder" size={10} />
-                              </button>
-                              <button onClick={function() { deleteQuickTask(task.id); }}
-                                title="Loeschen" style={{
-                                  background: "none", border: "none", cursor: "pointer",
-                                  color: "var(--text-faint)", padding: "2px 3px", lineHeight: 1, opacity: 0.55,
-                                }}>
-                                <Icon name="x" size={10} />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Assign picker dropdown */}
-                        {isAssigning && (
-                          <div style={{
-                            marginTop: 4, marginLeft: 21,
-                            background: "var(--bg)", border: "1px solid var(--line)",
-                          }}>
-                            {qtProjs.length === 0 ? (
-                              <div style={{ fontSize: 10, color: "var(--text-faint)", padding: "5px 8px" }}>
-                                {"Keine Projekte vorhanden"}
-                              </div>
-                            ) : qtProjs.map(function(p) {
-                              return (
-                                <button key={p.id}
-                                  onClick={function() { assignQuickTask(task.id, p.id, p.name || p.title || p.id); }}
-                                  style={{
-                                    display: "block", width: "100%", textAlign: "left",
-                                    padding: "5px 8px", background: "none", border: "none",
-                                    borderBottom: "1px solid var(--line-soft)",
-                                    color: "var(--text-dim)", fontSize: 10.5,
-                                    cursor: "pointer", fontFamily: "inherit",
-                                  }}>
-                                  {p.name || p.title || p.id}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div style={{ fontSize: 11, color: "var(--text-faint)", fontStyle: "italic", padding: "2px 0" }}>
-                  {"Alles erledigt."}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
 
         {/* Ignorance Debt */}
         {(() => {
