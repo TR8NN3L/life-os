@@ -132,12 +132,15 @@ function Planner() {
   const todayRaw = new Date().getDay();
   const todayIdx = todayRaw === 0 ? 6 : todayRaw - 1;
 
-  // Nur user-konfigurierte POVs — keine hardcoded Defaults
+  // Personal immer + user-konfigurierte POVs (keine anderen hardcoded Defaults)
   const allPovs = React.useMemo(() => {
     try {
       const custom = JSON.parse(LS.getItem("lifeos_user_povs") || "[]");
-      return custom.length > 0 ? custom : POVS;
-    } catch { return POVS; }
+      const personal = POVS.find(p => p.id === "personal");
+      const customIds = new Set(custom.map(p => p.id));
+      const base = personal && !customIds.has("personal") ? [personal] : [];
+      return [...base, ...custom];
+    } catch { return POVS.slice(0, 1); }
   }, []);
 
   const [selDay,     setSelDay]     = React.useState(todayIdx);
