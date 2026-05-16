@@ -15,6 +15,7 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
   const [freeRunning,      setFreeRunning]      = React.useState(false);
   const [showFreeNote,     setShowFreeNote]     = React.useState(false);
   const [freeNote,         setFreeNote]         = React.useState("");
+  const [freeKrId,         setFreeKrId]         = React.useState("");
   const [freeSavedIdx,     setFreeSavedIdx]     = React.useState(-1);
   const [freeSavedSecs,    setFreeSavedSecs]    = React.useState(0);
   const freeRef = React.useRef(null);
@@ -44,7 +45,7 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
     if (!freeProjId) return;
     freeBaseTime.current  = 0;
     freeStartedAt.current = Date.now();
-    setFreeSecs(0); setFreeRunning(true); setShowFreeNote(false); setFreeNote("");
+    setFreeSecs(0); setFreeRunning(true); setShowFreeNote(false); setFreeNote(""); setFreeKrId("");
     window.posthog?.capture("free_flow_started", { proj_id: freeProjId });
   };
 
@@ -78,11 +79,15 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
     if (freeSavedIdx >= 0) {
       try {
         const all = JSON.parse(LS.getItem("lifeos_free_sessions") || "[]");
-        if (all[freeSavedIdx]) { all[freeSavedIdx].note = freeNote; LS.setItem("lifeos_free_sessions", JSON.stringify(all)); }
+        if (all[freeSavedIdx]) {
+          all[freeSavedIdx].note = freeNote;
+          if (freeKrId) all[freeSavedIdx].krId = freeKrId;
+          LS.setItem("lifeos_free_sessions", JSON.stringify(all));
+        }
       } catch {}
     }
     window.dispatchEvent(new CustomEvent("lifeos-projects-updated"));
-    setShowFreeNote(false); setFreeNote(""); setFreeSecs(0); setFreeSavedIdx(-1);
+    setShowFreeNote(false); setFreeNote(""); setFreeKrId(""); setFreeSecs(0); setFreeSavedIdx(-1);
   };
 
   // ── Pomodoro state (defined first — before any early returns) ─────────────
@@ -244,42 +249,69 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
           )}
 
           {/* Note modal (post-session) */}
-          {showFreeNote && (
-            <div style={{ position: "absolute", inset: 0, zIndex: 10, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ width: 480, background: "var(--panel)", border: "1px solid var(--accent-line)", padding: 32 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <Icon name="check" size={14} color="var(--accent)" />
-                  <span className="uppercase-label" style={{ color: "var(--accent)" }}>Session gespeichert — {fmtTime(freeSavedSecs)}</span>
-                </div>
-                <div style={{ fontSize: 12, color: "var(--text-faint)", marginBottom: 20 }}>
-                  Was hast du gemacht? (optional)
-                </div>
-                <textarea
-                  autoFocus
-                  value={freeNote}
-                  onChange={e => setFreeNote(e.target.value)}
-                  placeholder="Kurze Notiz zur Session — Änderungen, Erkenntnisse, nächste Schritte…"
-                  rows={5}
-                  style={{
-                    width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)",
-                    borderLeft: "2px solid var(--accent)", color: "var(--text)",
-                    padding: "12px 16px", fontSize: 13, fontFamily: "inherit",
-                    resize: "vertical", outline: "none", lineHeight: 1.6, boxSizing: "border-box",
-                  }}
-                />
-                <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
-                  <button onClick={saveFreeNote} style={{
-                    padding: "10px 24px", background: "var(--accent)", color: "#0a0a0c",
-                    border: "none", fontWeight: 700, fontSize: 10.5, letterSpacing: "0.16em", cursor: "pointer",
-                  }}>SPEICHERN →</button>
-                  <button onClick={() => { setShowFreeNote(false); setFreeNote(""); setFreeSecs(0); }}
-                    style={{ padding: "10px 16px", background: "transparent", border: "1px solid var(--line)", color: "var(--text-faint)", fontSize: 10.5, cursor: "pointer" }}>
-                    ÜBERSPRINGEN
-                  </button>
+          {showFreeNote && (function() {
+            const proj = freeProjs.find(p => p.id === freeProjId);
+            const krOptions = (proj?.objectives || []).flatMap(o =>
+              (o.krs || []).filter(k => k.status !== "locked").map(k => ({ id: k.id, label: k.label || k.title || k.id, objTitle: o.title }))
+            );
+            return (
+              <div style={{ position: "absolute", inset: 0, zIndex: 10, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ width: 500, background: "var(--panel)", border: "1px solid var(--accent-line)", padding: 32 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <Icon name="check" size={14} color="var(--accent)" />
+                    <span className="uppercase-label" style={{ color: "var(--accent)" }}>Session gespeichert {"—"} {fmtTime(freeSavedSecs)}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--text-faint)", marginBottom: 20 }}>
+                    Was hast du gemacht? (optional)
+                  </div>
+
+                  {krOptions.length > 0 && (
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 9.5, letterSpacing: "0.16em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 8 }}>KR ZUORDNEN</div>
+                      <select
+                        value={freeKrId}
+                        onChange={e => setFreeKrId(e.target.value)}
+                        style={{
+                          width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)",
+                          borderLeft: "2px solid var(--accent-line)", color: freeKrId ? "var(--text)" : "var(--text-faint)",
+                          padding: "10px 14px", fontSize: 12, fontFamily: "inherit", outline: "none",
+                          cursor: "pointer", appearance: "none", boxSizing: "border-box",
+                        }}
+                      >
+                        <option value="">Kein KR (nur Session loggen)</option>
+                        {krOptions.map(k => (
+                          <option key={k.id} value={k.id}>{k.objTitle ? k.objTitle + " → " : ""}{k.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <textarea
+                    value={freeNote}
+                    onChange={e => setFreeNote(e.target.value)}
+                    placeholder="Kurze Notiz zur Session — Änderungen, Erkenntnisse, nächste Schritte…"
+                    rows={4}
+                    style={{
+                      width: "100%", background: "var(--panel-2)", border: "1px solid var(--line)",
+                      borderLeft: "2px solid var(--accent)", color: "var(--text)",
+                      padding: "12px 16px", fontSize: 13, fontFamily: "inherit",
+                      resize: "vertical", outline: "none", lineHeight: 1.6, boxSizing: "border-box",
+                    }}
+                  />
+                  <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
+                    <button onClick={saveFreeNote} style={{
+                      padding: "10px 24px", background: "var(--accent)", color: "#0a0a0c",
+                      border: "none", fontWeight: 700, fontSize: 10.5, letterSpacing: "0.16em", cursor: "pointer",
+                    }}>SPEICHERN {"→"}</button>
+                    <button onClick={() => { setShowFreeNote(false); setFreeNote(""); setFreeKrId(""); setFreeSecs(0); }}
+                      style={{ padding: "10px 16px", background: "transparent", border: "1px solid var(--line)", color: "var(--text-faint)", fontSize: 10.5, cursor: "pointer" }}>
+                      {"ÜBERSPRINGEN"}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Project picker */}
           {!freeRunning && !showFreeNote && (

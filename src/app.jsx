@@ -853,6 +853,8 @@ function App() {
     const onKey = (e) => {
       if (route === "focus" && e.key === "Escape") { setRoute("dashboard"); window.TUTORIAL?.onAction?.('route-dashboard'); }
       if (route === "focus" && e.key === " ") {
+        const tag = e.target?.tagName;
+        if (tag === "TEXTAREA" || tag === "INPUT") return;
         e.preventDefault();
         setActiveTaskId(curr => curr ? null : focusTaskId);
       }

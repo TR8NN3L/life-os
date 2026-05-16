@@ -132,12 +132,11 @@ function Planner() {
   const todayRaw = new Date().getDay();
   const todayIdx = todayRaw === 0 ? 6 : todayRaw - 1;
 
-  // Merge hardcoded + user-created POVs
+  // Nur user-konfigurierte POVs — keine hardcoded Defaults
   const allPovs = React.useMemo(() => {
     try {
       const custom = JSON.parse(LS.getItem("lifeos_user_povs") || "[]");
-      const seenIds = new Set(POVS.map(p => p.id));
-      return [...POVS, ...custom.filter(p => !seenIds.has(p.id))];
+      return custom.length > 0 ? custom : POVS;
     } catch { return POVS; }
   }, []);
 
