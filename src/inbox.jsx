@@ -1,7 +1,7 @@
 // Inbox — Quick Capture + Daily Task List + POV/KR-Assign
 // Route: "inbox"
 
-function InboxPage({ inbox, setInbox, userPovs }) {
+function InboxPage({ inbox, setInbox, userPovs, onOpenTask }) {
   const [input,       setInput]       = React.useState("");
   const [assigningId, setAssigningId] = React.useState(null);
   const [pickPov,     setPickPov]     = React.useState("personal");
@@ -167,10 +167,23 @@ function InboxPage({ inbox, setInbox, userPovs }) {
                     </span>
 
                     {/* Text */}
-                    <span style={{
-                      flex: 1, fontSize: 13, lineHeight: 1.4,
-                      color: over ? "var(--warn)" : "var(--text)",
-                    }}>{task.text}</span>
+                    <span
+                      onClick={function() {
+                        if (onOpenTask) onOpenTask({
+                          id: task.id,
+                          title: task.text,
+                          sub: "",
+                          elapsed: 0,
+                          done: task.done,
+                          _pov: "personal",
+                          _source: "inbox",
+                        });
+                      }}
+                      style={{
+                        flex: 1, fontSize: 13, lineHeight: 1.4,
+                        color: over ? "var(--warn)" : "var(--text)",
+                        cursor: onOpenTask ? "pointer" : "default",
+                      }}>{task.text}</span>
 
                     {/* Overdue tag */}
                     {over && (

@@ -357,6 +357,31 @@ function App() {
         } catch { return null; }
       },
       debtThreshold: 5,
+      getEveningStats: () => {
+        try {
+          var todayStr = new Date().toISOString().slice(0, 10);
+          // Collect all POV IDs (hardcoded + user custom)
+          var povIds = ["personal", "founder", "student", "athlete"];
+          try {
+            var custom = JSON.parse(LS.getItem("lifeos_user_povs") || "[]");
+            custom.forEach(function(p) { if (povIds.indexOf(p.id) === -1) povIds.push(p.id); });
+          } catch {}
+          var totalPlanned = 0, totalDone = 0;
+          for (var i = 0; i < povIds.length; i++) {
+            var povId = povIds[i];
+            var doneSet = new Set(JSON.parse(LS.getItem("lifeos_done_" + povId) || "[]"));
+            var tasks = JSON.parse(LS.getItem("lifeos_tasks_" + povId) || "[]");
+            totalPlanned += tasks.length;
+            totalDone += tasks.filter(function(t) { return doneSet.has(t.id); }).length;
+          }
+          // Streak safety: any time logged today
+          var dayLog = {};
+          try { dayLog = JSON.parse(LS.getItem("lifeos_daily_" + todayStr) || "{}"); } catch {}
+          var totalSecs = Object.keys(dayLog).reduce(function(s, k) { return s + (dayLog[k] || 0); }, 0);
+          var streakSafe = totalSecs >= 60 || totalDone > 0;
+          return { tasksPlanned: totalPlanned, tasksDone: totalDone, streakSafe: streakSafe };
+        } catch { return null; }
+      },
     });
   }, []);
 
@@ -1008,7 +1033,7 @@ function App() {
         )}
         {route === "planner" && <Planner />}
         {route === "insights" && <Insights taskTimes={taskTimes} pov={pov} />}
-        {route === "inbox" && <InboxPage inbox={inbox} setInbox={setInbox} userPovs={userPovs} />}
+        {route === "inbox" && <InboxPage inbox={inbox} setInbox={setInbox} userPovs={userPovs} onOpenTask={setGlobalTask} />}
       </main>
 
       {/* Tutorial overlay */}

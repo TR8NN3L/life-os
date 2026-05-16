@@ -1,9 +1,9 @@
 // Planner — Visual time grid with week navigation + recurring blocks.
 
 const BLOCK_TYPES = [
-  { id: "deep-work", label: "DEEP WORK",   color: "var(--accent)",   glyph: "✦", desc: "Flow-State · Konzentration · ≥60 min" },
-  { id: "basic",     label: "BASIC TASKS", color: "var(--text-dim)", glyph: "●", desc: "Quick-Erledigung · ≤30 min" },
-  { id: "flex",      label: "FLEX",        color: "var(--warn)",     glyph: "◎", desc: "Beliebige Aufgaben · alle Typen" },
+  { id: "deep-work", label: "DEEP WORK",   color: "var(--accent)",   glyph: "✦", mode: "MAKER",   modeColor: "var(--accent)",  modeBg: "rgba(16,185,129,0.15)",  desc: "MAKER · Flow-State · Konzentration · >= 60 min" },
+  { id: "basic",     label: "BASIC TASKS", color: "var(--text-dim)", glyph: "●", mode: "MANAGER", modeColor: "var(--founder)", modeBg: "rgba(47,139,255,0.15)",  desc: "MANAGER · Quick-Erledigung · Koordination · <= 30 min" },
+  { id: "flex",      label: "FLEX",        color: "var(--warn)",     glyph: "◎", mode: "FLEX",    modeColor: "var(--warn)",    modeBg: "rgba(212,162,60,0.15)",   desc: "FLEX · Beliebige Aufgaben · alle Typen" },
 ];
 
 const DAY_KEYS = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"];
@@ -198,6 +198,20 @@ function Planner() {
       if (rb.recurrence === "daily")    return true;
       if (rb.recurrence === "weekdays") return selDay <= 4;
       if (rb.recurrence === "weekly")   return rb.dayIndex === selDay;
+      if (rb.recurrence === "biweekly") {
+        if (rb.dayIndex !== selDay || !rb.startDateStr) return false;
+        const diff = Math.round((new Date(dateStr + "T00:00:00") - new Date(rb.startDateStr + "T00:00:00")) / 86400000);
+        return diff >= 0 && diff % 14 === 0;
+      }
+      if (rb.recurrence === "monthly") {
+        const startDay = rb.startDateStr ? parseInt(rb.startDateStr.slice(8), 10) : 1;
+        return parseInt(dateStr.slice(8), 10) === startDay;
+      }
+      if (rb.recurrence === "custom") {
+        if (!rb.startDateStr) return false;
+        const diff = Math.round((new Date(dateStr + "T00:00:00") - new Date(rb.startDateStr + "T00:00:00")) / 86400000);
+        return diff >= 0 && diff % (rb.intervalDays || 7) === 0;
+      }
       return false;
     }).map(rb => ({ ...rb, _recurring: true }));
   }, [recurring, selDay, dispWeek, weekBlocks]);
@@ -309,7 +323,7 @@ function Planner() {
   const [editId,    setEditId]    = React.useState(null);
   const [draft, setDraft] = React.useState({
     name:"", start:"09:00", end:"11:00", type:"deep-work", bucket:"alle",
-    days:[0], recurrence:"none",
+    days:[0], recurrence:"none", intervalDays:7,
   });
 
   const toggleDraftDay = i => setDraft(d => {
@@ -334,6 +348,7 @@ function Planner() {
       type: block.type, bucket: block.bucket,
       days: [selDay],
       recurrence: isRec ? (block.recurrence || "none") : "none",
+      intervalDays: block.intervalDays || 7,
     });
     setShowModal(true);
   };
@@ -642,7 +657,7 @@ function Planner() {
   const nowMins  = (() => { const n=new Date(); return n.getHours()*60+n.getMinutes(); })();
   const showNow  = isCurrentWk && selDay===todayIdx && nowMins>=GRID_START_H*60 && nowMins<=GRID_END_H*60;
 
-  const recurrenceLabels = { none:"Einmalig", daily:"Täglich", weekdays:"Werktags (Mo–Fr)", weekly:"Wöchentlich" };
+  const recurrenceLabels = { none:"Einmalig", daily:"Taeglich", weekdays:"Werktags Mo-Fr", weekly:"Woechentlich", biweekly:"Alle 2 Wochen", monthly:"Monatlich", custom:"Alle N Tage" };
 
   return (
     <div data-tutorial="planner-content-area" style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
@@ -916,6 +931,16 @@ function Planner() {
                   }}>{lbl}</button>
                 ))}
               </div>
+              {/* Custom interval input */}
+              {draft.recurrence === "custom" && (
+                <div style={{ display:"flex", alignItems:"center", gap:10, marginTop:10 }}>
+                  <span style={{ fontSize:10, color:"var(--text-faint)", letterSpacing:"0.1em" }}>{"ALLE"}</span>
+                  <input type="number" min={1} max={365} value={draft.intervalDays || 7}
+                    onChange={e=>setDraft(d=>({...d,intervalDays:Math.max(1,parseInt(e.target.value)||7)}))}
+                    style={{ width:64, background:"var(--panel-2)", border:"1px solid var(--accent-line)", color:"var(--accent)", padding:"6px 10px", fontSize:14, outline:"none", fontFamily:"'JetBrains Mono',monospace", textAlign:"center", boxSizing:"border-box" }} />
+                  <span style={{ fontSize:10, color:"var(--text-faint)", letterSpacing:"0.1em" }}>{"TAGE"}</span>
+                </div>
+              )}
             </div>
 
             {/* Day selector (only for Einmalig) */}
@@ -1195,8 +1220,10 @@ function Planner() {
                     <div style={{ padding:"4px 8px 2px", pointerEvents:"none" }}>
                       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                         <div style={{ minWidth:0, flex:1 }}>
-                          <div style={{ fontSize:8, color:t.color, fontWeight:700, letterSpacing:"0.14em", marginBottom:2 }}>
-                            {isRec&&<span style={{ marginRight:4, opacity:0.7 }}>↻</span>}{t.glyph} {t.label}
+                          <div style={{ fontSize:8, color:t.color, fontWeight:700, letterSpacing:"0.14em", marginBottom:2, display:"flex", alignItems:"center", gap:4, flexWrap:"nowrap" }}>
+                            {isRec&&<span style={{ opacity:0.7 }}>{"↻"}</span>}
+                            <span style={{ background:t.modeBg, color:t.modeColor, padding:"0 4px", borderRadius:2, fontSize:7, letterSpacing:"0.12em", fontWeight:800, flexShrink:0 }}>{t.mode}</span>
+                            <span style={{ flexShrink:0 }}>{t.glyph}{" "}{t.label}</span>
                           </div>
                           <div style={{ fontSize:11, fontWeight:700, color:isSel?"var(--accent)":"var(--text)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{block.name}</div>
                           {height>40&&<div className="mono" style={{ fontSize:9, color:"var(--text-faint)", marginTop:2 }}>{strFromMins(startMins)} – {strFromMins(endMins)}</div>}

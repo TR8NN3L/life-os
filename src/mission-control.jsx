@@ -5,6 +5,191 @@ function getObjectives(proj) {
   return [{ id: "obj1", title: proj.objective || "", period: "", krs: proj.krs || [] }];
 }
 
+// ── Gantt Timeline View ───────────────────────────────────────────────────────
+function GanttTimeline({ projects, allPovs, archivedIds, onBack }) {
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  var pad = function(n) { return String(n).padStart(2, "0"); };
+  var toIso = function(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); };
+  var todayIso = toIso(today);
+
+  // Grid: 4 past weeks + today's week + 11 future weeks = 16 weeks
+  var weekStart = new Date(today);
+  var dow = today.getDay() === 0 ? 6 : today.getDay() - 1;
+  weekStart.setDate(today.getDate() - dow - 4 * 7); // 4 weeks back
+  weekStart.setHours(0, 0, 0, 0);
+  var TOTAL_WEEKS = 16;
+
+  var weeks = Array.from({ length: TOTAL_WEEKS }, function(_, i) {
+    var d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i * 7);
+    var thu = new Date(d); thu.setDate(d.getDate() + 3);
+    var yr = thu.getFullYear();
+    var jan4 = new Date(yr, 0, 4);
+    var jan4Mo = new Date(jan4); jan4Mo.setDate(jan4.getDate() - ((jan4.getDay() || 7) - 1));
+    var kw = Math.round((d - jan4Mo) / 604800000) + 1;
+    var endD = new Date(d); endD.setDate(d.getDate() + 6);
+    var isCurrentWk = toIso(d) <= todayIso && todayIso <= toIso(endD);
+    return { startIso: toIso(d), endIso: toIso(endD), kw: kw, isCurrent: isCurrentWk, idx: i };
+  });
+
+  var gridStartIso = weeks[0].startIso;
+  var gridEndIso = weeks[TOTAL_WEEKS - 1].endIso;
+  var gridDays = Math.round((new Date(gridEndIso + "T00:00:00") - new Date(gridStartIso + "T00:00:00")) / 86400000) + 7;
+
+  var isoToGridPct = function(iso) {
+    if (!iso) return null;
+    var d = Math.round((new Date(iso + "T00:00:00") - new Date(gridStartIso + "T00:00:00")) / 86400000);
+    return Math.max(0, Math.min(100, d / gridDays * 100));
+  };
+
+  var activeProjects = projects.filter(function(p) { return !archivedIds.has(p.id); });
+
+  var getProgress = function(proj) {
+    var allActiveKRs = getObjectives(proj).flatMap(function(o) { return o.krs || []; }).filter(function(k) { return k.status !== "locked"; });
+    if (allActiveKRs.length === 0) return 0;
+    var customKRTasks = {};
+    try { customKRTasks = JSON.parse(LS.getItem("lifeos_proj_tasks_" + proj.id) || "{}"); } catch {}
+    var doneTasks = new Set();
+    try { doneTasks = new Set(JSON.parse(LS.getItem("lifeos_done_" + proj.pov) || "[]")); } catch {}
+    var total = 0, done = 0;
+    allActiveKRs.forEach(function(kr) {
+      var tasks = (kr.tasks || []).concat(customKRTasks[kr.id] || []);
+      total += tasks.length;
+      done += tasks.filter(function(t) { return doneTasks.has(t.id); }).length;
+    });
+    return total === 0 ? 0 : done / total;
+  };
+
+  var todayPct = isoToGridPct(todayIso);
+
+  return (
+    <div style={{ flex: 1, overflow: "auto", padding: "20px 28px" }}>
+      {/* Back */}
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:20, fontSize:11, color:"var(--text-faint)", letterSpacing:"0.05em" }}>
+        <button onClick={onBack} style={{ background:"none", border:"none", color:"var(--text-faint)", cursor:"pointer", padding:0, fontSize:11, letterSpacing:"0.16em", fontWeight:600 }}>{"MISSION CONTROL"}</button>
+        <span>{">"}</span>
+        <span style={{ color:"var(--text)" }}>{"TIMELINE"}</span>
+      </div>
+
+      <div className="uppercase-label" style={{ marginBottom:4, display:"flex", alignItems:"center", gap:6 }}>
+        <Icon name="calendar" size={11} color="var(--text-faint)" />
+        {"Projekt Timeline"}
+      </div>
+      <div style={{ fontSize:11, color:"var(--text-faint)", marginBottom:24 }}>{"Horizontale Zeitlinie aller aktiven Projekte · 16 Wochen"}</div>
+
+      {activeProjects.length === 0 && (
+        <div style={{ padding:"48px 0", textAlign:"center", color:"var(--text-faint)" }}>{"Keine aktiven Projekte."}</div>
+      )}
+
+      {activeProjects.length > 0 && (
+        <div style={{ background:"var(--panel)", border:"1px solid var(--line-soft)", overflowX:"auto" }}>
+
+          {/* Week header */}
+          <div style={{ position:"relative", height:36, borderBottom:"1px solid var(--line)", minWidth:800 }}>
+            {/* Today line in header */}
+            {todayPct !== null && (
+              <div style={{ position:"absolute", top:0, bottom:0, left: "calc(" + todayPct + "% + 200px * " + todayPct + " / 100)", width:1, background:"var(--danger)", opacity:0.6, pointerEvents:"none", zIndex:5 }} />
+            )}
+            <div style={{ position:"absolute", left:0, top:0, bottom:0, width:200, borderRight:"1px solid var(--line)", display:"flex", alignItems:"center", paddingLeft:16 }}>
+              <span style={{ fontSize:9, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)" }}>{"PROJEKT"}</span>
+            </div>
+            <div style={{ position:"absolute", left:200, right:0, top:0, bottom:0, display:"flex" }}>
+              {weeks.map(function(w) {
+                return (
+                  <div key={w.startIso} style={{ flex:1, borderRight:"1px solid var(--line-soft)", display:"flex", alignItems:"center", justifyContent:"center",
+                    background: w.isCurrent ? "rgba(16,185,129,0.06)" : "transparent" }}>
+                    <span style={{ fontSize:8.5, letterSpacing:"0.1em", fontWeight: w.isCurrent ? 800 : 600, color: w.isCurrent ? "var(--accent)" : "var(--text-faint)" }}>{"KW " + w.kw}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Project rows */}
+          {activeProjects.map(function(proj) {
+            var povMeta = allPovs.find(function(p) { return p.id === proj.pov; });
+            var povColor = (povMeta || {}).color || "var(--accent)";
+            var progress = getProgress(proj);
+            var deadlinePct = proj.deadline ? isoToGridPct(proj.deadline) : null;
+            var startPct = isoToGridPct(todayIso); // bar starts at today if no explicit start
+
+            return (
+              <div key={proj.id} style={{ display:"flex", borderBottom:"1px solid var(--line-soft)", minHeight:52, position:"relative", minWidth:800 }}>
+                {/* Name col */}
+                <div style={{ width:200, flexShrink:0, borderRight:"1px solid var(--line-soft)", padding:"10px 16px", display:"flex", flexDirection:"column", justifyContent:"center" }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:"var(--text)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{proj.title}</div>
+                  <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:3 }}>
+                    <span style={{ fontSize:9, fontWeight:700, color:povColor, letterSpacing:"0.1em" }}>{(povMeta || {}).label ? (povMeta.label.toUpperCase()) : proj.pov}</span>
+                    <span className="mono" style={{ fontSize:9, color:"var(--text-faint)" }}>{Math.round(progress * 100) + "%"}</span>
+                  </div>
+                </div>
+
+                {/* Timeline col */}
+                <div style={{ flex:1, position:"relative", overflow:"hidden", display:"flex", alignItems:"center" }}>
+                  {/* Current week bg */}
+                  {weeks.filter(function(w) { return w.isCurrent; }).map(function(w) {
+                    return <div key="cwbg" style={{ position:"absolute", left: (w.idx / TOTAL_WEEKS * 100) + "%", width: (1 / TOTAL_WEEKS * 100) + "%", top:0, bottom:0, background:"rgba(16,185,129,0.05)", pointerEvents:"none" }} />;
+                  })}
+
+                  {/* Today line */}
+                  {todayPct !== null && (
+                    <div style={{ position:"absolute", left: todayPct + "%", top:0, bottom:0, width:1, background:"var(--danger)", opacity:0.5, pointerEvents:"none", zIndex:5 }} />
+                  )}
+
+                  {/* Project bar */}
+                  {(function() {
+                    var barLeft = startPct != null ? startPct : 0;
+                    var barRight = deadlinePct != null ? (100 - deadlinePct) : 0;
+                    var barWidth = Math.max(0.5, 100 - barLeft - barRight);
+                    var isOverdue = proj.deadline && proj.deadline < todayIso;
+                    var barColor = isOverdue ? "var(--danger)" : povColor;
+                    return (
+                      <div style={{ position:"absolute", left: barLeft + "%", width: barWidth + "%", top:"50%", transform:"translateY(-50%)", height:14, background:"rgba(255,255,255,0.06)", borderRadius:2, overflow:"hidden", border:"1px solid " + barColor + "55" }}>
+                        <div style={{ width: (progress * 100) + "%", height:"100%", background:barColor, opacity:0.75, borderRadius:2, transition:"width .4s" }} />
+                      </div>
+                    );
+                  })()}
+
+                  {/* Deadline marker */}
+                  {deadlinePct !== null && (
+                    <div style={{ position:"absolute", left: deadlinePct + "%", top:"50%", transform:"translate(-50%,-50%)", zIndex:4 }}>
+                      <div style={{ width:8, height:8, background: proj.deadline < todayIso ? "var(--danger)" : "var(--warn)", borderRadius:1, transform:"rotate(45deg)" }} title={"Deadline: " + proj.deadline} />
+                    </div>
+                  )}
+
+                  {/* No deadline label */}
+                  {deadlinePct === null && (
+                    <div style={{ position:"absolute", right:8, fontSize:8.5, letterSpacing:"0.1em", color:"var(--text-faint)", opacity:0.5 }}>{"OFFEN"}</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Legend */}
+          <div style={{ padding:"10px 16px", display:"flex", gap:20, alignItems:"center" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+              <div style={{ width:10, height:10, background:"var(--danger)", borderRadius:"50%" }} />
+              <span style={{ fontSize:9, color:"var(--text-faint)", letterSpacing:"0.1em" }}>{"HEUTE"}</span>
+            </div>
+            <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+              <div style={{ width:8, height:8, background:"var(--warn)", borderRadius:1, transform:"rotate(45deg)" }} />
+              <span style={{ fontSize:9, color:"var(--text-faint)", letterSpacing:"0.1em" }}>{"DEADLINE"}</span>
+            </div>
+            <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+              <div style={{ width:16, height:8, background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:2, overflow:"hidden" }}>
+                <div style={{ width:"60%", height:"100%", background:"var(--accent)", opacity:0.75 }} />
+              </div>
+              <span style={{ fontSize:9, color:"var(--text-faint)", letterSpacing:"0.1em" }}>{"FORTSCHRITT"}</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, setActiveTaskId, krProgress, setKrProgress, onOpenTask, userPovs = [], inbox = [], setInbox }) {
   // Merge hardcoded POVs with user-created custom POVs (from sync or local creation)
   const allPovs = React.useMemo(() => {
@@ -202,6 +387,20 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
     setDoneVer(v => v + 1);
   };
 
+  // ── Skip-Status (heute ueberspringen) ────────────────────────────────────────
+  var todaySkipKey = "lifeos_skips_" + new Date().toISOString().slice(0, 10);
+  const [skippedIds, setSkippedIds] = React.useState(function() {
+    try { return new Set(JSON.parse(LS.getItem(todaySkipKey) || "[]")); } catch { return new Set(); }
+  });
+  const toggleSkip = function(taskId) {
+    setSkippedIds(function(prev) {
+      var next = new Set(prev);
+      next.has(taskId) ? next.delete(taskId) : next.add(taskId);
+      LS.setItem(todaySkipKey, JSON.stringify(Array.from(next)));
+      return next;
+    });
+  };
+
   // --- View guards ---
   if (view.type === "inbox") {
     return (
@@ -301,6 +500,15 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
       </div>
     );
   }
+  if (view.type === "gantt") {
+    return <GanttTimeline
+      projects={[...PROJECTS, ...customProjects]}
+      allPovs={allPovs}
+      archivedIds={archivedIds}
+      onBack={function() { setView({ type: "list" }); }}
+    />;
+  }
+
   if (view.type === "project") {
     const proj = [...PROJECTS, ...customProjects].find(p => p.id === view.id);
     if (!proj) return null;
@@ -359,13 +567,23 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
           Mission Control
         </div>
         <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => setView({ type: "gantt" })} style={{
+            padding: "8px 16px", background: "transparent",
+            border: "1px solid var(--line)",
+            color: "var(--text-faint)",
+            fontSize: 10, letterSpacing: "0.16em", fontWeight: 700, cursor: "pointer",
+            display: "flex", alignItems: "center", gap: 7,
+          }}>
+            <Icon name="calendar" size={13} strokeWidth={2} />
+            {"TIMELINE"}
+          </button>
           {archivedProjects.length > 0 && (
             <button onClick={() => setShowArchived(v => !v)} style={{
               padding: "8px 16px", background: "transparent",
               border: `1px solid ${showArchived ? "var(--text-dim)" : "var(--line)"}`,
               color: showArchived ? "var(--text)" : "var(--text-faint)",
               fontSize: 10, letterSpacing: "0.16em", fontWeight: 700, cursor: "pointer",
-            }}>ARCHIV ({archivedProjects.length})</button>
+            }}>{"ARCHIV (" + archivedProjects.length + ")"}</button>
           )}
           <button onClick={() => {
             // Free-tier limit: max 2 projects
@@ -446,137 +664,120 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
       {/* --- MAIN VIEW: MainQuest grouped --- */}
       {!showArchived && (
         <div>
-          {/* Inbox Card */}
-          {inbox.length > 0 && (
-            <div style={{ marginBottom: 28, border: "1px solid var(--line)", background: "var(--panel)" }}>
-              <button onClick={() => setInboxExpanded(o => !o)} style={{
-                width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-                background: "transparent", border: "none", borderBottom: inboxExpanded ? "1px solid var(--line-soft)" : "none",
-                padding: "14px 20px", cursor: "pointer", textAlign: "left",
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <span style={{ fontSize: 9.5, letterSpacing: "0.18em", fontWeight: 700, color: "var(--text-dim)" }}>INBOX</span>
-                  <span style={{ padding: "2px 10px", background: "var(--accent-soft)", border: "1px solid var(--accent-line)", fontSize: 9.5, fontWeight: 700, color: "var(--accent)" }}>{inbox.length}</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <button onClick={(e) => { e.stopPropagation(); setView({ type: "inbox" }); }} style={{
-                    padding: "5px 14px", background: "transparent", border: "1px solid var(--line)",
-                    color: "var(--text-faint)", fontSize: 9.5, letterSpacing: "0.14em", fontWeight: 700, cursor: "pointer",
-                  }}>OEFFNEN</button>
-                  <span style={{ fontSize: 11, color: "var(--text-faint)", transform: inboxExpanded ? "rotate(90deg)" : "none", transition: "transform .15s", display: "inline-block" }}>▶</span>
-                </div>
-              </button>
-              {inboxExpanded && (
-                <div>
-                  {[...inbox].reverse().slice(0, 10).map((item) => (
-                    <div key={item.id} style={{
-                      padding: "14px 20px", borderBottom: "1px solid var(--line-soft)",
-                      display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12,
-                    }}>
-                      <div style={{ flex: 1 }}>
-                        {item.pov && <span style={{ fontSize: 9, letterSpacing: "0.16em", fontWeight: 700, color: `var(--${item.pov})`, marginRight: 8 }}>{item.pov.toUpperCase()}</span>}
-                        <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)" }}>{item.text}</span>
-                        {item.kr && <span style={{ marginLeft: 10, fontSize: 10, color: "var(--accent)", letterSpacing: "0.08em" }}>→ {item.kr}</span>}
-                        {item.sub && <div style={{ fontSize: 11.5, color: "var(--text-faint)", marginTop: 3 }}>{item.sub}</div>}
-                      </div>
-                      {setInbox && (
-                        <button onClick={() => setInbox(prev => prev.filter(x => x.id !== item.id))} style={{
-                          background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 16, padding: "0 4px", flexShrink: 0,
-                        }}>×</button>
-                      )}
-                    </div>
-                  ))}
-                  {inbox.length > 10 && (
-                    <div style={{ padding: "10px 20px", borderTop: "1px solid var(--line-soft)" }}>
-                      <button onClick={() => setView({ type: "inbox" })} style={{
-                        background: "transparent", border: "none", color: "var(--accent)",
-                        fontSize: 10.5, letterSpacing: "0.14em", fontWeight: 700, cursor: "pointer",
-                      }}>+ {inbox.length - 10} WEITERE ANZEIGEN →</button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Freie Tasks */}
-          {freeTasks.length > 0 && (
-            <div style={{ marginBottom: 32 }}>
-              <button onClick={() => setFreeOpen(o => !o)} style={{
-                width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-                background: "transparent", border: "none", borderTop: "2px solid var(--line)",
-                borderBottom: freeOpen ? "none" : "2px solid var(--line)",
-                padding: "14px 0", cursor: "pointer", textAlign: "left",
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <span style={{ fontSize: 9.5, letterSpacing: "0.18em", fontWeight: 700, color: "var(--text-dim)" }}>FREIE TASKS</span>
-                  <span style={{ padding: "2px 10px", background: "var(--panel-2)", border: "1px solid var(--line)", fontSize: 9.5, fontWeight: 700, color: "var(--text-faint)" }}>{freeTasks.length}</span>
-                </div>
-                <span style={{ fontSize: 11, color: "var(--text-faint)", transform: freeOpen ? "rotate(90deg)" : "none", transition: "transform .15s", display: "inline-block" }}>▶</span>
-              </button>
-              {freeOpen && (
-                <div style={{ border: "1px solid var(--line)", borderTop: "none" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "28px 120px 1fr 160px 110px 130px", gap: 16, padding: "10px 16px", borderBottom: "1px solid var(--line-soft)", background: "var(--panel)" }}>
-                    {["", "POV", "TITEL", "KEY RESULT", "TIMER", ""].map((h, i) => (
-                      <span key={i} style={{ fontSize: 9, letterSpacing: "0.16em", fontWeight: 700, color: "var(--text-faint)" }}>{h}</span>
-                    ))}
+          {(function() {
+            var visibleFT = freeTasks.filter(function(t) { return !skippedIds.has(t.id); });
+            var skippedFT = freeTasks.filter(function(t) { return skippedIds.has(t.id); });
+            if (freeTasks.length === 0) return null;
+            return (
+              <div style={{ marginBottom: 32 }}>
+                <button onClick={function() { setFreeOpen(function(o) { return !o; }); }} style={{
+                  width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                  background: "transparent", border: "none", borderTop: "2px solid var(--line)",
+                  borderBottom: freeOpen ? "none" : "2px solid var(--line)",
+                  padding: "14px 0", cursor: "pointer", textAlign: "left",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ fontSize: 9.5, letterSpacing: "0.18em", fontWeight: 700, color: "var(--text-dim)" }}>{"FREIE TASKS"}</span>
+                    <span style={{ padding: "2px 10px", background: "var(--panel-2)", border: "1px solid var(--line)", fontSize: 9.5, fontWeight: 700, color: "var(--text-faint)" }}>{visibleFT.length}</span>
+                    {skippedFT.length > 0 && (
+                      <span style={{ padding: "2px 8px", fontSize: 9, fontWeight: 700, color: "var(--text-faint)", letterSpacing: "0.1em", opacity: 0.6 }}>{"+ " + skippedFT.length + " uebersprungen"}</span>
+                    )}
                   </div>
-                  {freeTasks.map((t, _fi) => {
-                    const isActive = activeTaskId === t.id;
-                    const elapsed = taskTimes[t.id] ?? t.elapsed ?? 0;
-                    const isDone = isDoneTask(t.id, t._pov);
-                    const povColor = allPovs.find(x => x.id === t._pov)?.color || "var(--accent)";
-                    return (
-                      <div key={`${t._pov}_${t.id}_${_fi}`}
-                        draggable
-                        onDragStart={() => setFreeDragIdx(_fi)}
-                        onDragOver={(e) => { e.preventDefault(); setFreeDragOverIdx(_fi); }}
-                        onDrop={() => { handleFreeDrop(freeDragIdx, freeDragOverIdx); setFreeDragIdx(null); setFreeDragOverIdx(null); }}
-                        onDragEnd={() => { setFreeDragIdx(null); setFreeDragOverIdx(null); }}
-                        style={{
-                          display: "grid", gridTemplateColumns: "28px 120px 1fr 160px 110px 130px",
-                          gap: 16, padding: "13px 16px",
-                          borderTop: freeDragOverIdx === _fi && freeDragIdx !== _fi ? "2px solid var(--accent)" : "none",
-                          borderBottom: "1px solid var(--line-soft)",
-                          background: isActive ? "rgba(255,255,255,0.03)" : "transparent",
-                          opacity: isDone ? 0.4 : freeDragIdx === _fi ? 0.4 : 1,
-                          cursor: "grab",
-                        }}>
-                        <button onClick={() => toggleFreeTaskDone(t.id, t._pov)} style={{
-                          width: 16, height: 16, borderRadius: 3, cursor: "pointer",
-                          background: isDone ? "var(--accent)" : "transparent",
-                          border: `2px solid ${isDone ? "var(--accent)" : "var(--line)"}`,
-                          color: isDone ? "#0a0a0c" : "transparent",
-                          fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center",
-                          padding: 0, flexShrink: 0,
-                        }}>{isDone ? "✓" : ""}</button>
-                        <POVChip pov={t._pov} />
-                        <div onClick={() => onOpenTask && onOpenTask({ ...t, _pov: t._pov })} style={{ cursor: "pointer" }}>
-                          <div style={{ fontSize: 13.5, fontWeight: 600, textDecoration: isDone ? "line-through" : "none", color: isDone ? "var(--text-dim)" : "var(--accent)" }}>{t.title}</div>
-                          {t.sub && <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>{t.sub}</div>}
+                  <span style={{ fontSize: 11, color: "var(--text-faint)", transform: freeOpen ? "rotate(90deg)" : "none", transition: "transform .15s", display: "inline-block" }}>{"▶"}</span>
+                </button>
+                {freeOpen && (
+                  <div style={{ border: "1px solid var(--line)", borderTop: "none" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "28px 120px 1fr 160px 110px 158px", gap: 16, padding: "10px 16px", borderBottom: "1px solid var(--line-soft)", background: "var(--panel)" }}>
+                      {["", "POV", "TITEL", "KEY RESULT", "TIMER", ""].map(function(h, i) {
+                        return <span key={i} style={{ fontSize: 9, letterSpacing: "0.16em", fontWeight: 700, color: "var(--text-faint)" }}>{h}</span>;
+                      })}
+                    </div>
+                    {visibleFT.map(function(t, _fi) {
+                      var isActive = activeTaskId === t.id;
+                      var elapsed = taskTimes[t.id] != null ? taskTimes[t.id] : (t.elapsed != null ? t.elapsed : 0);
+                      var isDone = isDoneTask(t.id, t._pov);
+                      var povColor = (allPovs.find(function(x) { return x.id === t._pov; }) || {}).color || "var(--accent)";
+                      return (
+                        <div key={t._pov + "_" + t.id + "_" + _fi}
+                          draggable
+                          onDragStart={function() { setFreeDragIdx(_fi); }}
+                          onDragOver={function(e) { e.preventDefault(); setFreeDragOverIdx(_fi); }}
+                          onDrop={function() { handleFreeDrop(freeDragIdx, freeDragOverIdx); setFreeDragIdx(null); setFreeDragOverIdx(null); }}
+                          onDragEnd={function() { setFreeDragIdx(null); setFreeDragOverIdx(null); }}
+                          style={{
+                            display: "grid", gridTemplateColumns: "28px 120px 1fr 160px 110px 158px",
+                            gap: 16, padding: "13px 16px",
+                            borderTop: freeDragOverIdx === _fi && freeDragIdx !== _fi ? "2px solid var(--accent)" : "none",
+                            borderBottom: "1px solid var(--line-soft)",
+                            background: isActive ? "rgba(255,255,255,0.03)" : "transparent",
+                            opacity: isDone ? 0.4 : freeDragIdx === _fi ? 0.4 : 1,
+                            cursor: "grab",
+                          }}>
+                          <button onClick={function() { toggleFreeTaskDone(t.id, t._pov); }} style={{
+                            width: 16, height: 16, borderRadius: 3, cursor: "pointer",
+                            background: isDone ? "var(--accent)" : "transparent",
+                            border: "2px solid " + (isDone ? "var(--accent)" : "var(--line)"),
+                            color: isDone ? "#0a0a0c" : "transparent",
+                            fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center",
+                            padding: 0, flexShrink: 0,
+                          }}>{isDone ? "✓" : ""}</button>
+                          <POVChip pov={t._pov} />
+                          <div onClick={function() { if (onOpenTask) onOpenTask(Object.assign({}, t, { _pov: t._pov })); }} style={{ cursor: "pointer" }}>
+                            <div style={{ fontSize: 13.5, fontWeight: 600, textDecoration: isDone ? "line-through" : "none", color: isDone ? "var(--text-dim)" : "var(--accent)" }}>{t.title}</div>
+                            {t.sub && <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>{t.sub}</div>}
+                          </div>
+                          <div>
+                            {!t.kr
+                              ? <span style={{ padding: "3px 10px", fontSize: 9.5, fontWeight: 700, color: "var(--warn)", border: "1px solid rgba(212,162,60,.4)", background: "var(--warn-soft)" }}>{"⚠ SIDE QUEST"}</span>
+                              : <span style={{ padding: "3px 10px", color: povColor, border: "1px solid rgba(255,255,255,0.15)", fontSize: 9.5, fontWeight: 700 }}>{"-> " + t.kr}</span>
+                            }
+                          </div>
+                          <span className="mono" style={{ fontSize: 18, fontWeight: 500, color: isActive ? "var(--accent)" : "var(--text-faint)" }}>{fmtTime(elapsed)}</span>
+                          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                            <button disabled={isDone} onClick={function() { setActiveTaskId(isActive ? null : t.id); }} style={{
+                              flex: 1, padding: "7px 0",
+                              background: isActive ? "var(--accent)" : "var(--panel-2)",
+                              color: isActive ? "#0a0a0c" : "var(--text)",
+                              border: "1px solid " + (isActive ? "var(--accent)" : "var(--line)"),
+                              fontWeight: 700, fontSize: 10.5, letterSpacing: "0.14em",
+                              cursor: isDone ? "default" : "pointer", opacity: isDone ? 0.4 : 1,
+                            }}>{isDone ? "DONE" : isActive ? "PAUSE" : "START"}</button>
+                            {!isDone && (
+                              <button onClick={function() { toggleSkip(t.id); }} title="Heute ueberspringen" style={{
+                                width: 28, height: 28, background: "transparent", flexShrink: 0,
+                                border: "1px solid var(--line)", color: "var(--text-faint)",
+                                cursor: "pointer", fontSize: 13, padding: 0, lineHeight: 1,
+                              }}>{"↷"}</button>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          {!t.kr
-                            ? <span style={{ padding: "3px 10px", fontSize: 9.5, fontWeight: 700, color: "var(--warn)", border: "1px solid rgba(212,162,60,.4)", background: "var(--warn-soft)" }}>⚠ SIDE QUEST</span>
-                            : <span style={{ padding: "3px 10px", color: povColor, border: "1px solid rgba(255,255,255,0.15)", fontSize: 9.5, fontWeight: 700 }}>→ {t.kr}</span>
-                          }
-                        </div>
-                        <span className="mono" style={{ fontSize: 18, fontWeight: 500, color: isActive ? "var(--accent)" : "var(--text-faint)" }}>{fmtTime(elapsed)}</span>
-                        <button disabled={isDone} onClick={() => setActiveTaskId(isActive ? null : t.id)} style={{
-                          padding: "7px 18px",
-                          background: isActive ? "var(--accent)" : "var(--panel-2)",
-                          color: isActive ? "#0a0a0c" : "var(--text)",
-                          border: "1px solid " + (isActive ? "var(--accent)" : "var(--line)"),
-                          fontWeight: 700, fontSize: 10.5, letterSpacing: "0.16em",
-                          cursor: isDone ? "default" : "pointer", opacity: isDone ? 0.4 : 1,
-                        }}>{isDone ? "DONE" : isActive ? "PAUSE" : "START"}</button>
+                      );
+                    })}
+
+                    {/* Uebersprungen heute */}
+                    {skippedFT.length > 0 && (
+                      <div style={{ borderTop: "1px solid var(--line-soft)", padding: "10px 16px", background: "rgba(255,255,255,0.01)" }}>
+                        <div style={{ fontSize: 8.5, letterSpacing: "0.18em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 8, opacity: 0.6 }}>{"UEBERSPRUNGEN HEUTE"}</div>
+                        {skippedFT.map(function(t) {
+                          return (
+                            <div key={"skip_" + t.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--line-soft)", opacity: 0.45 }}>
+                              <span style={{ fontSize: 12.5, color: "var(--text-faint)", textDecoration: "line-through" }}>{t.title}</span>
+                              <button onClick={function() { toggleSkip(t.id); }} style={{
+                                background: "none", border: "1px solid var(--line)", color: "var(--text-faint)",
+                                cursor: "pointer", padding: "3px 10px", fontSize: 9, letterSpacing: "0.12em", fontWeight: 700,
+                              }}>{"ZURUECK"}</button>
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* MainQuest sections */}
           {displayPovs.map(povId => {

@@ -175,6 +175,225 @@ function GaugeRing({ pct, color, label, size = 96 }) {
   );
 }
 
+// ── Weekly Report Modal ────────────────────────────────────────────────────
+function WeeklyReportModal({ onClose }) {
+  var [rOffset, setROffset] = React.useState(0);
+
+  var mon = React.useMemo(function() { return getMonday(rOffset); }, [rOffset]);
+  var pad = function(n) { return String(n).padStart(2, "0"); };
+  var fmtDate = function(d) { return pad(d.getDate()) + "." + pad(d.getMonth() + 1) + "." + d.getFullYear(); };
+  var sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  var todayIso = localDateStr(new Date());
+
+  // KW number
+  var thu = new Date(mon); thu.setDate(mon.getDate() + 3);
+  var yr = thu.getFullYear();
+  var jan4 = new Date(yr, 0, 4);
+  var jan4Mo = new Date(jan4); jan4Mo.setDate(jan4.getDate() - ((jan4.getDay() || 7) - 1));
+  var kw = Math.round((mon - jan4Mo) / 604800000) + 1;
+
+  // Day data
+  var days = React.useMemo(function() {
+    var DAY_LABELS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+    return Array.from({ length: 7 }, function(_, i) {
+      var d = new Date(mon); d.setDate(mon.getDate() + i);
+      var ds = localDateStr(d);
+      var daily = {};
+      try { daily = JSON.parse(LS.getItem("lifeos_daily_" + ds) || "{}"); } catch {}
+      var totalSec = Object.keys(daily).reduce(function(s, k) { return s + (daily[k] || 0); }, 0);
+      return { label: DAY_LABELS[i], ds: ds, totalH: totalSec / 3600, isFuture: ds > todayIso };
+    });
+  }, [mon]);
+
+  // Planned hours from timeblocks
+  var plannedH = React.useMemo(function() {
+    try {
+      var allBlocks = JSON.parse(LS.getItem("lifeos_timeblocks_v2") || "{}");
+      var recurring = JSON.parse(LS.getItem("lifeos_recurring_blocks") || "[]");
+      var total = 0;
+      for (var di = 0; di < 7; di++) {
+        var ds = days[di].ds;
+        // Find matching week key
+        var wkKey = null;
+        Object.keys(allBlocks).forEach(function(k) {
+          var wkBlocks = allBlocks[k];
+          if (wkBlocks && wkBlocks[di] && wkBlocks[di].length > 0) {
+            // check if this week contains our ds
+            var firstBlock = wkBlocks[di][0];
+            if (firstBlock) wkKey = k;
+          }
+        });
+        // Just sum all specific blocks for this week
+        Object.keys(allBlocks).forEach(function(k) {
+          var wb = allBlocks[k];
+          var specific = wb[di] || [];
+          // For the correct week, check if the week key matches our date range
+          // Simple heuristic: include if specific blocks exist (they'll be in the right week)
+          specific.forEach(function(b) {
+            var sm = b.start ? (parseInt(b.start.split(":")[0]) * 60 + parseInt(b.start.split(":")[1])) : 0;
+            var em = b.end   ? (parseInt(b.end.split(":")[0])   * 60 + parseInt(b.end.split(":")[1]))   : 0;
+            total += Math.max(0, em - sm) / 60;
+          });
+        });
+      }
+      // Add recurring blocks (rough estimate)
+      recurring.forEach(function(rb) {
+        var durMins = 0;
+        if (rb.start && rb.end) {
+          var sm = parseInt(rb.start.split(":")[0]) * 60 + parseInt(rb.start.split(":")[1]);
+          var em = parseInt(rb.end.split(":")[0])   * 60 + parseInt(rb.end.split(":")[1]);
+          durMins = Math.max(0, em - sm);
+        }
+        for (var di = 0; di < 7; di++) {
+          var ds = days[di].ds;
+          var applies = false;
+          if (rb.recurrence === "daily") applies = true;
+          else if (rb.recurrence === "weekdays") applies = di <= 4;
+          else if (rb.recurrence === "weekly" && rb.dayIndex === di) applies = true;
+          else if (rb.recurrence === "biweekly" && rb.dayIndex === di && rb.startDateStr) {
+            var diff = Math.round((new Date(ds + "T00:00:00") - new Date(rb.startDateStr + "T00:00:00")) / 86400000);
+            applies = diff >= 0 && diff % 14 === 0;
+          }
+          else if (rb.recurrence === "monthly" && rb.startDateStr) {
+            applies = parseInt(ds.slice(8), 10) === parseInt(rb.startDateStr.slice(8), 10);
+          }
+          else if (rb.recurrence === "custom" && rb.startDateStr) {
+            var diff2 = Math.round((new Date(ds + "T00:00:00") - new Date(rb.startDateStr + "T00:00:00")) / 86400000);
+            applies = diff2 >= 0 && diff2 % (rb.intervalDays || 7) === 0;
+          }
+          if (applies && !days[di].isFuture) total += durMins / 60;
+        }
+      });
+      return total;
+    } catch { return 0; }
+  }, [days]);
+
+  // Actual hours
+  var actualH = days.filter(function(d) { return !d.isFuture; }).reduce(function(s, d) { return s + d.totalH; }, 0);
+
+  // Say-Do: block selections vs done
+  var sayDo = React.useMemo(function() {
+    try {
+      var selections = JSON.parse(LS.getItem("lifeos_block_selections") || "{}");
+      var promised = 0, delivered = 0;
+      Object.keys(selections).forEach(function(blockId) {
+        var taskKeys = selections[blockId] || [];
+        taskKeys.forEach(function(tk) {
+          var lastUnd = tk.lastIndexOf("_");
+          if (lastUnd === -1) return;
+          var povId = tk.slice(lastUnd + 1);
+          var taskId = tk.slice(0, lastUnd);
+          promised++;
+          try {
+            var doneSet = new Set(JSON.parse(LS.getItem("lifeos_done_" + povId) || "[]"));
+            if (doneSet.has(taskId)) delivered++;
+          } catch {}
+        });
+      });
+      return { promised: promised, delivered: delivered, pct: promised > 0 ? Math.round(delivered / promised * 100) : null };
+    } catch { return { promised: 0, delivered: 0, pct: null }; }
+  }, []);
+
+  // Streak days this week
+  var streakDaysThisWeek = days.filter(function(d) { return !d.isFuture && d.totalH > 0; }).length;
+
+  var sayDoColor = sayDo.pct === null ? "var(--text-faint)" : sayDo.pct >= 80 ? "var(--good)" : sayDo.pct >= 60 ? "var(--accent)" : sayDo.pct >= 40 ? "var(--warn)" : "var(--danger)";
+  var effPct = plannedH > 0 ? Math.min(100, Math.round(actualH / plannedH * 100)) : null;
+
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:200, background:"rgba(0,0,0,0.82)", display:"flex", alignItems:"center", justifyContent:"center" }}
+      onClick={function(e) { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background:"var(--panel)", border:"1px solid var(--line)", width:"min(96vw,680px)", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 0 80px rgba(0,0,0,0.6)" }}>
+
+        {/* Header */}
+        <div style={{ padding:"22px 28px 18px", borderBottom:"1px solid var(--line)", display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+          <div>
+            <div className="uppercase-label" style={{ color:"var(--accent)", marginBottom:6, display:"flex", alignItems:"center", gap:6 }}>
+              <Icon name="bar-chart-2" size={11} color="var(--accent)" />
+              {"Weekly Report"}
+            </div>
+            <div style={{ fontSize:18, fontWeight:700 }}>{"KW " + kw + " · " + fmtDate(mon) + " – " + fmtDate(sun)}</div>
+          </div>
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            <button onClick={function() { setROffset(function(o) { return o - 1; }); }} style={{ background:"var(--panel-2)", border:"1px solid var(--line)", color:"var(--text-faint)", padding:"5px 12px", fontSize:11, cursor:"pointer", fontFamily:"inherit" }}>{"< PREV"}</button>
+            {rOffset !== 0 && <button onClick={function() { setROffset(0); }} style={{ background:"none", border:"1px solid var(--line)", color:"var(--text-faint)", padding:"5px 10px", fontSize:10, cursor:"pointer", letterSpacing:"0.1em" }}>{"AKTUELL"}</button>}
+            <button onClick={function() { setROffset(function(o) { return o + 1; }); }} disabled={rOffset >= 0} style={{ background:"var(--panel-2)", border:"1px solid var(--line)", color:"var(--text-faint)", opacity: rOffset >= 0 ? 0.35 : 1, padding:"5px 12px", fontSize:11, cursor: rOffset >= 0 ? "default" : "pointer", fontFamily:"inherit" }}>{"NEXT >"}</button>
+            <button onClick={onClose} style={{ background:"none", border:"none", color:"var(--text-faint)", cursor:"pointer", fontSize:20, padding:"0 4px", lineHeight:1 }}>{"x"}</button>
+          </div>
+        </div>
+
+        <div style={{ padding:"24px 28px" }}>
+
+          {/* Big 3 stats */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12, marginBottom:24 }}>
+            <div style={{ background:"var(--bg)", border:"1px solid var(--line-soft)", padding:"18px 20px" }}>
+              <div style={{ fontSize:9, letterSpacing:"0.18em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>{"GELIEFERT"}</div>
+              <div className="mono" style={{ fontSize:30, fontWeight:700, color:"var(--accent)", lineHeight:1 }}>{actualH.toFixed(1) + "h"}</div>
+              <div style={{ fontSize:10, color:"var(--text-faint)", marginTop:6 }}>{"Geplant: " + plannedH.toFixed(1) + "h"}</div>
+              {effPct !== null && <div style={{ fontSize:10, color: effPct >= 80 ? "var(--good)" : effPct >= 50 ? "var(--warn)" : "var(--danger)", marginTop:2, fontWeight:700 }}>{effPct + "% erledigt"}</div>}
+            </div>
+            <div style={{ background:"var(--bg)", border:"1px solid var(--line-soft)", padding:"18px 20px" }}>
+              <div style={{ fontSize:9, letterSpacing:"0.18em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>{"SAY-DO SCORE"}</div>
+              <div className="mono" style={{ fontSize:30, fontWeight:700, color:sayDoColor, lineHeight:1 }}>{sayDo.pct !== null ? sayDo.pct + "%" : "--"}</div>
+              <div style={{ fontSize:10, color:"var(--text-faint)", marginTop:6 }}>{sayDo.promised + " promised / " + sayDo.delivered + " done"}</div>
+            </div>
+            <div style={{ background:"var(--bg)", border:"1px solid var(--line-soft)", padding:"18px 20px" }}>
+              <div style={{ fontSize:9, letterSpacing:"0.18em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>{"STREAK-TAGE"}</div>
+              <div className="mono" style={{ fontSize:30, fontWeight:700, color: streakDaysThisWeek >= 5 ? "var(--good)" : streakDaysThisWeek >= 3 ? "var(--accent)" : "var(--warn)", lineHeight:1 }}>{streakDaysThisWeek + "/7"}</div>
+              <div style={{ fontSize:10, color:"var(--text-faint)", marginTop:6 }}>{"Tage mit Time geloggt"}</div>
+            </div>
+          </div>
+
+          {/* Per-day bar */}
+          <div style={{ marginBottom:24 }}>
+            <div style={{ fontSize:9, letterSpacing:"0.18em", fontWeight:700, color:"var(--text-faint)", marginBottom:12 }}>{"TAGES-BREAKDOWN"}</div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:8 }}>
+              {days.map(function(day) {
+                var maxH = Math.max.apply(null, days.map(function(d) { return d.totalH; }).concat([1]));
+                var barPct = Math.min(100, (day.totalH / maxH) * 100);
+                return (
+                  <div key={day.ds} style={{ textAlign:"center" }}>
+                    <div style={{ height:80, display:"flex", flexDirection:"column", justifyContent:"flex-end", marginBottom:6 }}>
+                      <div style={{
+                        width:"100%", borderRadius:2,
+                        height: day.isFuture ? 2 : Math.max(barPct * 0.8, day.totalH > 0 ? 4 : 1) + "%",
+                        background: day.isFuture ? "var(--line)" : day.totalH > 0 ? "var(--accent)" : "var(--line-soft)",
+                        transition:"height .3s",
+                      }} />
+                    </div>
+                    <div style={{ fontSize:9.5, fontWeight:700, letterSpacing:"0.1em", color:day.ds === todayIso ? "var(--accent)" : "var(--text-faint)" }}>{day.label}</div>
+                    <div className="mono" style={{ fontSize:9, color:day.totalH > 0 ? "var(--text-dim)" : "var(--text-faint)", marginTop:2 }}>{day.totalH > 0 ? day.totalH.toFixed(1) + "h" : "--"}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Verdict */}
+          {(function() {
+            var verdict = "";
+            var verdictColor = "var(--text-faint)";
+            if (effPct !== null && sayDo.pct !== null) {
+              if (effPct >= 80 && sayDo.pct >= 80) { verdict = "Exzellente Woche. Vollgas."; verdictColor = "var(--good)"; }
+              else if (effPct >= 60 && sayDo.pct >= 60) { verdict = "Solide. Identifiziere eine Sache die naechste Woche besser wird."; verdictColor = "var(--accent)"; }
+              else if (effPct < 40 || sayDo.pct < 40) { verdict = "Kritisch. Zu viel Drift. Weniger planen, mehr liefern."; verdictColor = "var(--danger)"; }
+              else { verdict = "Mittelmaessig. Erhoehe dein Say-Do auf 80%."; verdictColor = "var(--warn)"; }
+            } else {
+              verdict = "Starte Tasks im Planner um Daten zu sehen.";
+            }
+            return (
+              <div style={{ background:"var(--bg)", border:"1px solid var(--line-soft)", borderLeft:"3px solid " + verdictColor, padding:"14px 18px" }}>
+                <div style={{ fontSize:9, letterSpacing:"0.18em", fontWeight:700, color:verdictColor, marginBottom:6 }}>{"VERDICT"}</div>
+                <div style={{ fontSize:13, color:"var(--text)", lineHeight:1.5 }}>{verdict}</div>
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Insights({ taskTimes, pov }) {
   const times = taskTimes || {};
 
@@ -370,11 +589,24 @@ function Insights({ taskTimes, pov }) {
 
   const secToH = (s) => (s / 3600).toFixed(1) + "h";
 
+  const [showReport, setShowReport] = React.useState(false);
+
   return (
     <div data-tutorial="insights-content-area" style={{ flex: 1, overflow: "auto", padding: "20px 28px" }}>
-      <div className="uppercase-label" style={{ marginBottom: 20, display: "flex", alignItems: "center", gap: 6 }}>
-        <Icon name="bar-chart-2" size={11} color="var(--text-faint)" />
-        Insights
+      {showReport && <WeeklyReportModal onClose={function() { setShowReport(false); }} />}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom: 20 }}>
+        <div className="uppercase-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Icon name="bar-chart-2" size={11} color="var(--text-faint)" />
+          {"Insights"}
+        </div>
+        <button onClick={function() { setShowReport(true); }} style={{
+          padding:"8px 18px", background:"var(--accent-soft)", border:"1px solid var(--accent-line)",
+          color:"var(--accent)", fontSize:10, fontWeight:700, letterSpacing:"0.16em", cursor:"pointer",
+          display:"flex", alignItems:"center", gap:7,
+        }}>
+          <Icon name="file-text" size={12} color="var(--accent)" />
+          {"WEEKLY REPORT"}
+        </button>
       </div>
 
       {/* ── Weekly Section ─────────────────────────────────────── */}

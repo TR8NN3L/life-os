@@ -152,9 +152,21 @@ window.Push = {
     });
   },
 
+  eveningCheckin({ tasksDone, tasksPlanned, streakSafe }) {
+    const streakEmoji = streakSafe ? "🔥" : "⚠️";
+    const doneStr = tasksPlanned > 0
+      ? `${tasksDone} von ${tasksPlanned} Tasks erledigt.`
+      : `${tasksDone} Tasks heute erledigt.`;
+    return this.send({
+      title: `${streakEmoji} Abend-Check`,
+      message: `${doneStr} ${streakSafe ? "Streak sicher!" : "Streak in Gefahr!"}`,
+      tag: "evening-checkin",
+    });
+  },
+
   // ── Scheduler ───────────────────────────────────────────────────────────────
   // Call once on app start. Checks habits at 21:00 daily + debt when over threshold.
-  startScheduler({ getHabits, getDebt, debtThreshold = 5 }) {
+  startScheduler({ getHabits, getDebt, debtThreshold = 5, getEveningStats }) {
     const todayISO = () => new Date().toISOString().slice(0, 10);
 
     // Habit reminder — check every 5 minutes if it's past 21:00 and habits undone
@@ -189,10 +201,27 @@ window.Push = {
       } catch {}
     };
 
+    // Evening check-in — 20:00, max once per day
+    const checkEvening = () => {
+      if (!this.isConfigured()) return;
+      const h = new Date().getHours();
+      if (h < 20 || h >= 21) return;
+      const lastKey = `lifeos_evening_checkin_${todayISO()}`;
+      if (localStorage.getItem(lastKey)) return;
+      try {
+        const stats = getEveningStats ? getEveningStats() : null;
+        if (stats !== null) {
+          this.eveningCheckin(stats);
+          localStorage.setItem(lastKey, "1");
+        }
+      } catch {}
+    };
+
     setInterval(checkHabits, 5 * 60 * 1000);
     setInterval(checkDebt,   10 * 60 * 1000);
+    setInterval(checkEvening, 5 * 60 * 1000);
     // Also run once on startup (after 30s to let app settle)
-    setTimeout(() => { checkHabits(); checkDebt(); }, 30000);
+    setTimeout(() => { checkHabits(); checkDebt(); checkEvening(); }, 30000);
   },
 
   milestone(percent, name) {
