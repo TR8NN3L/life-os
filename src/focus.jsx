@@ -432,7 +432,24 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
             opacity: isRunning ? 0.15 : 1, filter: isRunning ? "blur(4px)" : "none", transition: "opacity .5s, filter .5s",
           }}>
             <span style={{ padding: "6px 14px", border: "1px solid rgba(47,139,255,0.4)", color: "var(--accent)", fontSize: 10, letterSpacing: "0.2em", fontWeight: 600 }}>
-              {task.pov ? task.pov.toUpperCase() : "FOCUS"} → {task.kr ? task.kr.toUpperCase() : "EXECUTE"}
+              {(() => {
+                const povId = task.pov;
+                let povLabel = "FOCUS";
+                if (povId) {
+                  const fromHard = (window.POVS || []).find(function(p) { return p.id === povId; });
+                  if (fromHard) { povLabel = fromHard.label.toUpperCase(); }
+                  else {
+                    try {
+                      const custom = JSON.parse(localStorage.getItem("lifeos_user_povs") || "[]");
+                      const found = custom.find(function(p) { return p.id === povId; });
+                      if (found) povLabel = found.label.toUpperCase();
+                      else povLabel = povId.toUpperCase();
+                    } catch { povLabel = povId.toUpperCase(); }
+                  }
+                }
+                const krLabel = (task._krLabel || task.kr || "EXECUTE").toUpperCase();
+                return povLabel + " → " + krLabel;
+              })()}
             </span>
           </div>
         )}
