@@ -1306,6 +1306,43 @@ function StatsPanel({ taskTimes, pov }) {
                   - realityPerDay.slice(0, todayDowIdx + 1).reduce((s, v) => s + v, 0);
   const debtOk = debtSoFar <= 0.05;
 
+  // ── Say-Do Score (Wochenbasis: Plan vs. Ist bis heute) ───────────────────
+  const weekActual = realityPerDay.slice(0, todayDowIdx + 1).reduce((s, v) => s + v, 0);
+  const weekPlan   = planPerDay.slice(0, todayDowIdx + 1).reduce((s, v) => s + v, 0);
+  const sayDoScore = weekPlan > 0.1 ? Math.min(199, Math.round((weekActual / weekPlan) * 100)) : null;
+  const sayDoColor = sayDoScore === null ? "var(--text-faint)"
+    : sayDoScore >= 70 ? "#10b981"
+    : sayDoScore >= 40 ? "#f59e0b"
+    : "#d6324a";
+  const sayDoLabel = sayDoScore === null ? "–"
+    : sayDoScore >= 70 ? "ON TRACK"
+    : sayDoScore >= 40 ? "BEHIND"
+    : "CRITICAL";
+
+  // ── Streak Counter (konsekutive Tage mit geloggter Zeit) ─────────────────
+  const streakDays = React.useMemo(() => {
+    let count = 0;
+    for (let i = 0; i < 365; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      try {
+        const log = JSON.parse(LS.getItem("lifeos_daily_" + key) || "{}");
+        const total = Object.values(log).reduce((s, v) => s + v, 0);
+        if (total > 60) { count++; } else if (i > 0) { break; }
+      } catch { break; }
+    }
+    return count;
+  }, [tick]);
+
+  // ── Ring-Farbe nach Tages-Fortschritt (Grün/Amber/Rot) ──────────────────
+  const ringColor = (proj, progress, hasTarget) => {
+    if (!hasTarget || progress === 0) return proj.color;
+    if (progress >= 0.7) return proj.color;
+    if (progress >= 0.4) return "#f59e0b";
+    return "#d6324a";
+  };
+
   // Ring SVG — Apple Watch geometry (4 rings comfortable)
   const SVG_SIZE = 130;
   const cx = SVG_SIZE / 2, cy = SVG_SIZE / 2;
@@ -1342,13 +1379,44 @@ function StatsPanel({ taskTimes, pov }) {
             </span>
           )}
         </div>
-        <button onClick={() => setEditMode(e => !e)} style={{
-          padding: "3px 10px", background: editMode ? "var(--accent-soft)" : "transparent",
-          border: `1px solid ${editMode ? "var(--accent-line)" : "var(--line)"}`,
-          color: editMode ? "var(--accent)" : "var(--text-faint)",
-          fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", cursor: "pointer",
-          opacity: (areaHover || editMode) ? 1 : 0, transition: "opacity .2s",
-        }}>TAGE VERTEILEN</button>
+
+        {/* ── Say-Do Score + Streak ── */}
+        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+
+          {/* Streak */}
+          {streakDays > 0 && (
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 18, fontWeight: 700,
+                color: streakDays >= 7 ? "#f59e0b" : streakDays >= 3 ? "#10b981" : "var(--text)",
+                lineHeight: 1 }}>
+                {streakDays >= 3 ? "🔥" : ""}{streakDays}
+              </div>
+              <div style={{ fontSize: 8, letterSpacing: "0.18em", fontWeight: 700,
+                color: "var(--text-faint)", marginTop: 2 }}>STREAK</div>
+            </div>
+          )}
+
+          {/* Say-Do Score */}
+          {sayDoScore !== null && (
+            <div style={{ textAlign: "center", borderLeft: "1px solid var(--line)", paddingLeft: 20 }}>
+              <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 22, fontWeight: 700,
+                color: sayDoColor, lineHeight: 1 }}>
+                {sayDoScore}%
+              </div>
+              <div style={{ fontSize: 8, letterSpacing: "0.18em", fontWeight: 700,
+                color: sayDoColor, marginTop: 2, opacity: 0.8 }}>{sayDoLabel}</div>
+              <div style={{ fontSize: 7.5, color: "var(--text-faint)", marginTop: 1 }}>SAY-DO SCORE</div>
+            </div>
+          )}
+
+          <button onClick={() => setEditMode(e => !e)} style={{
+            padding: "3px 10px", background: editMode ? "var(--accent-soft)" : "transparent",
+            border: `1px solid ${editMode ? "var(--accent-line)" : "var(--line)"}`,
+            color: editMode ? "var(--accent)" : "var(--text-faint)",
+            fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", cursor: "pointer",
+            opacity: (areaHover || editMode) ? 1 : 0, transition: "opacity .2s",
+          }}>TAGE VERTEILEN</button>
+        </div>
       </div>
 
       {/* ── Main row: rings | table | spacer | debt ── */}
@@ -1374,8 +1442,10 @@ function StatsPanel({ taskTimes, pov }) {
             const r = baseRadius - i * (RING_W + GAP);
             if (r < RING_W / 2) return null;
             const dailyTargetSecs = proj.hoursPerWeek * getProjWeights(proj.id)[todayDowIdx] * 3600;
-            const rawProg = dailyTargetSecs > 0 ? proj.todaySecs / dailyTargetSecs : 0;
+            const hasTarget = dailyTargetSecs > 60;
+            const rawProg = hasTarget ? proj.todaySecs / dailyTargetSecs : 0;
             const clampProg = Math.min(1, rawProg);
+            const activeColor = ringColor(proj, clampProg, hasTarget);
             const circ = 2 * Math.PI * r;
             const offset = circ * (1 - clampProg);
             const tipAngle = -Math.PI / 2 + clampProg * 2 * Math.PI;
@@ -1385,10 +1455,10 @@ function StatsPanel({ taskTimes, pov }) {
             return (
               <g key={proj.id}>
                 {/* Color-tinted track */}
-                <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color} strokeWidth={RING_W} opacity={0.12} />
+                <circle cx={cx} cy={cy} r={r} fill="none" stroke={activeColor} strokeWidth={RING_W} opacity={0.12} />
                 {/* Progress arc (butt caps) */}
                 {clampProg > 0.005 && (
-                  <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color}
+                  <circle cx={cx} cy={cy} r={r} fill="none" stroke={activeColor}
                     strokeWidth={RING_W} strokeLinecap="butt"
                     strokeDasharray={circ} strokeDashoffset={offset}
                     transform={`rotate(-90 ${cx} ${cy})`}
@@ -1396,21 +1466,23 @@ function StatsPanel({ taskTimes, pov }) {
                 )}
                 {/* Start cap at 12 o'clock */}
                 {clampProg > 0.005 && (
-                  <circle cx={cx} cy={cy - r} r={capR} fill={proj.color} />
+                  <circle cx={cx} cy={cy - r} r={capR} fill={activeColor} />
                 )}
                 {/* Tip cap + Apple Watch shadow */}
                 {clampProg > 0.02 && clampProg < 0.999 && (
-                  <circle cx={tipX} cy={tipY} r={capR} fill={proj.color} filter="url(#aw-tip-shadow-sm)" />
+                  <circle cx={tipX} cy={tipY} r={capR} fill={activeColor} filter="url(#aw-tip-shadow-sm)" />
                 )}
                 {/* Complete: glow overlay */}
                 {rawProg >= 1 && (
-                  <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color}
+                  <circle cx={cx} cy={cy} r={r} fill="none" stroke={activeColor}
                     strokeWidth={RING_W * 0.5} opacity={0.2} filter="url(#aw-glow-sm)" />
                 )}
               </g>
             );
           })}
-          <text x={cx} y={cy - 4} textAnchor="middle" fill="var(--text)" fontSize={13} fontWeight={700} fontFamily="'JetBrains Mono',monospace">
+          <text x={cx} y={cy - 4} textAnchor="middle"
+            fill={topProgress >= 0.7 ? "#10b981" : topProgress >= 0.4 ? "#f59e0b" : topProgress > 0 ? "#d6324a" : "var(--text)"}
+            fontSize={13} fontWeight={700} fontFamily="'JetBrains Mono',monospace">
             {Math.round(topProgress * 100)}%
           </text>
           <text x={cx} y={cy + 9} textAnchor="middle" fill="var(--text-faint)" fontSize={7.5} fontFamily="'Inter',sans-serif" letterSpacing="1.5">
