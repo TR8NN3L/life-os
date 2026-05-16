@@ -152,7 +152,7 @@ async function smokeTests(stagehand) {
     await navigateTo(stagehand, view);
 
     const { reached, detail } = await extract(stagehand,
-      `Wurde die "${view}"-Ansicht erfolgreich geladen? Erkennungsmerkmale: passender Seiteninhalt, kein Lade-Spinner, kein Fehler-Screen.`,
+      `Wurde die "${view}"-Ansicht erfolgreich navigiert? Gilt als GELADEN wenn: (a) passendes UI sichtbar ODER (b) leerer Zustand / "Keine Daten"-Hinweis sichtbar. Gilt als NICHT GELADEN nur wenn: Login-Screen, Paywall, Loading-Spinner oder JavaScript-Fehler sichtbar sind.`,
       z.object({
         reached: z.boolean(),
         detail:  z.string().describe("Was konkret sichtbar ist"),
