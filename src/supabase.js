@@ -13,9 +13,13 @@
 
   // Keys that must never leave the browser
   const LOCAL_ONLY = new Set([
-    "lifeos_openai_key",  // API key — security
-    "lifeos_guest",       // device-specific flag
-    "lifeos_active",      // which task is running — device-specific to avoid cross-device auto-start
+    "lifeos_openai_key",          // API key — security
+    "lifeos_guest",               // device-specific flag
+    "lifeos_active",              // which task is running — device-specific
+    "lifeos_langfuse_pk",         // Langfuse key — security
+    "lifeos_langfuse_sk",         // Langfuse key — security
+    "lifeos_analytics_consent",   // GDPR consent — per-device decision
+    "lifeos_ical_feeds",          // iCal URLs — may contain private calendar tokens
   ]);
 
   // Keys that sync to cloud but with a longer debounce (5s) to avoid write storms
@@ -82,7 +86,8 @@
   async function syncDown(uid) {
     _uid = uid;
     try {
-      const { data, error } = await _sb.from("user_data").select("key, value");
+      // Explicit user_id filter — don't rely on RLS alone, prevents cross-account data leaks
+      const { data, error } = await _sb.from("user_data").select("key, value").eq("user_id", uid);
       if (error) { console.warn("[LS] syncDown:", error.message); return; }
       for (const row of (data || [])) {
         if (Array.isArray(row.value)) {

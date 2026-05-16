@@ -816,10 +816,13 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs, inbox, o
   const [pushStatus, setPushStatus]     = React.useState(() => window.Push?.permissionState?.() || "default");
   const [pushLoading, setPushLoading]   = React.useState(false);
 
-  const allPovs = [
-    { id: "personal", label: "Personal", sub: "Persönliches Leben", color: "#8b5cf6" },
-    ...userPovs,
-  ];
+  // allPovs = alle hardcoded POVS + user-spezifische (keine Duplikate)
+  // Muss mit Mission Control übereinstimmen — gleiche Quelle, gleiche Reihenfolge
+  const allPovs = React.useMemo(function() {
+    var hardcodedIds = new Set(POVS.map(function(p) { return p.id; }));
+    var extras = userPovs.filter(function(p) { return !hardcodedIds.has(p.id); });
+    return [...POVS, ...extras];
+  }, [userPovs]);
 
   const canAddPov = userPovs.length < 4;
 
