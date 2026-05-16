@@ -54,8 +54,13 @@ function InboxPage({ inbox, setInbox, userPovs, onOpenTask }) {
     setAssigningId(null);
   };
 
-  // ── POVs — exakt wie Sidebar: Personal (immer) + userPovs ────────────
-  var allPovs = [{ id: "personal", label: "Personal", color: "#8b5cf6" }].concat(userPovs || []);
+  // ── POVs — exakt wie Sidebar: userPovs überschreiben hardcodierte POVs (gleiche ID)
+  var allPovs = React.useMemo(function() {
+    var ups = userPovs || [];
+    var userIds = new Set(ups.map(function(p) { return p.id; }));
+    var base = (window.POVS || []).filter(function(p) { return !userIds.has(p.id); });
+    return base.concat(ups);
+  }, [userPovs]);
 
   var getKRs = function(povId) {
     try {
@@ -101,8 +106,8 @@ function InboxPage({ inbox, setInbox, userPovs, onOpenTask }) {
       <div style={{ padding: "28px 48px 20px", borderBottom: "1px solid var(--line)" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 16, marginBottom: 20 }}>
           <div className="uppercase-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <Icon name="list" size={11} color="var(--text-faint)" />
-            {"Inbox"}
+            <Icon name="sun" size={11} color="var(--text-faint)" />
+            {"Heute"}
           </div>
           {pending.length > 0 && (
             <span style={{ fontSize: 11, color: "var(--text-faint)", fontFamily: "'JetBrains Mono',monospace" }}>
