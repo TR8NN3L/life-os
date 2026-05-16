@@ -284,6 +284,7 @@ function App() {
   };
 
   React.useEffect(() => {
+    if (E2E_MODE) return; // skip auth in test mode
     (async () => {
       const session = await window.sbAuth.getSession();
       if (session?.user?.id) {
