@@ -816,12 +816,12 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs, inbox, o
   const [pushStatus, setPushStatus]     = React.useState(() => window.Push?.permissionState?.() || "default");
   const [pushLoading, setPushLoading]   = React.useState(false);
 
-  // allPovs = alle hardcoded POVS + user-spezifische (keine Duplikate)
-  // Muss mit Mission Control übereinstimmen — gleiche Quelle, gleiche Reihenfolge
+  // allPovs: userPovs überschreiben hardcodierte POVs (gleiche ID = user gewinnt)
+  // Muss mit Mission Control übereinstimmen — gleiche Logik
   const allPovs = React.useMemo(function() {
-    var hardcodedIds = new Set(POVS.map(function(p) { return p.id; }));
-    var extras = userPovs.filter(function(p) { return !hardcodedIds.has(p.id); });
-    return [...POVS, ...extras];
+    var userIds = new Set(userPovs.map(function(p) { return p.id; }));
+    var baseFromHardcoded = POVS.filter(function(p) { return !userIds.has(p.id); });
+    return [...baseFromHardcoded, ...userPovs];
   }, [userPovs]);
 
   const canAddPov = userPovs.length < 4;

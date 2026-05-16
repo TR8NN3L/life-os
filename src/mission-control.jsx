@@ -193,10 +193,12 @@ function GanttTimeline({ projects, allPovs, archivedIds, onBack }) {
 function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, setActiveTaskId, krProgress, setKrProgress, onOpenTask, userPovs = [], inbox = [], setInbox }) {
   // Merge hardcoded POVs with user-created custom POVs (from sync or local creation)
   const allPovs = React.useMemo(() => {
-    const hardcodedIds = new Set(POVS.map(p => p.id));
-    const extras = userPovs.filter(p => !hardcodedIds.has(p.id));
-    // Ensure POV_DATA has entries for synced custom POVs (may not be set if sync ran after page load)
-    extras.forEach(p => {
+    // userPovs überschreiben hardcodierte POVs bei gleicher ID
+    const userIds = new Set(userPovs.map(p => p.id));
+    const baseFromHardcoded = POVS.filter(p => !userIds.has(p.id));
+    const combined = [...baseFromHardcoded, ...userPovs];
+    // Ensure POV_DATA entries exist for all POVs
+    combined.forEach(p => {
       if (!POV_DATA[p.id]) {
         try {
           const saved = JSON.parse(LS.getItem("lifeos_pov_data") || "{}");
@@ -204,7 +206,7 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
         } catch { POV_DATA[p.id] = { mainQuest: { title: "", progress: 0, period: "" }, objective: { title: "", period: "", keyResults: [] }, tasksToday: [] }; }
       }
     });
-    return [...POVS, ...extras];
+    return combined;
   }, [userPovs]);
   const [view, setView] = React.useState({ type: "list" });
   const [inboxExpanded, setInboxExpanded] = React.useState(false);
