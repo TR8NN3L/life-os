@@ -1284,6 +1284,23 @@ function StatsPanel({ taskTimes, pov }) {
   });
   React.useEffect(() => { LS.setItem("lifeos_proj_day_weights", JSON.stringify(projDayWeights)); }, [projDayWeights]);
 
+  // ── Streak Freeze Tokens ──────────────────────────────────────────────────
+  const STREAK_THRESHOLD = 0.70;  // 70 % des Tagesziels = Streak-Tag
+  const FREEZE_PER_MONTH = 2;     // Freeze-Tokens pro Kalendermonat
+
+  const [freezeMap, setFreezeMap] = React.useState(() => {
+    try { return JSON.parse(LS.getItem("lifeos_streak_freezes") || "{}"); } catch { return {}; }
+  });
+  const applyFreeze = (dateKey) => {
+    const next = Object.assign({}, freezeMap);
+    next[dateKey] = true;
+    LS.setItem("lifeos_streak_freezes", JSON.stringify(next));
+    setFreezeMap(next);
+  };
+  const nowMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+  const freezesUsed = Object.keys(freezeMap).filter(d => d.startsWith(nowMonth)).length;
+  const freezesAvailable = Math.max(0, FREEZE_PER_MONTH - freezesUsed);
+
   const getProjWeights = (projId) => projDayWeights[projId] || DEFAULT_PROJ_WEIGHTS;
   const setProjWeight = (projId, dayIdx, pct) => {
     const v = Math.max(0, Math.min(1, pct));
@@ -1319,21 +1336,51 @@ function StatsPanel({ taskTimes, pov }) {
     : sayDoScore >= 40 ? "BEHIND"
     : "CRITICAL";
 
-  // ── Streak Counter (konsekutive Tage mit geloggter Zeit) ─────────────────
-  const streakDays = React.useMemo(() => {
+  // ── Streak Counter (70 % des Tagesziels, Freeze-Support) ────────────────
+  const streakInfo = React.useMemo(() => {
     let count = 0;
+    let yesterdayMissed = false;
     for (let i = 0; i < 365; i++) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const key = d.toISOString().slice(0, 10);
+      const dowIdx = (d.getDay() + 6) % 7; // Mo=0 … So=6
+
+      // Tagesziel in Sekunden (alle Projekte mit hoursPerWeek)
+      const plannedSecs = tableProjs
+        .filter(p => (p.hoursPerWeek || 0) > 0)
+        .reduce((s, p) => {
+          const w = projDayWeights[p.id] || DEFAULT_PROJ_WEIGHTS;
+          return s + p.hoursPerWeek * w[dowIdx];
+        }, 0) * 3600;
+
+      // Freier Tag (kein Plan) → nicht werten, Streak läuft weiter
+      if (plannedSecs < 60) continue;
+
+      // Tatsächlich geloggte Sekunden
+      let actualSecs = 0;
       try {
         const log = JSON.parse(LS.getItem("lifeos_daily_" + key) || "{}");
-        const total = Object.values(log).reduce((s, v) => s + v, 0);
-        if (total > 60) { count++; } else if (i > 0) { break; }
-      } catch { break; }
+        actualSecs = Object.values(log).reduce((s, v) => s + v, 0);
+      } catch {}
+
+      const hit = actualSecs >= STREAK_THRESHOLD * plannedSecs;
+
+      if (hit) {
+        count++;
+      } else if (freezeMap[key]) {
+        // Eingefroren → zählt nicht, bricht aber nicht
+      } else if (i === 0) {
+        // Heute noch nicht fertig → noch kein Break
+      } else {
+        if (i === 1) yesterdayMissed = true;
+        break;
+      }
     }
-    return count;
-  }, [tick]);
+    return { streakDays: count, yesterdayMissed };
+  }, [tick, tableProjs, projDayWeights, freezeMap]);
+  const streakDays = streakInfo.streakDays;
+  const yesterdayMissed = streakInfo.yesterdayMissed;
 
   // ── Ring-Farbe nach Tages-Fortschritt (Grün/Amber/Rot) ──────────────────
   const ringColor = (proj, progress, hasTarget) => {
@@ -1384,15 +1431,31 @@ function StatsPanel({ taskTimes, pov }) {
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
 
           {/* Streak */}
-          {streakDays > 0 && (
+          {(streakDays > 0 || yesterdayMissed) && (
             <div style={{ textAlign: "center" }}>
               <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 18, fontWeight: 700,
-                color: streakDays >= 7 ? "#f59e0b" : streakDays >= 3 ? "#10b981" : "var(--text)",
+                color: streakDays >= 7 ? "#f59e0b" : streakDays >= 3 ? "#10b981" : streakDays > 0 ? "var(--text)" : "#d6324a",
                 lineHeight: 1 }}>
                 {streakDays >= 3 ? "🔥" : ""}{streakDays}
               </div>
               <div style={{ fontSize: 8, letterSpacing: "0.18em", fontWeight: 700,
                 color: "var(--text-faint)", marginTop: 2 }}>STREAK</div>
+              {/* Freeze-Tokens */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, marginTop: 3 }}>
+                {yesterdayMissed && freezesAvailable > 0 && (
+                  <button onClick={() => {
+                    const y = new Date(); y.setDate(y.getDate() - 1);
+                    applyFreeze(y.toISOString().slice(0, 10));
+                  }} title={"Freeze anwenden (" + freezesAvailable + " übrig)"} style={{
+                    background: "rgba(96,165,250,0.12)", border: "1px solid rgba(96,165,250,0.35)",
+                    color: "#60a5fa", fontSize: 9, fontWeight: 700, cursor: "pointer",
+                    padding: "1px 5px", letterSpacing: "0.1em",
+                  }}>{"❄️ " + freezesAvailable}</button>
+                )}
+                {!yesterdayMissed && freezesAvailable > 0 && (
+                  <span style={{ fontSize: 8, color: "rgba(96,165,250,0.6)" }}>{"❄️ " + freezesAvailable}</span>
+                )}
+              </div>
             </div>
           )}
 
