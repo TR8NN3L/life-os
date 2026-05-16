@@ -45,7 +45,7 @@ function InboxPage({ inbox, setInbox, userPovs }) {
     // Save to lifeos_tasks_${povId}
     var existing = [];
     try { existing = JSON.parse(LS.getItem("lifeos_tasks_" + povId) || "[]"); } catch {}
-    var newTask = { id: "t_" + Date.now(), text: found.text, krId: krId || null, elapsed: 0, done: false };
+    var newTask = { id: "t_" + Date.now(), title: found.text, krId: krId || null, elapsed: 0, done: false };
     LS.setItem("lifeos_tasks_" + povId, JSON.stringify(existing.concat([newTask])));
     window.dispatchEvent(new CustomEvent("lifeos-projects-updated"));
 
