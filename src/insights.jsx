@@ -178,6 +178,7 @@ function GaugeRing({ pct, color, label, size = 96 }) {
 // ── Weekly Report Modal ────────────────────────────────────────────────────
 function WeeklyReportModal({ onClose }) {
   var [rOffset, setROffset] = React.useState(0);
+  var [okrPromptShown, setOkrPromptShown] = React.useState(false);
 
   var mon = React.useMemo(function() { return getMonday(rOffset); }, [rOffset]);
   var pad = function(n) { return String(n).padStart(2, "0"); };
@@ -300,6 +301,14 @@ function WeeklyReportModal({ onClose }) {
   var sayDoColor = sayDo.pct === null ? "var(--text-faint)" : sayDo.pct >= 80 ? "var(--good)" : sayDo.pct >= 60 ? "var(--accent)" : sayDo.pct >= 40 ? "var(--warn)" : "var(--danger)";
   var effPct = plannedH > 0 ? Math.min(100, Math.round(actualH / plannedH * 100)) : null;
 
+  // OKR-Review-Trigger: mark as prompted when score hits 70%+ for first time
+  React.useEffect(function() {
+    if (sayDo.pct !== null && sayDo.pct >= 70 && !LS.getItem("lifeos_okr_review_prompted")) {
+      LS.setItem("lifeos_okr_review_prompted", "1");
+      setOkrPromptShown(true);
+    }
+  }, [sayDo.pct]);
+
   return (
     <div style={{ position:"fixed", inset:0, zIndex:200, background:"rgba(0,0,0,0.82)", display:"flex", alignItems:"center", justifyContent:"center" }}
       onClick={function(e) { if (e.target === e.currentTarget) onClose(); }}>
@@ -388,6 +397,23 @@ function WeeklyReportModal({ onClose }) {
               </div>
             );
           })()}
+
+          {/* OKR-Review-Trigger — erscheint einmalig wenn Say-Do >= 70% */}
+          {okrPromptShown && (
+            <div style={{ marginTop:16, background:"rgba(16,185,129,0.08)", border:"1px solid rgba(16,185,129,0.3)", borderLeft:"3px solid var(--accent)", padding:"16px 18px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:16 }}>
+              <div>
+                <div style={{ fontSize:9, letterSpacing:"0.18em", fontWeight:700, color:"var(--accent)", marginBottom:4 }}>{"OKR-REVIEW EMPFOHLEN"}</div>
+                <div style={{ fontSize:12, color:"var(--text)", lineHeight:1.5 }}>{"Say-Do Score >= 70%. Du lieferst. Jetzt ist der richtige Moment deine OKRs zu schaerfen."}</div>
+              </div>
+              <button onClick={function() {
+                onClose();
+                window.dispatchEvent(new CustomEvent("lifeos-nav", { detail: { view: "okr-wizard" } }));
+              }} style={{
+                flexShrink:0, background:"var(--accent)", border:"none", color:"#0a0a0c",
+                fontSize:10, fontWeight:700, letterSpacing:"0.12em", padding:"9px 16px", cursor:"pointer", fontFamily:"inherit",
+              }}>{"OKR WIZARD"}</button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -597,6 +623,21 @@ function Insights({ taskTimes, pov, userPovs }) {
   const secToH = (s) => (s / 3600).toFixed(1) + "h";
 
   const [showReport, setShowReport] = React.useState(false);
+  const [reviewDismissed, setReviewDismissed] = React.useState(false);
+  const [reviewCopied, setReviewCopied] = React.useState(false);
+
+  // App-Review-Trigger: mark once when OKR focus >= 70% in current week
+  React.useEffect(function() {
+    if (weekOffset === 0 && weeklyFocusPct !== null && weeklyFocusPct >= 70) {
+      if (!LS.getItem("lifeos_review_prompted")) {
+        LS.setItem("lifeos_review_prompted", "1");
+      }
+    }
+  }, [weeklyFocusPct, weekOffset]);
+
+  var showReviewBanner = !reviewDismissed && weekOffset === 0
+    && weeklyFocusPct !== null && weeklyFocusPct >= 70
+    && !!LS.getItem("lifeos_review_prompted");
 
   return (
     <div data-tutorial="insights-content-area" style={{ flex: 1, overflow: "auto", padding: "20px 28px" }}>
@@ -615,6 +656,27 @@ function Insights({ taskTimes, pov, userPovs }) {
           {"WEEKLY REPORT"}
         </button>
       </div>
+
+      {/* ── App-Review-Banner — einmalig wenn OKR-Fokus >= 70% ── */}
+      {showReviewBanner && (
+        <div style={{ background:"rgba(16,185,129,0.07)", border:"1px solid rgba(16,185,129,0.25)", padding:"12px 18px", marginBottom:16, display:"flex", alignItems:"center", gap:14 }}>
+          <div style={{ flex:1 }}>
+            <span style={{ fontSize:10, fontWeight:700, letterSpacing:"0.14em", color:"var(--accent)" }}>{"LIFE OS HILFT DIR"}</span>
+            <span style={{ fontSize:12, color:"var(--text-dim)", marginLeft:12 }}>{"70%+ OKR-Fokus diese Woche. Teile Life OS mit jemandem dem es helfen wuerde."}</span>
+          </div>
+          <button onClick={function() {
+            try { navigator.clipboard.writeText("https://life-os-wine-eight.vercel.app"); } catch {}
+            setReviewCopied(true);
+            setTimeout(function() { setReviewCopied(false); }, 2500);
+          }} style={{
+            flexShrink:0, background:"var(--accent)", border:"none", color:"#0a0a0c",
+            fontSize:10, fontWeight:700, letterSpacing:"0.12em", padding:"7px 14px", cursor:"pointer", fontFamily:"inherit",
+          }}>{reviewCopied ? "KOPIERT!" : "LINK KOPIEREN"}</button>
+          <button onClick={function() { setReviewDismissed(true); }} style={{
+            flexShrink:0, background:"none", border:"none", color:"var(--text-faint)", cursor:"pointer", padding:"4px 6px", fontSize:16, lineHeight:1,
+          }}>{"x"}</button>
+        </div>
+      )}
 
       {/* ── Weekly Section ─────────────────────────────────────── */}
       <div style={{ background: "var(--panel)", border: "1px solid var(--line-soft)", padding: "20px 24px", marginBottom: 20 }}>

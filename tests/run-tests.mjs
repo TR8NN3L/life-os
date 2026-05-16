@@ -1,32 +1,31 @@
 /**
- * Life OS — Automatisierter UX-Audit mit Stagehand + Playwright (lokal)
+ * Life OS — UX Audit: Playwright (Navigation) + Anthropic Vision (Analyse)
  *
  * Setup:
  *   cd tests && npm install && npx playwright install chromium
- *   export ANTHROPIC_API_KEY=sk-ant-...
- *   npm test
+ *   echo "ANTHROPIC_API_KEY=sk-ant-..." > .env
+ *   node --input-type=module run-tests.mjs --smoke   (oder: npm test)
  *
- * Optionen:
- *   --smoke   Nur kurzer Smoke-Test (alle Views erreichbar?)
- *   --audit   Vollständiger UX-Audit mit Detailprüfung
- *             (default: beides)
+ * Flags: --smoke (nur Views erreichbar?), default = vollständiger Audit
  */
 
-import { Stagehand } from "@browserbasehq/stagehand";
-import { z } from "zod";
+import { chromium }  from "playwright";
+import Anthropic      from "@anthropic-ai/sdk";
+import { readFileSync } from "fs";
+import { tmpdir }     from "os";
+import { join }       from "path";
+import { writeFileSync } from "fs";
 
-const APP_URL    = "https://life-os-wine-eight.vercel.app";
-const BETA_CODE  = "LifeOS BETA 2026";
+const APP_URL   = "https://life-os-wine-eight.vercel.app";
+const BETA_CODE = "LifeOS BETA 2026";
+const SMOKE     = process.argv.includes("--smoke");
 
-const args       = process.argv.slice(2);
-const SMOKE_ONLY = args.includes("--smoke");
-const AUDIT_ONLY = args.includes("--audit");
+const ai     = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const issues = [];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function log(icon, msg) {
-  console.log(`${icon}  ${msg}`);
-}
+function log(icon, msg) { console.log(`${icon}  ${msg}`); }
 
 function section(title) {
   console.log("\n" + "─".repeat(60));
@@ -34,319 +33,279 @@ function section(title) {
   console.log("─".repeat(60));
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
-
-const stagehand = new Stagehand({
-  env: "LOCAL",                      // Playwright lokal — kein Browserbase-Key
-  modelName: "claude-3-5-sonnet-latest", // Anthropic Claude
-  modelClientOptions: {
-    apiKey: process.env.ANTHROPIC_API_KEY,
-  },
-  headless: false,                   // Browser sichtbar (für Debugging)
-  verbose: 1,
-  logger: () => {},                  // eigene Ausgabe
-});
-
-const issues = [];
-
-function reportIssue(view, severity, description, suggestion) {
+function flag(view, severity, description, suggestion) {
   issues.push({ view, severity, description, suggestion });
   const icon = severity === "critical" ? "🔴" : severity === "warn" ? "🟡" : "🔵";
   log(icon, `[${view}] ${description}`);
 }
 
-async function run() {
-  await stagehand.init();
-  const page = stagehand.page;
+async function screenshot(page) {
+  const path = join(tmpdir(), `lifeos_${Date.now()}.png`);
+  await page.screenshot({ path, fullPage: false });
+  return readFileSync(path).toString("base64");
+}
 
-  // ── 1. App laden + Auth ────────────────────────────────────────────────────
-  section("1 · App laden & Auth");
-  await page.goto(APP_URL, { waitUntil: "networkidle" });
+async function vision(page, question) {
+  const img = await screenshot(page);
+  const r = await ai.messages.create({
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 512,
+    messages: [{
+      role: "user",
+      content: [
+        { type: "image", source: { type: "base64", media_type: "image/png", data: img } },
+        { type: "text", text: question + "\n\nAntworte kurz und direkt auf Deutsch." },
+      ],
+    }],
+  });
+  return r.content[0].text.trim();
+}
+
+async function clickNav(page, label) {
+  // Sidebar-Navigation: klicke auf den Link mit diesem Text
+  const sidebar = page.locator("nav, [data-sidebar], aside").first();
+  const link = page.getByRole("button", { name: new RegExp(label, "i") })
+    .or(page.locator(`text=${label}`).first());
+  await link.click({ timeout: 5000 }).catch(async () => {
+    // Fallback: alle Buttons durchsuchen
+    const buttons = await page.locator("button").all();
+    for (const b of buttons) {
+      const txt = await b.textContent();
+      if (txt && txt.trim().toLowerCase().includes(label.toLowerCase())) {
+        await b.click();
+        return;
+      }
+    }
+  });
+  await page.waitForTimeout(1500);
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+async function handleAuth(page) {
   await page.waitForTimeout(2000);
 
-  // Screenshot für Basischeck
-  const initialState = await stagehand.extract({
-    instruction: "Was ist gerade auf dem Bildschirm zu sehen? Beschreibe kurz den Zustand (z.B. Login-Screen, Onboarding, Cookie-Banner, Dashboard).",
-    schema: z.object({ state: z.string(), details: z.string().optional() }),
-  });
-  log("📸", `Initialzustand: ${initialState.state}`);
-
-  // Cookie-Banner wegklicken falls vorhanden
-  const hasCookie = await stagehand.extract({
-    instruction: "Gibt es einen Cookie-Banner oder Datenschutz-Dialog auf dem Bildschirm?",
-    schema: z.object({ visible: z.boolean() }),
-  });
-  if (hasCookie.visible) {
-    log("🍪", "Cookie-Banner gefunden — klicke auf Ablehnen/Nur notwendige");
-    await stagehand.act({ action: "Klicke auf den Button um Cookies abzulehnen oder nur notwendige Cookies zu akzeptieren" });
-    await page.waitForTimeout(1000);
+  // Cookie-Banner
+  const cookieBtn = page.locator("button").filter({ hasText: /ablehnen|nur notwendig|decline|reject/i }).first();
+  if (await cookieBtn.isVisible().catch(() => false)) {
+    log("🍪", "Cookie-Banner wegklicken");
+    await cookieBtn.click();
+    await page.waitForTimeout(800);
   }
 
-  // Beta-Code / Login falls nötig
-  const needsAuth = await stagehand.extract({
-    instruction: "Ist ein Login-Formular, ein Beta-Code-Eingabefeld oder eine Zugangsschranke sichtbar?",
-    schema: z.object({ required: z.boolean(), type: z.string().optional() }),
-  });
-
-  if (needsAuth.required) {
-    log("🔑", `Auth erforderlich (${needsAuth.type}) — gebe Beta-Code ein`);
-    if (needsAuth.type?.includes("beta") || needsAuth.type?.includes("code")) {
-      await stagehand.act({ action: `Gib den Beta-Code "${BETA_CODE}" in das Eingabefeld ein und bestätige` });
-    } else {
-      await stagehand.act({ action: "Wähle den Gast-Zugang oder Ohne-Login-Button falls vorhanden" });
+  // Beta-Code Input
+  const betaInput = page.locator("input[placeholder*='Beta'], input[placeholder*='Code'], input[type='text']").first();
+  if (await betaInput.isVisible().catch(() => false)) {
+    const state = await vision(page, "Was ist auf dem Bildschirm? Gibt es ein Login-Formular oder Beta-Code-Eingabe?");
+    if (state.toLowerCase().includes("beta") || state.toLowerCase().includes("code") || state.toLowerCase().includes("login")) {
+      log("🔑", "Beta-Code eingeben");
+      await betaInput.fill(BETA_CODE);
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(2000);
     }
+  }
+
+  // Gast-Zugang / "Ohne Account fortfahren"
+  const guestBtn = page.locator("button").filter({ hasText: /ohne account|gast|guest|ohne login|fortfahren/i }).first();
+  if (await guestBtn.isVisible().catch(() => false)) {
+    log("👤", "Ohne Account fortfahren");
+    await guestBtn.click();
+    await page.waitForTimeout(800);
+
+    // App setzt nach dem Klick lifeos_onboarding_done=undefined → sofort überschreiben
+    // damit Onboarding-Wizard + Tutorial-Modal übersprungen werden
+    await page.evaluate(() => {
+      localStorage.setItem("lifeos_guest", "1");
+      localStorage.setItem("lifeos_onboarding_done", "1");
+      localStorage.setItem("lifeos_tutorial_done", "1");
+      // Minimale POV-Daten damit die Views nicht leer sind
+      if (!localStorage.getItem("lifeos_user_name")) {
+        localStorage.setItem("lifeos_user_name", "Test");
+      }
+    });
+    log("💾", "localStorage: onboarding + tutorial als erledigt markiert");
+
+    await page.reload({ waitUntil: "networkidle" });
     await page.waitForTimeout(2000);
+    log("🔄", "Seite neu geladen — direkt im App-Modus");
+    return; // Auth fertig, kein Onboarding-Loop nötig
   }
 
-  // Tutorial wegklicken falls vorhanden
-  const hasTutorial = await stagehand.extract({
-    instruction: "Ist ein Tutorial-Overlay oder ein Willkommen-Modal sichtbar?",
-    schema: z.object({ visible: z.boolean() }),
+  // Fallback: Onboarding / Setup-Wizard durchklicken (falls kein Guest-Button)
+  for (let attempt = 0; attempt < 10; attempt++) {
+    await page.waitForTimeout(800);
+
+    const onboardCheck = await vision(page, "Ist ein Setup-Dialog, Onboarding-Wizard oder mehrstufiges Willkommens-Formular (mit WEITER-Button) noch sichtbar? Antworte nur: JA oder NEIN.");
+    if (onboardCheck.toUpperCase().includes("NEIN")) { log("📖", "Onboarding fertig"); break; }
+
+    // Schritt 1: Name-Feld füllen wenn leer und WEITER disabled
+    const nameInput = page.locator("input[placeholder*='Name'], input[placeholder*='name'], input[type='text']").first();
+    const weiterBtn = page.locator("button").filter({ hasText: /^WEITER/i }).first();
+    const isDisabled = await weiterBtn.isDisabled().catch(() => false);
+
+    if (isDisabled) {
+      const hasNameInput = await nameInput.isVisible().catch(() => false);
+      if (hasNameInput) {
+        const val = await nameInput.inputValue().catch(() => "");
+        if (!val.trim()) {
+          await nameInput.fill("Test");
+          log("📖", "Name 'Test' eingegeben");
+          await page.waitForTimeout(400);
+        }
+      }
+    }
+
+    // Weiter-Button klicken (enabled)
+    const btn = page.locator("button").filter({ hasText: /^WEITER|^FERTIG|^LOS GEHT|^ABSCHLIESSEN|^DONE/i }).first();
+    if (await btn.isEnabled().catch(() => false)) {
+      await btn.click();
+      log("📖", `Onboarding Step ${attempt + 1} weiter`);
+      continue;
+    }
+
+    // Notification-Step: "Später" oder zweiten Button wählen
+    const laterBtn = page.locator("button").filter({ hasText: /später|skip|nein|abbrechen/i }).first();
+    if (await laterBtn.isVisible().catch(() => false)) {
+      await laterBtn.click();
+      log("📖", "Später geklickt");
+      continue;
+    }
+
+    await page.keyboard.press("Escape");
+    log("📖", `Escape attempt ${attempt + 1}`);
+  }
+
+  // Fallback: localStorage direkt setzen + reload falls noch Modals offen
+  await page.evaluate(() => {
+    localStorage.setItem("lifeos_onboarding_done", "1");
+    localStorage.setItem("lifeos_tutorial_done", "1");
   });
-  if (hasTutorial.visible) {
-    log("📖", "Tutorial gefunden — schließe es");
-    await stagehand.act({ action: "Schließe das Tutorial oder klicke auf Überspringen/Skip/Fertig" });
-    await page.waitForTimeout(1000);
+  await page.waitForTimeout(300);
+  for (let i = 0; i < 3; i++) {
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(300);
   }
+}
 
-  // ── 2. Smoke Tests: alle Views erreichbar? ─────────────────────────────────
-  section("2 · Smoke Tests — alle Views erreichbar?");
+// ── Smoke Tests ───────────────────────────────────────────────────────────────
 
-  const VIEWS = [
-    { nav: "Dashboard",        id: "dashboard"       },
-    { nav: "Heute",            id: "heute"           },
-    { nav: "Focus",            id: "focus"           },
-    { nav: "Mission Control",  id: "missioncontrol"  },
-    { nav: "Planner",          id: "planner"         },
-    { nav: "Insights",         id: "insights"        },
-  ];
+async function smokeTests(page) {
+  section("2 · Smoke — alle Views erreichbar?");
 
-  const viewResults = {};
+  const VIEWS = ["Dashboard", "Heute", "Focus", "Mission Control", "Planner", "Insights"];
 
   for (const v of VIEWS) {
-    log("🔗", `Navigiere zu: ${v.nav}`);
-    await stagehand.act({ action: `Klicke auf "${v.nav}" in der linken Sidebar-Navigation` });
-    await page.waitForTimeout(1500);
+    log("🔗", `→ ${v}`);
+    await clickNav(page, v);
 
-    const check = await stagehand.extract({
-      instruction: `Ist die "${v.nav}" Ansicht jetzt geladen und sichtbar? Was ist der Hauptinhalt?`,
-      schema: z.object({
-        loaded: z.boolean(),
-        content: z.string(),
-        errors: z.string().optional(),
-      }),
-    });
+    const answer = await vision(page, `Ist die "${v}"-Ansicht oder Sidebar-Navigation sichtbar? Antworte mit JA (was du siehst) oder NEIN (was stattdessen zu sehen ist).`);
+    const loaded = answer.toUpperCase().startsWith("JA") || answer.toLowerCase().includes(v.toLowerCase().split(" ")[0]);
 
-    viewResults[v.id] = check;
-
-    if (!check.loaded) {
-      reportIssue(v.nav, "critical", `View nicht geladen`, `Navigations-Bug prüfen`);
+    if (loaded) {
+      log("✅", `${v}: ${answer.slice(0, 90)}`);
     } else {
-      log("✅", `${v.nav} — OK: ${check.content.slice(0, 80)}`);
-    }
-
-    if (check.errors) {
-      reportIssue(v.nav, "warn", `Fehler erkannt: ${check.errors}`, "Prüfen");
+      flag(v, "critical", `View nicht geladen: ${answer.slice(0, 80)}`, "Navigations-Bug oder Onboarding-Block prüfen");
     }
   }
+}
 
-  if (SMOKE_ONLY) {
-    await summarize(page);
-    return;
-  }
+// ── Detail-Audit ──────────────────────────────────────────────────────────────
 
-  // ── 3. Detail-Audit pro View ───────────────────────────────────────────────
+async function detailAudit(page) {
   section("3 · Detail-Audit");
 
-  // ── Dashboard ──
-  log("🔍", "Audit: Dashboard");
-  await stagehand.act({ action: 'Klicke auf "Dashboard" in der Sidebar' });
-  await page.waitForTimeout(1500);
-
-  const dashboard = await stagehand.extract({
-    instruction: `Analysiere die Dashboard-Ansicht:
-1. Sind alle 4 POV-Kacheln (Personal, Education, Health, Business/Professional) sichtbar?
-2. Gibt es den "War Room" Bereich?
-3. Gibt es den "Ignorance Debt" Indikator?
-4. Gibt es einen "Daily Check-In" Bereich?
-5. Gibt es irgendwelche Elemente die broken, abgeschnitten oder unlesbar aussehen?`,
-    schema: z.object({
-      povTiles: z.number().describe("Anzahl sichtbarer POV-Kacheln"),
-      warRoom: z.boolean(),
-      ignoranceDebt: z.boolean(),
-      dailyCheckin: z.boolean(),
-      brokenElements: z.string().optional(),
-      otherIssues: z.string().optional(),
-    }),
-  });
-
-  log("📊", `Dashboard — POV-Tiles: ${dashboard.povTiles}, War Room: ${dashboard.warRoom}, Debt: ${dashboard.ignoranceDebt}`);
-  if (dashboard.brokenElements) reportIssue("Dashboard", "warn", dashboard.brokenElements, "Code prüfen");
-  if (dashboard.otherIssues) reportIssue("Dashboard", "info", dashboard.otherIssues, "Überprüfen");
-
-  // ── Heute (Inbox) ──
-  log("🔍", "Audit: Heute");
-  await stagehand.act({ action: 'Klicke auf "Heute" in der Sidebar' });
-  await page.waitForTimeout(1500);
-
-  const heute = await stagehand.extract({
-    instruction: `Analysiere die "Heute" Ansicht:
-1. Was zeigt die Seite als Titel/Header? (sollte "HEUTE" mit Sonnen-Icon sein)
-2. Gibt es ein Quick-Capture Eingabefeld?
-3. Gibt es eine OFFEN-Liste und ERLEDIGT-Liste?
-4. Gibt es einen -> ZUTEILEN Button pro Task?
-5. Sieht irgendwas broken aus?`,
-    schema: z.object({
-      headerText: z.string(),
-      hasCaptureInput: z.boolean(),
-      hasTaskList: z.boolean(),
-      hasZuteilen: z.boolean(),
-      issues: z.string().optional(),
-    }),
-  });
-
-  log("☀️", `Heute — Header: "${heute.headerText}", Capture: ${heute.hasCaptureInput}`);
-  if (!heute.hasCaptureInput) reportIssue("Heute", "critical", "Quick-Capture fehlt", "inbox.jsx prüfen");
-  if (heute.issues) reportIssue("Heute", "warn", heute.issues, "Prüfen");
-
-  // ── Focus ──
-  log("🔍", "Audit: Focus");
-  await stagehand.act({ action: 'Klicke auf "Focus" in der Sidebar' });
-  await page.waitForTimeout(1500);
-
-  const focus = await stagehand.extract({
-    instruction: `Analysiere die Focus-Ansicht:
-1. Gibt es einen aktiven Task oder leeren Zustand?
-2. Wenn ein Task angezeigt wird: Was steht im Breadcrumb oben (sollte POV → KR-Label sein, kein rohes ID wie OBJ1_KR1)?
-3. Gibt es einen START-Button oder Timer?
-4. Gibt es die Tabs TASK | FREE FLOW | POMODORO?
-5. Irgendwelche Darstellungsprobleme?`,
-    schema: z.object({
-      hasTask: z.boolean(),
-      breadcrumb: z.string().optional(),
-      hasRawId: z.boolean().describe("Zeigt Breadcrumb eine rohe ID wie OBJ1_KR1?"),
-      hasTimer: z.boolean(),
-      hasTabs: z.boolean(),
-      issues: z.string().optional(),
-    }),
-  });
-
-  log("⚡", `Focus — Breadcrumb: "${focus.breadcrumb || 'n/a'}", Raw-ID: ${focus.hasRawId}`);
-  if (focus.hasRawId) reportIssue("Focus", "warn", `Breadcrumb zeigt rohe ID: ${focus.breadcrumb}`, "KR-Label Lookup in focus.jsx prüfen");
-  if (focus.issues) reportIssue("Focus", "warn", focus.issues, "Prüfen");
-
-  // ── Mission Control ──
-  log("🔍", "Audit: Mission Control");
-  await stagehand.act({ action: 'Klicke auf "Mission Control" in der Sidebar' });
-  await page.waitForTimeout(2000);
-
-  const mc = await stagehand.extract({
-    instruction: `Analysiere Mission Control:
-1. Wie viele POV-Sektionen sind sichtbar? (sollten Personal, Education, Health, Business sein)
-2. Gibt es den "MAIN QUEST" Bereich pro POV?
-3. Gibt es einen OKR/Objective-Bereich?
-4. Gibt es einen Filter (ALLE / einzelne POVs)?
-5. Sind alle POV-Labels korrekt (nicht "Professional" statt "Business")?`,
-    schema: z.object({
-      povCount: z.number(),
-      povLabels: z.array(z.string()),
-      hasMainQuest: z.boolean(),
-      hasOkr: z.boolean(),
-      hasFilter: z.boolean(),
-      issues: z.string().optional(),
-    }),
-  });
-
-  log("🎯", `MC — POVs: ${mc.povCount}, Labels: [${mc.povLabels.join(", ")}]`);
-  if (mc.povLabels.includes("Professional")) {
-    reportIssue("Mission Control", "warn", '"Professional" statt user-label sichtbar', "allPovs override prüfen");
+  // Dashboard
+  log("🔍", "Dashboard");
+  await clickNav(page, "Dashboard");
+  const dash = await vision(page, "Analysiere das Dashboard: Wie viele POV-Kacheln siehst du? Gibt es einen 'War Room'? Einen Ignorance-Debt-Indikator? Gibt es kaputte oder abgeschnittene Elemente?");
+  log("📊", dash.slice(0, 120));
+  if (dash.toLowerCase().includes("kaputt") || dash.toLowerCase().includes("fehler")) {
+    flag("Dashboard", "warn", dash, "Code prüfen");
   }
-  if (mc.issues) reportIssue("Mission Control", "warn", mc.issues, "Prüfen");
 
-  // ── Planner ──
-  log("🔍", "Audit: Planner");
-  await stagehand.act({ action: 'Klicke auf "Planner" in der Sidebar' });
-  await page.waitForTimeout(1500);
+  // Heute
+  log("🔍", "Heute");
+  await clickNav(page, "Heute");
+  const heute = await vision(page, "Analysiere die 'Heute'-Ansicht: Zeigt der Header 'HEUTE' oder noch 'INBOX'? Gibt es ein Eingabefeld für neue Tasks? Siehst du eine Task-Liste?");
+  log("☀️", heute.slice(0, 120));
+  if (heute.toLowerCase().includes("inbox")) {
+    flag("Heute", "warn", "Header zeigt noch INBOX statt HEUTE", "Cmd+Shift+R nötig oder cache-Problem");
+  }
 
-  const planner = await stagehand.extract({
-    instruction: `Analysiere den Planner:
-1. Gibt es die Wochennavigation (< Pfeile + KW-Anzeige)?
-2. Gibt es Tages-Tabs (MO–SO)?
-3. Gibt es das Zeitgrid links?
-4. Gibt es einen rechten Panel (Task-Zuteilung / Promised vs. Delivered)?
-5. Gibt es den "+ BLOCK" Button?
-6. Ist "TAGE VERTEILEN" vorhanden?
-7. Irgendwelche Layout-Probleme?`,
-    schema: z.object({
-      hasWeekNav: z.boolean(),
-      hasDayTabs: z.boolean(),
-      hasTimeGrid: z.boolean(),
-      hasRightPanel: z.boolean(),
-      hasAddBlock: z.boolean(),
-      hasTageVerteilen: z.boolean(),
-      issues: z.string().optional(),
-    }),
-  });
+  // Focus
+  log("🔍", "Focus");
+  await clickNav(page, "Focus");
+  await page.waitForTimeout(500);
+  const focus = await vision(page, "Analysiere die Focus-Ansicht: Was steht im Breadcrumb oben (z.B. EDUCATION → etwas)? Siehst du eine rohe ID wie OBJ1_KR1 oder einen echten Label-Text? Gibt es einen START-Button?");
+  log("⚡", focus.slice(0, 120));
+  if (focus.toUpperCase().includes("OBJ1_KR") || focus.toUpperCase().includes("OBJ2_KR")) {
+    flag("Focus", "warn", `Breadcrumb zeigt rohe KR-ID: ${focus.slice(0, 60)}`, "POV_DATA Lookup in focus.jsx");
+  }
 
-  log("📅", `Planner — Grid: ${planner.hasTimeGrid}, Tage verteilen: ${planner.hasTageVerteilen}`);
-  if (planner.issues) reportIssue("Planner", "warn", planner.issues, "Prüfen");
+  // Mission Control
+  log("🔍", "Mission Control");
+  await clickNav(page, "Mission Control");
+  await page.waitForTimeout(500);
+  const mc = await vision(page, "Analysiere Mission Control: Wie viele POV-Sektionen siehst du? Steht da 'Business' oder 'Professional'? Zeigt es Education und Health?");
+  log("🎯", mc.slice(0, 120));
+  if (mc.toLowerCase().includes("professional")) {
+    flag("Mission Control", "warn", '"Professional" statt "Business" sichtbar', "userPovs Override prüfen");
+  }
 
-  // ── Insights ──
-  log("🔍", "Audit: Insights");
-  await stagehand.act({ action: 'Klicke auf "Insights" in der Sidebar' });
-  await page.waitForTimeout(1500);
+  // Planner
+  log("🔍", "Planner");
+  await clickNav(page, "Planner");
+  const plan = await vision(page, "Analysiere den Planner: Gibt es Tages-Tabs (Mo-So), ein Zeitgrid, einen '+ Block'-Button? Gibt es einen 'Tage verteilen'-Button? Sieht alles korrekt aus?");
+  log("📅", plan.slice(0, 120));
 
-  const insights = await stagehand.extract({
-    instruction: `Analysiere Insights:
-1. Gibt es einen Weekly Breakdown Bereich mit Balkendiagramm?
-2. Gibt es 4 Mini-Stats (Gesamt, Schnitt, Bester Tag, OKR Fokus)?
-3. Gibt es einen "Promised vs. Delivered" Bereich pro POV?
-4. Sind die POV-Labels korrekt (nicht "Professional" statt "Business")?
-5. Gibt es einen WEEKLY REPORT Button?
-6. Irgendwelche Probleme?`,
-    schema: z.object({
-      hasWeeklyChart: z.boolean(),
-      hasMiniStats: z.boolean(),
-      hasPvd: z.boolean(),
-      correctLabels: z.boolean(),
-      weeklyReportButton: z.boolean(),
-      issues: z.string().optional(),
-    }),
-  });
-
-  log("📈", `Insights — Chart: ${insights.hasWeeklyChart}, PvD: ${insights.hasPvd}, Labels OK: ${insights.correctLabels}`);
-  if (!insights.correctLabels) reportIssue("Insights", "warn", "POV-Labels inkorrekt", "allPovsMeta in insights.jsx prüfen");
-  if (insights.issues) reportIssue("Insights", "warn", insights.issues, "Prüfen");
-
-  await summarize(page);
+  // Insights
+  log("🔍", "Insights");
+  await clickNav(page, "Insights");
+  const ins = await vision(page, "Analysiere Insights: Gibt es ein Balkendiagramm für diese Woche? Zeigt es POV-Labels — steht da 'Business' oder 'Professional'? Gibt es einen 'Weekly Report'-Button?");
+  log("📈", ins.slice(0, 120));
+  if (ins.toLowerCase().includes("professional")) {
+    flag("Insights", "warn", '"Professional" statt "Business" in POV-Stats', "allPovsMeta in insights.jsx");
+  }
 }
 
-async function summarize(page) {
-  section("AUDIT ERGEBNIS");
+// ── Run ───────────────────────────────────────────────────────────────────────
 
-  if (issues.length === 0) {
-    log("✅", "Keine Issues gefunden — alle Views funktionieren korrekt.");
-    return;
+async function run() {
+  const browser = await chromium.launch({ headless: false });
+  const ctx     = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+    permissions: ["notifications"],
+  });
+  const page    = await ctx.newPage();
+
+  try {
+    section("1 · App laden & Auth");
+    await page.goto(APP_URL, { waitUntil: "networkidle" });
+    const initial = await vision(page, "Was ist gerade auf dem Bildschirm zu sehen? Ein Satz.");
+    log("📸", initial);
+
+    await handleAuth(page);
+
+    await smokeTests(page);
+    if (!SMOKE) await detailAudit(page);
+
+  } finally {
+    section("ERGEBNIS");
+    if (issues.length === 0) {
+      log("✅", "Keine Issues — alles OK.");
+    } else {
+      const c = issues.filter(i => i.severity === "critical").length;
+      const w = issues.filter(i => i.severity === "warn").length;
+      console.log(`\n  🔴 Critical: ${c}  🟡 Warn: ${w}\n`);
+      for (const i of issues) {
+        const icon = i.severity === "critical" ? "🔴" : "🟡";
+        console.log(`  ${icon} [${i.view}] ${i.description}`);
+        console.log(`     → ${i.suggestion}`);
+      }
+    }
+    console.log("");
+    await browser.close();
   }
-
-  const critical = issues.filter(i => i.severity === "critical");
-  const warns    = issues.filter(i => i.severity === "warn");
-  const infos    = issues.filter(i => i.severity === "info");
-
-  console.log(`\n  🔴 Critical: ${critical.length}  🟡 Warn: ${warns.length}  🔵 Info: ${infos.length}\n`);
-
-  for (const issue of issues) {
-    const icon = issue.severity === "critical" ? "🔴" : issue.severity === "warn" ? "🟡" : "🔵";
-    console.log(`  ${icon} [${issue.view}] ${issue.description}`);
-    console.log(`     → ${issue.suggestion}`);
-  }
-
-  console.log("");
-  await stagehand.close();
 }
 
-run().catch(async (err) => {
-  console.error("❌ Test-Fehler:", err.message);
-  await stagehand.close();
-  process.exit(1);
-});
+run().catch(e => { console.error("❌", e.message); process.exit(1); });

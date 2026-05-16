@@ -152,6 +152,17 @@ window.Push = {
     });
   },
 
+  morningCheckin({ topPov, topTask }) {
+    var msg = topTask
+      ? "Dein Fokus heute: \"" + topTask + "\"" + (topPov ? " (" + topPov + ")" : "") + ". Lass es keine Ausrede geben."
+      : "Was ist heute dein wichtigstes Ziel? Entscheide es jetzt — bevor der Tag dich entscheidet.";
+    return this.send({
+      title: "Guten Morgen",
+      message: msg,
+      tag: "morning-checkin",
+    });
+  },
+
   eveningCheckin({ tasksDone, tasksPlanned, streakSafe }) {
     const streakEmoji = streakSafe ? "🔥" : "⚠️";
     const doneStr = tasksPlanned > 0
@@ -166,7 +177,7 @@ window.Push = {
 
   // ── Scheduler ───────────────────────────────────────────────────────────────
   // Call once on app start. Checks habits at 21:00 daily + debt when over threshold.
-  startScheduler({ getHabits, getDebt, debtThreshold = 5, getEveningStats }) {
+  startScheduler({ getHabits, getDebt, debtThreshold = 5, getEveningStats, getMorningStats }) {
     const todayISO = () => new Date().toISOString().slice(0, 10);
 
     // Habit reminder — check every 5 minutes if it's past 21:00 and habits undone
@@ -217,11 +228,28 @@ window.Push = {
       } catch {}
     };
 
-    setInterval(checkHabits, 5 * 60 * 1000);
+    // Morning check-in — 7:00–8:00 AM, max once per day
+    const checkMorning = () => {
+      if (!this.isConfigured()) return;
+      const h = new Date().getHours();
+      if (h < 7 || h >= 8) return;
+      const lastKey = `lifeos_morning_checkin_${todayISO()}`;
+      if (localStorage.getItem(lastKey)) return;
+      try {
+        const stats = getMorningStats ? getMorningStats() : null;
+        if (stats !== null) {
+          this.morningCheckin(stats);
+          localStorage.setItem(lastKey, "1");
+        }
+      } catch {}
+    };
+
+    setInterval(checkHabits,  5 * 60 * 1000);
     setInterval(checkDebt,   10 * 60 * 1000);
     setInterval(checkEvening, 5 * 60 * 1000);
+    setInterval(checkMorning, 5 * 60 * 1000);
     // Also run once on startup (after 30s to let app settle)
-    setTimeout(() => { checkHabits(); checkDebt(); checkEvening(); }, 30000);
+    setTimeout(() => { checkHabits(); checkDebt(); checkEvening(); checkMorning(); }, 30000);
   },
 
   milestone(percent, name) {

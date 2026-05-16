@@ -357,6 +357,22 @@ function App() {
         } catch { return null; }
       },
       debtThreshold: 5,
+      getMorningStats: () => {
+        try {
+          var activePov = LS.getItem("lifeos_active_pov") || "personal";
+          var tasks = JSON.parse(LS.getItem("lifeos_tasks_" + activePov) || "[]");
+          var doneSet = new Set(JSON.parse(LS.getItem("lifeos_done_" + activePov) || "[]"));
+          var topTask = tasks.find(function(t) { return !t.done && !doneSet.has(t.id); });
+          // Resolve POV label
+          var povLabel = activePov.charAt(0).toUpperCase() + activePov.slice(1);
+          try {
+            var ups = JSON.parse(LS.getItem("lifeos_user_povs") || "[]");
+            var match = ups.find(function(p) { return p.id === activePov; });
+            if (match) povLabel = match.label;
+          } catch {}
+          return { topPov: povLabel, topTask: topTask ? topTask.title : null };
+        } catch { return null; }
+      },
       getEveningStats: () => {
         try {
           var todayStr = new Date().toISOString().slice(0, 10);
@@ -383,6 +399,15 @@ function App() {
         } catch { return null; }
       },
     });
+  }, []);
+
+  // Global navigation events (e.g. from WeeklyReportModal OKR CTA)
+  React.useEffect(() => {
+    const handler = (e) => {
+      if (e.detail && e.detail.view) setRoute(e.detail.view);
+    };
+    window.addEventListener("lifeos-nav", handler);
+    return () => window.removeEventListener("lifeos-nav", handler);
   }, []);
 
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
