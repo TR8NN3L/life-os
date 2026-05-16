@@ -447,7 +447,17 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
                     } catch { povLabel = povId.toUpperCase(); }
                   }
                 }
-                const krLabel = (task._krLabel || task.kr || "EXECUTE").toUpperCase();
+                let krLabel = task._krLabel;
+                if (!krLabel && task.pov && task.kr) {
+                  try {
+                    var povData = (window.POV_DATA || {})[task.pov];
+                    if (povData && povData.objective && Array.isArray(povData.objective.keyResults)) {
+                      var foundKr = povData.objective.keyResults.find(function(k) { return k.id === task.kr; });
+                      if (foundKr) krLabel = foundKr.label;
+                    }
+                  } catch (e) {}
+                }
+                krLabel = (krLabel || task.kr || "EXECUTE").toUpperCase();
                 return povLabel + " → " + krLabel;
               })()}
             </span>
