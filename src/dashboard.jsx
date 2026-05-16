@@ -1481,13 +1481,7 @@ function StatsPanel({ taskTimes, pov }) {
             </div>
           )}
 
-          <button onClick={() => setEditMode(e => !e)} style={{
-            padding: "3px 10px", background: editMode ? "var(--accent-soft)" : "transparent",
-            border: `1px solid ${editMode ? "var(--accent-line)" : "var(--line)"}`,
-            color: editMode ? "var(--accent)" : "var(--text-faint)",
-            fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", cursor: "pointer",
-            opacity: (areaHover || editMode) ? 1 : 0, transition: "opacity .2s",
-          }}>TAGE VERTEILEN</button>
+          {/* TAGE VERTEILEN entfernt — nur im Planner */}
         </div>
       </div>
 
