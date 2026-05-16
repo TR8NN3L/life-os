@@ -1,5 +1,5 @@
 # Life OS — Handoff Dokument
-**Stand: 16.05.2026 (Session 10)**
+**Stand: 16.05.2026 (Session 11)**
 
 ---
 
@@ -15,7 +15,7 @@
 
 ## KRITISCHE Regeln — niemals brechen
 
-1. **Cache-Busting Pflicht:** Bei JEDEM Commit `?v=YYYYMMDD[buchstabe]` in `index.html` bei ALLEN Script-Tags hochzählen. **Aktuell: `?v=20260516p`**. Sonst Black Screen.
+1. **Cache-Busting Pflicht:** Bei JEDEM Commit `?v=YYYYMMDD[buchstabe]` in `index.html` bei ALLEN Script-Tags hochzählen. **Aktuell: `?v=20260516aa`**. Sonst Black Screen.
 
 2. **Keine nested React Components:** NIEMALS `const X = () =>` innerhalb einer anderen Funktion definieren. Nur Top-Level Functions. Verursacht Black Screen sobald Komponente mit Daten rendert.
 
@@ -255,6 +255,11 @@ if (delta > 0) {
 - Task-Reordering (Drag & Drop in POV-Listen)
 - Say-Do Metric (Planner geplant vs. Timer tatsaechlich) — Weekly Report approximiert es, aber Planner-Seite zeigt es nicht direkt
 - Daily Timer-Logs auf lokales Datum umstellen (aktuell UTC, Randfall nach Mitternacht)
+
+### Sprint 4 Features (geplant)
+- Morning Check-in (tägliche Ritual-Abfrage beim App-Start)
+- OKR-Review-Trigger (wöchentlicher Hinweis zur OKR-Überprüfung)
+- App Store Review Trigger (nach X Sessions)
 
 ---
 
