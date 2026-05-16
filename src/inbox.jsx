@@ -54,14 +54,8 @@ function InboxPage({ inbox, setInbox, userPovs }) {
     setAssigningId(null);
   };
 
-  // ── POVs ───────────────────────────────────────────────────────────────
-  var basePovs = [
-    { id: "personal", label: "Personal",     color: "#8b5cf6" },
-    { id: "founder",  label: "Professional", color: "#2f8bff" },
-    { id: "student",  label: "Education",    color: "#e11d48" },
-    { id: "athlete",  label: "Health",       color: "#10b981" },
-  ];
-  var allPovs = basePovs.concat(userPovs || []);
+  // ── POVs — exakt wie Sidebar: Personal (immer) + userPovs ────────────
+  var allPovs = [{ id: "personal", label: "Personal", color: "#8b5cf6" }].concat(userPovs || []);
 
   var getKRs = function(povId) {
     try {
