@@ -921,13 +921,14 @@ function Planner() {
             {/* Wiederkehrend */}
             <div style={{ marginBottom:16 }}>
               <div style={{ fontSize:9.5, letterSpacing:"0.16em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>WIEDERHOLUNG</div>
-              <div style={{ display:"flex", gap:6 }}>
+              <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
                 {Object.entries(recurrenceLabels).map(([val, lbl]) => (
                   <button key={val} onClick={()=>setDraft(d=>({...d,recurrence:val}))} style={{
-                    flex:1, padding:"7px 4px", cursor:"pointer", fontSize:9, fontWeight:700, letterSpacing:"0.08em",
+                    padding:"6px 12px", cursor:"pointer", fontSize:9, fontWeight:700, letterSpacing:"0.08em",
                     background:draft.recurrence===val?"var(--accent-soft)":"var(--panel-2)",
                     border:`1px solid ${draft.recurrence===val?"var(--accent)":"var(--line)"}`,
                     color:draft.recurrence===val?"var(--accent)":"var(--text-faint)",
+                    whiteSpace:"nowrap",
                   }}>{lbl}</button>
                 ))}
               </div>
