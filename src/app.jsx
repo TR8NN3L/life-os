@@ -881,6 +881,35 @@ function App() {
   // Global task detail — modal overlay, works from any screen
   const [globalTask, setGlobalTask] = React.useState(null);
 
+  const handleDeleteGlobalTask = (task) => {
+    const povId = task._pov || task.pov;
+    if (task._fromProject && task._projectId) {
+      try {
+        const projs = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]");
+        const next = projs.map(function(p) {
+          if (p.id !== task._projectId) return p;
+          return Object.assign({}, p, {
+            objectives: (p.objectives || []).map(function(o) {
+              return Object.assign({}, o, {
+                krs: (o.krs || []).map(function(kr) {
+                  return Object.assign({}, kr, { tasks: (kr.tasks || []).filter(function(t) { return t.id !== task.id; }) });
+                }),
+              });
+            }),
+          });
+        });
+        LS.setItem("lifeos_custom_projects", JSON.stringify(next));
+        window.dispatchEvent(new CustomEvent("lifeos-projects-updated"));
+      } catch {}
+    } else if (povId) {
+      try {
+        const tasks = JSON.parse(LS.getItem("lifeos_tasks_" + povId) || "[]");
+        LS.setItem("lifeos_tasks_" + povId, JSON.stringify(tasks.filter(function(t) { return t.id !== task.id; })));
+      } catch {}
+    }
+    setGlobalTask(null);
+  };
+
   const focusMode = route === "focus";
 
   if (authStatus === "loading") return <LoadingScreen />;
@@ -1020,7 +1049,8 @@ function App() {
             <TaskDetail
               task={globalTask}
               onBack={() => setGlobalTask(null)}
-              breadcrumb="SCHLIESSEN ×"
+              onDelete={handleDeleteGlobalTask}
+              breadcrumb="SCHLIESSEN"
               taskTimes={taskTimes} setTaskTimes={setTaskTimes}
               activeTaskId={activeTaskId} setActiveTaskId={setActiveTaskId}
             />

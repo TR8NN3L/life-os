@@ -169,7 +169,8 @@ function useTimer(initial = 0, running = false) {
 }
 
 // Shared Task Detail view — used by both Dashboard and MissionControl
-function TaskDetail({ task, onBack, taskTimes, setTaskTimes, activeTaskId, setActiveTaskId, breadcrumb = "ZURÜCK" }) {
+function TaskDetail({ task, onBack, onDelete, taskTimes, setTaskTimes, activeTaskId, setActiveTaskId, breadcrumb = "ZURÜCK" }) {
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
   const povId = task._pov || task.pov;
   const isActive = activeTaskId === task.id;
   const elapsed = (taskTimes || {})[task.id] ?? task.elapsed ?? 0;
@@ -656,6 +657,40 @@ function TaskDetail({ task, onBack, taskTimes, setTaskTimes, activeTaskId, setAc
           </div>
         )}
       </div>
+
+      {/* ── Task löschen ───────────────────────────────────────────────────── */}
+      {onDelete && (
+        <div style={{ marginTop: 32, paddingTop: 24, borderTop: "1px solid var(--line-soft)" }}>
+          {!confirmDelete ? (
+            <button onClick={() => setConfirmDelete(true)} style={{
+              width: "100%", padding: "10px 0",
+              background: "transparent", border: "1px solid var(--danger)",
+              color: "var(--danger)", fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
+              cursor: "pointer", fontFamily: "inherit",
+            }}>{"TASK LOESCHEN"}</button>
+          ) : (
+            <div style={{ background: "var(--danger-soft)", border: "1px solid var(--danger)", padding: "16px" }}>
+              <div style={{ fontSize: 12, color: "var(--danger)", fontWeight: 600, marginBottom: 14, lineHeight: 1.4 }}>
+                {"Wirklich loeschen? Das kann nicht rueckgaengig gemacht werden."}
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => { onDelete(task); }} style={{
+                  flex: 1, padding: "9px 0",
+                  background: "var(--danger)", border: "none",
+                  color: "#fff", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em",
+                  cursor: "pointer", fontFamily: "inherit",
+                }}>{"ENDGUELTIG LOESCHEN"}</button>
+                <button onClick={() => setConfirmDelete(false)} style={{
+                  flex: 1, padding: "9px 0",
+                  background: "transparent", border: "1px solid var(--line)",
+                  color: "var(--text-faint)", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em",
+                  cursor: "pointer", fontFamily: "inherit",
+                }}>{"ABBRECHEN"}</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
