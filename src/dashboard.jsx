@@ -1574,28 +1574,25 @@ function StatsPanel({ taskTimes, pov }) {
                   </div>
                 ))}
               </div>
-              {tableProjs.map((proj, i) => {
-                const hasHours    = proj.hoursPerWeek > 0;
+              {tableProjs.filter(p => p.hoursPerWeek > 0).map((proj, i, arr) => {
                 const projWeights = getProjWeights(proj.id);
-                const dailyTargetH = hasHours ? proj.hoursPerWeek * projWeights[todayDowIdx] : 0;
-                const ds  = hasHours ? dailyTargetH.toFixed(1) + "h" : "–";
+                const dailyTargetH = proj.hoursPerWeek * projWeights[todayDowIdx];
+                const ds  = dailyTargetH.toFixed(1) + "h";
                 const di  = (proj.todaySecs / 3600).toFixed(1) + "h";
-                const ws  = hasHours ? proj.hoursPerWeek.toFixed(1) + "h" : "–";
+                const ws  = proj.hoursPerWeek.toFixed(1) + "h";
                 const wi  = (proj.weeklySecs / 3600).toFixed(1) + "h";
-                const dayOk  = hasHours && proj.todaySecs / 3600 >= dailyTargetH - 0.05;
-                const weekOk = hasHours && proj.weeklySecs >= proj.weeklyTarget;
+                const dayOk  = proj.todaySecs / 3600 >= dailyTargetH - 0.05;
+                const weekOk = proj.weeklySecs >= proj.weeklyTarget;
                 return (
                   <div key={proj.id} style={{
                     display: "grid", gridTemplateColumns: "minmax(0,1fr) 54px 54px 54px 54px",
                     gap: "0 6px", alignItems: "center",
                     padding: "7px 0",
-                    borderBottom: i < tableProjs.length - 1 ? "1px solid var(--line-soft)" : "none",
-                    opacity: hasHours ? 1 : 0.55,
+                    borderBottom: i < arr.length - 1 ? "1px solid var(--line-soft)" : "none",
                   }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
                       <div style={{ width: 6, height: 6, borderRadius: "50%", background: proj.color, flexShrink: 0 }} />
                       <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.title}</span>
-                      {!hasHours && <span style={{ fontSize: 8.5, color: "var(--text-faint)", letterSpacing: "0.08em", flexShrink: 0 }}>Kein Pensum</span>}
                     </div>
                     <div className="mono" style={{ fontSize: 10.5, color: "var(--text-faint)", textAlign: "right" }}>{ds}</div>
                     <div className="mono" style={{ fontSize: 10.5, fontWeight: 700, color: dayOk ? proj.color : "var(--text)", textAlign: "right" }}>{di}{dayOk ? "✓" : ""}</div>
