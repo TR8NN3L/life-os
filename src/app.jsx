@@ -198,12 +198,15 @@ function CookieBanner({ onDecide }) {
 }
 
 function App() {
+  // E2E test mode: ?e2e=1 bypasses auth + paywall entirely
+  const E2E_MODE = new URLSearchParams(window.location.search).get("e2e") === "1";
+
   // Auth gate
-  const [authStatus, setAuthStatus] = React.useState("loading");
+  const [authStatus, setAuthStatus] = React.useState(E2E_MODE ? "ready" : "loading");
   const [tutorialActive, setTutorialActive] = React.useState(false);
 
   // Access gate (subscription or beta code)
-  const [hasAccess, setHasAccess] = React.useState(() => localStorage.getItem("lifeos_access") === "1");
+  const [hasAccess, setHasAccess] = React.useState(() => E2E_MODE || localStorage.getItem("lifeos_access") === "1");
   const [authUser,  setAuthUser]  = React.useState(null); // { id, email }
 
   // Cookie consent

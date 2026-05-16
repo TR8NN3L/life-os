@@ -4,12 +4,12 @@
   "description": "Stagehand UX-Audit für Life OS — AI simuliert echte Nutzer",
   "type": "module",
   "scripts": {
-    "test":        "node run-tests.mjs",
-    "test:smoke":  "node run-tests.mjs --smoke",
-    "test:view":   "node run-tests.mjs --view=dashboard"
+    "test": "node run-tests.mjs",
+    "test:smoke": "node run-tests.mjs --smoke",
+    "test:view": "node run-tests.mjs --view=dashboard"
   },
   "dependencies": {
-    "@browserbasehq/stagehand": "^1.14.0",
+    "@browserbasehq/stagehand": "^3.4.0",
     "playwright": "^1.52.0",
     "zod": "^3.24.0"
   }
