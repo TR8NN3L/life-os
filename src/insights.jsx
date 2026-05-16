@@ -394,7 +394,14 @@ function WeeklyReportModal({ onClose }) {
   );
 }
 
-function Insights({ taskTimes, pov }) {
+function Insights({ taskTimes, pov, userPovs }) {
+  // userPovs überschreiben hardcodierte POVs (gleiche ID = user gewinnt)
+  const allPovsMeta = React.useMemo(function() {
+    var ups = userPovs || [];
+    var userIds = new Set(ups.map(function(p) { return p.id; }));
+    var base = (window.POVS || []).filter(function(p) { return !userIds.has(p.id); });
+    return base.concat(ups);
+  }, [userPovs]);
   const times = taskTimes || {};
 
   // ── Week navigation ────────────────────────────────────────────────────────
@@ -494,7 +501,7 @@ function Insights({ taskTimes, pov }) {
     try { krOverrides = JSON.parse(LS.getItem("lifeos_task_kr_overrides") || "{}"); } catch {}
     for (const povId of Object.keys(POV_DATA)) {
       const data = POV_DATA[povId];
-      const povColor = POVS.find(p => p.id === povId)?.color || "var(--accent)";
+      const povColor = allPovsMeta.find(p => p.id === povId)?.color || "var(--accent)";
       let custom = [];
       try { custom = JSON.parse(LS.getItem(`lifeos_tasks_${povId}`) || "[]"); } catch {}
       const doneSet = (() => {
@@ -531,7 +538,7 @@ function Insights({ taskTimes, pov }) {
 
   // ── Promised vs. Delivered per POV ─────────────────────────────────────────
   const povStats = React.useMemo(() => {
-    return POVS.map(p => {
+    return allPovsMeta.map(p => {
       const tasks = allTasks.filter(t => t.povId === p.id);
       const done  = tasks.filter(t => t.done).length;
       const timeSec = tasks.reduce((s, t) => s + t.elapsed, 0);
@@ -1082,7 +1089,7 @@ function BehaviorTracker() {
           {/* POV bucket selector */}
           <div style={{ display: "flex", gap: 6, marginBottom: 10, alignItems: "center" }}>
             <span style={{ fontSize: 9, letterSpacing: "0.14em", color: "var(--text-faint)", fontWeight: 700, marginRight: 4 }}>POV</span>
-            {POVS.map(p => (
+            {allPovsMeta.map(p => (
               <button key={p.id} onClick={() => setNewBucket(p.id)} style={{
                 padding: "4px 12px", fontSize: 9.5, fontWeight: 700, letterSpacing: "0.1em",
                 background: newBucket === p.id ? p.color : "transparent",

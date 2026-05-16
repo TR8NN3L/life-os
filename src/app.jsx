@@ -1032,7 +1032,7 @@ function App() {
             inbox={inbox} setInbox={setInbox} uiTick={uiTick} />
         )}
         {route === "planner" && <Planner />}
-        {route === "insights" && <Insights taskTimes={taskTimes} pov={pov} />}
+        {route === "insights" && <Insights taskTimes={taskTimes} pov={pov} userPovs={userPovs} />}
         {route === "inbox" && <InboxPage inbox={inbox} setInbox={setInbox} userPovs={userPovs} onOpenTask={setGlobalTask} />}
       </main>
 
