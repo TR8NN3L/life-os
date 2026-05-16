@@ -379,6 +379,7 @@ function App() {
   }, [tweaks.fontPair]);
 
   const [route, setRoute] = React.useState("dashboard");
+  const [uiTick, setUiTick] = React.useState(0);
   const [pov, setPov] = React.useState(() => LS.getItem("lifeos_pov") || "personal");
   const [userPovs, setUserPovs] = React.useState(() => {
     try { return JSON.parse(LS.getItem("lifeos_user_povs") || "[]"); } catch { return []; }
@@ -907,6 +908,7 @@ function App() {
         LS.setItem("lifeos_tasks_" + povId, JSON.stringify(tasks.filter(function(t) { return t.id !== task.id; })));
       } catch {}
     }
+    setUiTick(function(t) { return t + 1; });
     setGlobalTask(null);
   };
 
@@ -990,19 +992,19 @@ function App() {
             taskNotes={taskNotes} setTaskNotes={setTaskNotes}
             truthPlan={truthPlan} setTruthPlan={setTruthPlan}
             inbox={inbox} setInbox={setInbox}
-            onOpenTask={setGlobalTask} />
+            onOpenTask={setGlobalTask} uiTick={uiTick} />
         )}
         {route === "focus" && (
           <FocusScreen pov={pov} activeTaskId={activeTaskId} setActiveTaskId={setActiveTaskId}
             taskTimes={taskTimes} setTaskTimes={setTaskTimes} focusTaskId={focusTaskId}
-            onOpenTask={setGlobalTask} />
+            onOpenTask={setGlobalTask} uiTick={uiTick} />
         )}
         {route === "missioncontrol" && (
           <MissionControl pov={pov} setPov={setPov} taskTimes={taskTimes} setTaskTimes={setTaskTimes}
             activeTaskId={activeTaskId} setActiveTaskId={setActiveTaskId}
             krProgress={krProgress} setKrProgress={setKrProgress}
             onOpenTask={setGlobalTask} userPovs={userPovs}
-            inbox={inbox} setInbox={setInbox} />
+            inbox={inbox} setInbox={setInbox} uiTick={uiTick} />
         )}
         {route === "planner" && <Planner />}
         {route === "insights" && <Insights taskTimes={taskTimes} pov={pov} />}
