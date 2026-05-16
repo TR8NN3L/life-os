@@ -1036,8 +1036,8 @@ function App() {
         {route === "inbox" && <InboxPage inbox={inbox} setInbox={setInbox} userPovs={userPovs} onOpenTask={setGlobalTask} />}
       </main>
 
-      {/* Tutorial overlay */}
-      {tutorialActive && window.TutorialManager && React.createElement(window.TutorialManager, {
+      {/* Tutorial overlay — only after cookie decision to avoid two simultaneous overlays */}
+      {tutorialActive && cookieConsent !== null && window.TutorialManager && React.createElement(window.TutorialManager, {
         setRoute,
         setPov,
         onDone: () => {

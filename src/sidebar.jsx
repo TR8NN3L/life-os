@@ -911,7 +911,12 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs, inbox, o
             <div data-tutorial="main-quest-sidebar" style={{ padding: "0 20px 18px" }}>
               <div className="uppercase-label" style={{ color: activePov.color, marginBottom: 6 }}>Main Quest</div>
               <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10, lineHeight: 1.25, color: "var(--text-dim)" }}>
-                {mq.title || <span style={{ fontStyle: "italic", opacity: 0.5 }}>Noch nicht konfiguriert</span>}
+                {mq.title || (
+                  <span>
+                    <span style={{ fontStyle: "italic", opacity: 0.5 }}>Noch nicht konfiguriert</span>
+                    <button onClick={() => setRoute("missioncontrol")} style={{ display: "block", marginTop: 6, background: "none", border: "none", padding: 0, color: activePov.color, fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", cursor: "pointer", opacity: 0.85 }}>{"→"} EINRICHTEN</button>
+                  </span>
+                )}
               </div>
               <ProgressBar value={computedProgress} color={activePov.color} height={3} />
               <div className="mono" style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 8, letterSpacing: "0.05em" }}>

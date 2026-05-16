@@ -670,34 +670,43 @@ function Dashboard({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes
           const debt = dailySollH - dailyIstH;
           return (
             <div style={{
-              background: "var(--accent)", color: "#0a0a0c",
+              background: "var(--panel)", color: "var(--text)",
               padding: "20px 28px", display: "flex", alignItems: "center", justifyContent: "space-between",
-              borderBottom: "1px solid #0a0a0c",
+              borderBottom: "1px solid var(--line)",
+              borderLeft: "3px solid var(--accent)",
             }}>
               <div>
-                <div style={{ fontSize: 10, letterSpacing: "0.18em", fontWeight: 700, opacity: 0.7, marginBottom: 6 }}>
+                <div style={{ fontSize: 10, letterSpacing: "0.18em", fontWeight: 700, color: "var(--accent)", marginBottom: 6 }}>
                   QUICK START — WAS IST DIE EINE SACHE, DIE JETZT ZÄHLT?
                 </div>
                 <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.15 }}>
                   {active ? active.title : "Wähle deine eine Sache"}
                 </div>
-                <div style={{ fontSize: 12.5, opacity: 0.75, marginTop: 4 }}>
+                <div style={{ fontSize: 12.5, color: "var(--text-dim)", marginTop: 4 }}>
                   {active ? active.sub : "Tippe START bei einer Aufgabe unten."}
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                <div style={{ background: "rgba(0,0,0,0.25)", padding: "8px 14px", textAlign: "center" }}>
-                  <div style={{ fontSize: 8.5, letterSpacing: "0.16em", fontWeight: 700, opacity: 0.8, marginBottom: 2 }}>IGNORANCE DEBT</div>
-                  <div className="mono" style={{ fontSize: 20, fontWeight: 700 }}>−{debt.toFixed(1)}h</div>
-                </div>
+                {debt > 0.05 && (
+                  <div style={{ background: "var(--danger-soft)", border: "1px solid var(--danger)", padding: "8px 14px", textAlign: "center" }}>
+                    <div style={{ fontSize: 8.5, letterSpacing: "0.16em", fontWeight: 700, color: "var(--danger)", marginBottom: 2 }}>IGNORANCE DEBT</div>
+                    <div className="mono" style={{ fontSize: 20, fontWeight: 700, color: "var(--danger)" }}>{"−"}{debt.toFixed(1)}h</div>
+                  </div>
+                )}
+                {debt <= 0.05 && (
+                  <div style={{ background: "var(--good-soft)", border: "1px solid var(--good)", padding: "8px 14px", textAlign: "center" }}>
+                    <div style={{ fontSize: 8.5, letterSpacing: "0.16em", fontWeight: 700, color: "var(--good)", marginBottom: 2 }}>IGNORANCE DEBT</div>
+                    <div className="mono" style={{ fontSize: 20, fontWeight: 700, color: "var(--good)" }}>0.0h {"✓"}</div>
+                  </div>
+                )}
                 <button
                   onClick={() => setRoute("focus")}
                   style={{
-                    padding: "12px 22px", background: "#0a0a0c", color: "var(--accent)",
+                    padding: "12px 22px", background: "var(--accent)", color: "#0a0a0c",
                     border: "none", fontWeight: 700, fontSize: 12, letterSpacing: "0.18em",
                     cursor: "pointer",
                   }}
-                >ENGAGE →</button>
+                >FOCUS {"→"}</button>
               </div>
             </div>
           );
