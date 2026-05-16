@@ -1088,6 +1088,9 @@ function BehaviorStrip() {
   const getHabitSoft  = (h) => h.bucket ? `var(--${h.bucket}-soft)` : "var(--accent-soft)";
   const getHabitLine  = (h) => h.bucket ? `var(--${h.bucket}-line)` : "var(--accent-line)";
 
+  // Kein leerer State — Section nur zeigen wenn Habits vorhanden
+  if (habits.length === 0) return null;
+
   return (
     <div data-tutorial="behavior-strip" style={{ flexShrink: 0, borderTop: "1px solid var(--line-soft)", background: "var(--panel)" }}>
 
