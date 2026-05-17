@@ -1200,6 +1200,7 @@ function Planner() {
                 return (
                   <div key={block.id}
                     onMouseDown={e=>onBlockMouseDown(e,block,"move")}
+                    onClick={e=>e.stopPropagation()}
                     style={{
                       position:"absolute", top, left:LABEL_W, right:4, height,
                       background: isSel ? "rgba(139,92,246,0.22)" : "rgba(26,26,32,0.88)",
