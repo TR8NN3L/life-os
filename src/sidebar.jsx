@@ -875,7 +875,6 @@ function Sidebar({ route, setRoute, pov, setPov, userPovs, setUserPovs, inbox, o
 
   const navItems = [
     { id: "dashboard",      label: "Dashboard",      icon: "layout-dashboard", badge: 0 },
-    { id: "dashboard-v2",  label: "Dashboard V2",   icon: "layout",           badge: 0 },
     { id: "inbox",          label: "Heute",           icon: "sun",             badge: inboxCount },
     { id: "focus",          label: "Focus",           icon: "zap",             badge: 0 },
     { id: "missioncontrol", label: "Mission Control", icon: "crosshair",       badge: 0 },
