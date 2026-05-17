@@ -32,7 +32,7 @@ function getEffectiveTheme() {
 
 const THEME_BASES = {
   dark:  { bg:"#0a0a0c", panel:"#141418", panel2:"#1a1a20", line:"#26262d", lineSoft:"#1f1f25", text:"#e8e8ec", textDim:"#8a8a95", textFaint:"#54545d" },
-  light: { bg:"#f2f2f5", panel:"#ffffff",  panel2:"#ebebef", line:"#d8d8e2", lineSoft:"#e4e4ec", text:"#111116", textDim:"#4a4a58", textFaint:"#8f8fa0" },
+  light: { bg:"#ededf2", panel:"#f8f8fc",  panel2:"#e4e4eb", line:"#c8c8d6", lineSoft:"#d6d6e2", text:"#0c0c12", textDim:"#2e2e3a", textFaint:"#58586e" },
 };
 
 function applyPovTheme(pov, accentOverride) {
