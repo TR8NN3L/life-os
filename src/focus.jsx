@@ -210,16 +210,22 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
         {/* Right: Mode tabs + Pomodoro */}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {/* Mode tabs */}
-          <div style={{ display: "flex", gap: 2, background: "var(--panel)", border: "1px solid var(--line)", padding: 3 }}>
-            {[["task", "TASK"], ["free", "FREE FLOW"]].map(([id, label]) => (
-              <button key={id} onClick={() => { setFreeMode(id === "free"); if (freeRunning) stopFree(); if (isRunning) setActiveTaskId(null); }}
-                style={{
-                  padding: "5px 14px", border: "none", cursor: "pointer", fontSize: 9.5, fontWeight: 700, letterSpacing: "0.14em",
-                  background: (id === "free") === freeMode ? "var(--accent)" : "transparent",
-                  color: (id === "free") === freeMode ? "#0a0a0c" : "var(--text-faint)",
-                  transition: "all .15s",
-                }}>{label}</button>
-            ))}
+          <div style={{ display: "flex", gap: 0, background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 6, padding: 3, overflow: "hidden" }}>
+            {[["task", "TASK"], ["free", "FREE FLOW"]].map(([id, label]) => {
+              const active = (id === "free") === freeMode;
+              return (
+                <button key={id} onClick={() => { setFreeMode(id === "free"); if (freeRunning) stopFree(); if (isRunning) setActiveTaskId(null); }}
+                  style={{
+                    padding: "7px 18px", border: "none", cursor: "pointer",
+                    fontSize: 10, fontWeight: 700, letterSpacing: "0.16em",
+                    borderRadius: 4,
+                    background: active ? "var(--accent)" : "transparent",
+                    color: active ? "#0a0a0c" : "var(--text-faint)",
+                    transition: "background .15s, color .15s",
+                    whiteSpace: "nowrap",
+                  }}>{label}</button>
+              );
+            })}
           </div>
           {/* Pomodoro — only in task mode */}
           {!freeMode && (
