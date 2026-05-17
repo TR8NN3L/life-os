@@ -760,13 +760,14 @@ function DashboardV2({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
     return next;
   });
 
-  // ── Wöchentliche Zeit pro Task aus localStorage ──────────────────────────
+  // ── Wöchentliche Zeit pro Task: localStorage + laufender Timer ──────────
   const weeklyTaskSecs = React.useMemo(() => {
     const result = {};
     const now = new Date();
     const dow = now.getDay();
     const diff = dow === 0 ? -6 : 1 - dow;
     const mon = new Date(now); mon.setDate(now.getDate() + diff); mon.setHours(0,0,0,0);
+    // Gespeicherte Sessions aus localStorage
     for (let i = 0; i < 7; i++) {
       const d = new Date(mon); d.setDate(mon.getDate() + i);
       const key = "lifeos_daily_" + d.toISOString().slice(0, 10);
@@ -777,6 +778,10 @@ function DashboardV2({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
         });
       } catch {}
     }
+    // Laufende Timer aus taskTimes (noch nicht in localStorage gespeichert)
+    Object.entries(taskTimes).forEach(([tid, secs]) => {
+      result[tid] = (result[tid] || 0) + secs;
+    });
     return result;
   }, [taskTimes]);
 
@@ -869,9 +874,9 @@ function DashboardV2({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
   const allFilteredTasks = activeKR
     ? orderedTasksToday.filter(t => t.kr === activeKR)
     : orderedTasksToday;
-  // Split open vs done — done tasks move to archive section
-  const filteredTasks = allFilteredTasks.filter(t => !doneTasks.has(t.id));
-  const donedTasks    = allFilteredTasks.filter(t => doneTasks.has(t.id));
+  // Split open vs done — justDone task bleibt 700ms in der Liste für die Animation
+  const filteredTasks = allFilteredTasks.filter(t => !doneTasks.has(t.id) || justDone === t.id);
+  const donedTasks    = allFilteredTasks.filter(t => doneTasks.has(t.id) && justDone !== t.id);
   const [showDone, setShowDone] = React.useState(false);
 
   const active = tasksToday.find(t => t.id === activeTaskId);
