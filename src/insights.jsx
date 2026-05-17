@@ -342,7 +342,7 @@ function WeeklyReportModal({ onClose }) {
               {effPct !== null && <div style={{ fontSize:10, color: effPct >= 80 ? "var(--good)" : effPct >= 50 ? "var(--warn)" : "var(--danger)", marginTop:2, fontWeight:700 }}>{effPct + "% erledigt"}</div>}
             </div>
             <div style={{ background:"var(--bg)", border:"1px solid var(--line-soft)", padding:"18px 20px" }}>
-              <div style={{ fontSize:9, letterSpacing:"0.18em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>{"SAY-DO SCORE"}</div>
+              <div style={{ fontSize:9, letterSpacing:"0.18em", fontWeight:700, color:"var(--text-faint)", marginBottom:8 }}>{"WORT·WERT"}</div>
               <div className="mono" style={{ fontSize:30, fontWeight:700, color:sayDoColor, lineHeight:1 }}>{sayDo.pct !== null ? sayDo.pct + "%" : "--"}</div>
               <div style={{ fontSize:10, color:"var(--text-faint)", marginTop:6 }}>{sayDo.promised + " promised / " + sayDo.delivered + " done"}</div>
             </div>
@@ -746,7 +746,7 @@ function Insights({ taskTimes, pov, userPovs }) {
       {/* ── Hero Stats ─────────────────────────────────────────── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 32 }}>
         <StatCard label="TOTAL TRACKED" value={secToH(totalTrackedSec)} color="var(--accent)" sub="über alle Tasks" />
-        <StatCard label="IGNORANCE DEBT" value={`−${debt.toFixed(1)}h`} color="var(--accent)" sub="diese Woche" />
+        <StatCard label="SELBSTBETRUG·SALDO" value={`−${debt.toFixed(1)}h`} color="var(--accent)" sub="diese Woche" />
         <StatCard label="SIDE QUEST DRIFT" value={`${sideQuestPct}%`} color="var(--accent)" sub={`${sideQuestCount} Tasks ohne KR`} />
         <StatCard label="TASKS ERLEDIGT" value={`${allTasks.filter(t => t.done).length} / ${allTasks.length}`} color="var(--accent)" sub="gesamt" />
       </div>

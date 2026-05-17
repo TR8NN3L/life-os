@@ -122,7 +122,7 @@ function ActivityRings({ pov, taskTimes }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
           <div style={{ fontSize: 9, letterSpacing: "0.18em", fontWeight: 700, color: "var(--text-faint)" }}>
-            ACTIVITY RINGS
+            FORTSCHRITTS·RINGE
           </div>
           <div style={{ fontSize: 9, color: "var(--text-faint)", letterSpacing: "0.06em" }}>{todayLabel}</div>
         </div>
@@ -277,7 +277,7 @@ function HeroBar({ taskTimes, pov, setRoute }) {
         <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>{todayLabel}</div>
       </div>
       {/* SAY-DO */}
-      {statBox("SAY-DO SCORE", sayDoScore !== null ? `${sayDoScore}%` : "–", sayDoColor, sayDoLabel)}
+      {statBox("WORT·WERT", sayDoScore !== null ? `${sayDoScore}%` : "–", sayDoColor, sayDoLabel)}
       {/* STREAK */}
       {statBox("STREAK", `${streak}d`, streak >= 7 ? "#f59e0b" : streak >= 3 ? "#10b981" : "var(--text-faint)", streak >= 7 ? "🔥 LÄUFT" : streak >= 1 ? "LÄUFT" : "LOS")}
       {/* Spacer + FOCUS button */}
@@ -470,7 +470,7 @@ function V2StatsPanel({ taskTimes, pov }) {
             borderLeft: "3px solid " + (debtOk ? "#10b981" : "#d6324a"),
             display: "flex", alignItems: "center", justifyContent: "space-between",
           }}>
-            <span style={{ fontSize: 8.5, letterSpacing: "0.14em", fontWeight: 700, color: "var(--text-faint)" }}>IGNORANCE DEBT</span>
+            <span style={{ fontSize: 8.5, letterSpacing: "0.14em", fontWeight: 700, color: "var(--text-faint)" }}>SELBSTBETRUG·SALDO</span>
             <span className="mono" style={{ fontSize: 15, fontWeight: 800, color: debtOk ? "#10b981" : "#d6324a" }}>
               {debtOk ? "+" : "−"}{Math.abs(debtSoFar).toFixed(1)}h
             </span>
@@ -484,7 +484,7 @@ function V2StatsPanel({ taskTimes, pov }) {
       {/* ── Truth Loop Chart — full width, fixed height ── */}
       <div style={{ borderTop: "1px solid var(--line-soft)", paddingTop: 14 }}>
         <div style={{ fontSize: 8, letterSpacing: "0.14em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 8, display: "flex", gap: 12, alignItems: "center" }}>
-          <span>TRUTH LOOP · Plan vs. Realität</span>
+          <span>WAHRHEITS·SPIEGEL · Plan vs. Realität</span>
           <span style={{ display: "flex", gap: 8 }}>
             {[["var(--text-dim)", "Plan"], ["rgba(214,50,74,0.85)", "Ist"]].map(([c, l]) => (
               <span key={l} style={{ display: "flex", alignItems: "center", gap: 3 }}>
@@ -1623,7 +1623,7 @@ function BehaviorStrip() {
         {/* Label + count */}
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.16em", color: systemDone ? (allDone ? "var(--good)" : "var(--warn)") : "var(--text-faint)" }}>
-            DAILY SYSTEM CHECK-IN{isOverride ? " · OVERRIDE" : ""}
+            TAGES·CHECK{isOverride ? " · OVERRIDE" : ""}
           </div>
           <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 1 }}>
             {habits.length === 0 ? "Keine Habits — in Insights hinzufügen" : `${checkedCount} / ${habits.length} Habits erledigt`}
@@ -1982,7 +1982,7 @@ function StatsPanel({ taskTimes, pov }) {
               </div>
               <div style={{ fontSize: 8, letterSpacing: "0.18em", fontWeight: 700,
                 color: sayDoColor, marginTop: 2, opacity: 0.8 }}>{sayDoLabel}</div>
-              <div style={{ fontSize: 7.5, color: "var(--text-faint)", marginTop: 1 }}>SAY-DO SCORE</div>
+              <div style={{ fontSize: 7.5, color: "var(--text-faint)", marginTop: 1 }}>WORT·WERT</div>
             </div>
           )}
 
@@ -2120,7 +2120,7 @@ function StatsPanel({ taskTimes, pov }) {
           color: debtOk ? "var(--good)" : "var(--danger)",
           padding: "12px 14px", textAlign: "center",
         }}>
-          <div style={{ fontSize: 7.5, letterSpacing: "0.18em", fontWeight: 700, opacity: 0.7, marginBottom: 6 }}>IGNORANCE DEBT</div>
+          <div style={{ fontSize: 7.5, letterSpacing: "0.18em", fontWeight: 700, opacity: 0.7, marginBottom: 6 }}>SELBSTBETRUG·SALDO</div>
           <div className="mono" style={{ fontSize: 28, fontWeight: 800, lineHeight: 1 }}>
             {debtOk ? "+" : "−"}{Math.abs(debtSoFar).toFixed(1)}h
           </div>
@@ -2136,7 +2136,7 @@ function StatsPanel({ taskTimes, pov }) {
       {/* ── Chart ── */}
       <div style={{ marginTop: 14, borderTop: "1px solid var(--line-soft)", paddingTop: 12 }}>
         <div style={{ fontSize: 8, letterSpacing: "0.14em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 6, display: "flex", gap: 14, alignItems: "center" }}>
-          <span>THE TRUTH LOOP · Plan vs. Realität (KW)</span>
+          <span>WAHRHEITS·SPIEGEL · Plan vs. Realität (KW)</span>
           <span style={{ display: "flex", gap: 10, opacity: 0.65 }}>
             {[["var(--text-dim)", "Plan"],["rgba(214,50,74,0.85)","Realität"],["rgba(214,50,74,0.18)","Debt-Gap"]].map(([c, l]) => (
               <span key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -2457,7 +2457,7 @@ function TruthLoop({ truthPlan, setTruthPlan }) {
           background: "var(--danger)", color: "#fff",
           padding: "20px 24px", textAlign: "center", minWidth: 160,
         }}>
-          <div style={{ fontSize: 9.5, letterSpacing: "0.16em", fontWeight: 700, opacity: 0.85, marginBottom: 8 }}>IGNORANCE DEBT</div>
+          <div style={{ fontSize: 9.5, letterSpacing: "0.16em", fontWeight: 700, opacity: 0.85, marginBottom: 8 }}>SELBSTBETRUG·SALDO</div>
           <div className="mono" style={{ fontSize: 38, fontWeight: 700, lineHeight: 1 }}>−{debt.toFixed(1)}h</div>
           <div style={{ fontSize: 10, opacity: 0.85, marginTop: 8, letterSpacing: "0.05em" }}>Stunden Selbstbetrug</div>
         </div>
