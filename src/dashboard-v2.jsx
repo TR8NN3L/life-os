@@ -243,10 +243,13 @@ function HeroBar({ taskTimes, pov, setRoute }) {
   }
 
   const statBox = (label, value, color, sub) => (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "0 36px", borderRight: "1px solid var(--line)" }}>
-      <div style={{ fontSize: 9, letterSpacing: "0.18em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 4 }}>{label}</div>
-      <div className="mono" style={{ fontSize: 32, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
-      {sub && <div style={{ fontSize: 9, letterSpacing: "0.14em", color, marginTop: 4, fontWeight: 700 }}>{sub}</div>}
+    <div style={{
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      padding: "20px 48px", borderRight: "1px solid var(--line)",
+    }}>
+      <div style={{ fontSize: 10, letterSpacing: "0.2em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 8, whiteSpace: "nowrap" }}>{label}</div>
+      <div className="mono" style={{ fontSize: 40, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
+      {sub && <div style={{ fontSize: 10, letterSpacing: "0.16em", color, marginTop: 6, fontWeight: 700 }}>{sub}</div>}
     </div>
   );
 
@@ -262,16 +265,16 @@ function HeroBar({ taskTimes, pov, setRoute }) {
     <div style={{
       display: "flex", alignItems: "stretch", gap: 0,
       background: "var(--panel)", borderBottom: "2px solid var(--accent)",
-      padding: "0", flexShrink: 0, minHeight: 80,
+      flexShrink: 0, minHeight: 120,
     }}>
       {/* Brand block */}
       <div style={{
         display: "flex", flexDirection: "column", justifyContent: "center",
-        paddingLeft: 28, paddingRight: 36, borderRight: "1px solid var(--line)",
-        minWidth: 160,
+        padding: "20px 40px 20px 32px", borderRight: "1px solid var(--line)",
+        minWidth: 180,
       }}>
-        <div style={{ fontSize: 9, letterSpacing: "0.22em", fontWeight: 700, color: "var(--accent)", marginBottom: 3 }}>FLOW OS V2</div>
-        <div style={{ fontSize: 11, color: "var(--text)", fontWeight: 600, letterSpacing: "0.06em" }}>{todayLabel}</div>
+        <div style={{ fontSize: 10, letterSpacing: "0.22em", fontWeight: 700, color: "var(--accent)", marginBottom: 6 }}>FLOW OS V2</div>
+        <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>{todayLabel}</div>
       </div>
       {/* SAY-DO */}
       {statBox("SAY-DO SCORE", sayDoScore !== null ? `${sayDoScore}%` : "–", sayDoColor, sayDoLabel)}
@@ -279,10 +282,10 @@ function HeroBar({ taskTimes, pov, setRoute }) {
       {statBox("STREAK", `${streak}d`, streak >= 7 ? "#f59e0b" : streak >= 3 ? "#10b981" : "var(--text-faint)", streak >= 7 ? "FIRE" : streak >= 1 ? "GOING" : "START")}
       {/* Spacer + FOCUS button */}
       <div style={{ flex: 1 }} />
-      <div style={{ display: "flex", alignItems: "center", paddingRight: 28 }}>
+      <div style={{ display: "flex", alignItems: "center", padding: "0 36px" }}>
         <button onClick={() => setRoute("focus")} style={{
-          padding: "12px 28px", background: "var(--accent)", color: "#0a0a0c",
-          border: "none", fontWeight: 800, fontSize: 12, letterSpacing: "0.2em", cursor: "pointer",
+          padding: "16px 36px", background: "var(--accent)", color: "#0a0a0c",
+          border: "none", fontWeight: 800, fontSize: 13, letterSpacing: "0.2em", cursor: "pointer",
         }}>FOCUS {"→"}</button>
       </div>
     </div>
@@ -804,18 +807,18 @@ function DashboardV2({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
           return (
             <div style={{
               background: "var(--panel)", color: "var(--text)",
-              padding: "20px 28px", display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "28px 36px", display: "flex", alignItems: "center", justifyContent: "space-between",
               borderBottom: "1px solid var(--line)",
-              borderLeft: "3px solid var(--accent)",
+              borderLeft: "4px solid var(--accent)",
             }}>
               <div>
-                <div style={{ fontSize: 10, letterSpacing: "0.18em", fontWeight: 700, color: "var(--accent)", marginBottom: 6 }}>
+                <div style={{ fontSize: 10, letterSpacing: "0.18em", fontWeight: 700, color: "var(--accent)", marginBottom: 10 }}>
                   QUICK START — WAS IST DIE EINE SACHE, DIE JETZT ZÄHLT?
                 </div>
-                <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.15 }}>
+                <div style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.15 }}>
                   {active ? active.title : "Wähle deine eine Sache"}
                 </div>
-                <div style={{ fontSize: 12.5, color: "var(--text-dim)", marginTop: 4 }}>
+                <div style={{ fontSize: 13, color: "var(--text-dim)", marginTop: 6 }}>
                   {active ? active.sub : "Tippe START bei einer Aufgabe unten."}
                 </div>
               </div>
