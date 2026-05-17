@@ -577,7 +577,7 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
             display: "flex", alignItems: "center", gap: 7,
           }}>
             <Icon name="calendar" size={13} strokeWidth={2} />
-            {"TIMELINE"}
+            {"ZEITLINIE"}
           </button>
           {archivedProjects.length > 0 && (
             <button onClick={() => setShowArchived(v => !v)} style={{
@@ -960,7 +960,7 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
                             <StatusBadge status={p.status} />
                           </div>
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 24, alignItems: "end", marginBottom: 12 }}>
-                            <Metric label="REALITY" value={`${p.realityH}h`} />
+                            <Metric label="REALITÄT" value={`${p.realityH}h`} />
                             <Metric label="PLAN"    value={`${p.planH}h`}    color="var(--text-dim)" />
                             <Metric label="DELTA"   value={fmtH(delta)}      color={deltaColor} bold />
                             <button onClick={() => setView({ type: "project", id: p.id })} style={{
@@ -1183,9 +1183,9 @@ function ProjectDetail({ proj, onBack, onOpenKR, taskTimes, setTaskTimes, active
                   const diff = objProgress - expected;
                   const badge = now >= end
                     ? { kind: "danger", label: "ÜBERFÄLLIG" }
-                    : diff > 0.1 ? { kind: "good", label: "AHEAD" }
-                    : diff < -0.08 ? { kind: "danger", label: "BEHIND" }
-                    : { kind: "active", label: "ON TRACK" };
+                    : diff > 0.1 ? { kind: "good", label: "VORAUS" }
+                    : diff < -0.08 ? { kind: "danger", label: "HINTER PLAN" }
+                    : { kind: "active", label: "AUF KURS" };
                   const dlStr = end.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
                   return (
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>

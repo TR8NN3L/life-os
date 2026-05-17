@@ -140,7 +140,7 @@ function ActivityRings({ pov, taskTimes }) {
                     {proj.title}
                   </span>
                   <span className="mono" style={{ fontSize: 9, color: done ? proj.color : "var(--text-faint)", fontWeight: done ? 700 : 400, flexShrink: 0 }}>
-                    {done ? "✓ DONE" : `${hrs}h / ${target}h`}
+                    {done ? "✓ FERTIG" : `${hrs}h / ${target}h`}
                   </span>
                 </div>
                 <div style={{ height: 3, background: "var(--ring-track)", borderRadius: 2, overflow: "hidden" }}>
@@ -215,7 +215,7 @@ function HeroBar({ taskTimes, pov, setRoute }) {
   const sayDoColor = sayDoScore === null ? "var(--text-faint)"
     : sayDoScore >= 70 ? "#10b981" : sayDoScore >= 40 ? "#f59e0b" : "#d6324a";
   const sayDoLabel = sayDoScore === null ? "–"
-    : sayDoScore >= 70 ? "ON TRACK" : sayDoScore >= 40 ? "BEHIND" : "CRITICAL";
+    : sayDoScore >= 70 ? "AUF KURS" : sayDoScore >= 40 ? "HINTER PLAN" : "KRITISCH";
 
   // Debt today
   const debtSoFar = planPerDay.slice(0, todayDowIdx + 1).reduce((s, v) => s + v, 0)
@@ -279,7 +279,7 @@ function HeroBar({ taskTimes, pov, setRoute }) {
       {/* SAY-DO */}
       {statBox("SAY-DO SCORE", sayDoScore !== null ? `${sayDoScore}%` : "–", sayDoColor, sayDoLabel)}
       {/* STREAK */}
-      {statBox("STREAK", `${streak}d`, streak >= 7 ? "#f59e0b" : streak >= 3 ? "#10b981" : "var(--text-faint)", streak >= 7 ? "FIRE" : streak >= 1 ? "GOING" : "START")}
+      {statBox("STREAK", `${streak}d`, streak >= 7 ? "#f59e0b" : streak >= 3 ? "#10b981" : "var(--text-faint)", streak >= 7 ? "🔥 LÄUFT" : streak >= 1 ? "LÄUFT" : "LOS")}
       {/* Spacer + FOCUS button */}
       <div style={{ flex: 1 }} />
       <div style={{ display: "flex", alignItems: "center", padding: "0 36px" }}>
@@ -1353,7 +1353,7 @@ function DashboardV2({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
                     cursor: isDone ? "default" : "pointer",
                     opacity: isDone ? 0.3 : 1,
                   }}
-                >{isDone ? "DONE" : isActive ? "PAUSE" : "START →"}</button>
+                >{isDone ? "ERLEDIGT" : isActive ? "PAUSE" : "START →"}</button>
                 {t.custom ? (
                   <button onClick={() => deleteCustomTask(t.id)} title="Task löschen"
                     style={{ background: "none", border: "none", color: "var(--text-faint)", cursor: "pointer", fontSize: 14, padding: "0 4px", lineHeight: 1 }}>×</button>
@@ -1846,9 +1846,9 @@ function StatsPanel({ taskTimes, pov }) {
     : sayDoScore >= 40 ? "#f59e0b"
     : "#d6324a";
   const sayDoLabel = sayDoScore === null ? "–"
-    : sayDoScore >= 70 ? "ON TRACK"
-    : sayDoScore >= 40 ? "BEHIND"
-    : "CRITICAL";
+    : sayDoScore >= 70 ? "AUF KURS"
+    : sayDoScore >= 40 ? "HINTER PLAN"
+    : "KRITISCH";
 
   // ── Streak Counter (70 % des Tagesziels, Freeze-Support) ────────────────
   const streakInfo = React.useMemo(() => {

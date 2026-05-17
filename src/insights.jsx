@@ -653,7 +653,7 @@ function Insights({ taskTimes, pov, userPovs }) {
           display:"flex", alignItems:"center", gap:7,
         }}>
           <Icon name="file-text" size={12} color="var(--accent)" />
-          {"WEEKLY REPORT"}
+          {"WOCHENBERICHT"}
         </button>
       </div>
 
