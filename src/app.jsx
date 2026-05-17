@@ -1048,6 +1048,15 @@ function App() {
             inbox={inbox} setInbox={setInbox}
             onOpenTask={setGlobalTask} uiTick={uiTick} />
         )}
+        {route === "dashboard-v2" && (
+          <DashboardV2 pov={pov} activeTaskId={activeTaskId} setActiveTaskId={setActiveTaskId}
+            taskTimes={taskTimes} setTaskTimes={setTaskTimes} setRoute={setRoute}
+            krProgress={krProgress} setKrProgress={setKrProgress}
+            taskNotes={taskNotes} setTaskNotes={setTaskNotes}
+            truthPlan={truthPlan} setTruthPlan={setTruthPlan}
+            inbox={inbox} setInbox={setInbox}
+            onOpenTask={setGlobalTask} uiTick={uiTick} />
+        )}
         {route === "focus" && (
           <FocusScreen pov={pov} activeTaskId={activeTaskId} setActiveTaskId={setActiveTaskId}
             taskTimes={taskTimes} setTaskTimes={setTaskTimes} focusTaskId={focusTaskId}
