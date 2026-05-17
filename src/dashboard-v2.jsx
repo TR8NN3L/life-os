@@ -292,6 +292,250 @@ function HeroBar({ taskTimes, pov, setRoute }) {
   );
 }
 
+// ── V2 War Room Panel — cleaner: compact ring, inline debt, fixed chart ──────
+function V2StatsPanel({ taskTimes, pov }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const DAYS_LABEL = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"];
+  const todayDowIdx = (() => { const d = new Date().getDay(); return d === 0 ? 6 : d - 1; })();
+
+  const weekStart = React.useMemo(() => {
+    const d = new Date();
+    const diff = d.getDay() === 0 ? -6 : 1 - d.getDay();
+    const mon = new Date(d); mon.setDate(d.getDate() + diff); mon.setHours(0, 0, 0, 0);
+    return mon;
+  }, [today]);
+
+  const [tick, setTick] = React.useState(0);
+  React.useEffect(() => { setTick(t => t + 1); }, [taskTimes]);
+  React.useEffect(() => {
+    const h = () => setTick(t => t + 1);
+    window.addEventListener("lifeos-projects-updated", h);
+    return () => window.removeEventListener("lifeos-projects-updated", h);
+  }, []);
+
+  const realityPerDay = React.useMemo(() => DAYS_LABEL.map((_, i) => {
+    const d = new Date(weekStart); d.setDate(weekStart.getDate() + i);
+    try { const l = JSON.parse(LS.getItem("lifeos_daily_" + d.toISOString().slice(0, 10)) || "{}"); return Object.values(l).reduce((s, v) => s + v, 0) / 3600; }
+    catch { return 0; }
+  }), [tick, weekStart]);
+
+  const [projData, palette, povColors] = React.useMemo(() => {
+    const pc = { personal: "#8b5cf6", founder: "#2f8bff", student: "#e11d48", athlete: "#10b981" };
+    const pal = ["#10b981", "#2f8bff", "#8b5cf6", "#f97316", "#ec4899", "#f59e0b", "#6366f1", "#14b8a6"];
+    let up = []; try { up = JSON.parse(LS.getItem("lifeos_user_povs") || "[]"); } catch {}
+    const apc = { ...pc, ...Object.fromEntries(up.map(p => [p.id, p.color])) };
+    let arch = new Set(); try { arch = new Set(JSON.parse(LS.getItem("lifeos_archived_projects") || "[]")); } catch {}
+    let ps = []; try { ps = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]"); } catch {}
+    return [ps.filter(p => !arch.has(p.id)), pal, apc];
+  }, [tick]);
+
+  const DEFAULT_W = [0.2, 0.2, 0.2, 0.2, 0.2, 0, 0];
+  const [pdw] = React.useState(() => { try { return JSON.parse(LS.getItem("lifeos_proj_day_weights") || "{}"); } catch { return {}; } });
+
+  const buildStats = (proj, i) => {
+    const tids = new Set((proj.objectives || []).flatMap(o => (o.krs || []).flatMap(k => (k.tasks || []).map(t => t.id))));
+    tids.add("free_" + proj.id);
+    const perDay = DAYS_LABEL.map((_, di) => {
+      const d = new Date(weekStart); d.setDate(weekStart.getDate() + di);
+      try { const l = JSON.parse(LS.getItem("lifeos_daily_" + d.toISOString().slice(0, 10)) || "{}"); return [...tids].reduce((s, id) => s + (l[id] || 0), 0); }
+      catch { return 0; }
+    });
+    return { ...proj, color: povColors[proj.pov] || palette[i % palette.length],
+      todaySecs: perDay[todayDowIdx], weeklySecs: perDay.reduce((s, v) => s + v, 0), weeklyTarget: (proj.hoursPerWeek || 0) * 3600 };
+  };
+
+  const allProjs = React.useMemo(() => projData.map(buildStats), [tick, weekStart]);
+  const ringProjs = allProjs.filter(p => (p.hoursPerWeek || 0) > 0).slice(0, 4);
+  const tableProjs = allProjs.filter(p => (p.hoursPerWeek || 0) > 0);
+
+  const planPerDay = DAYS_LABEL.map((_, i) =>
+    tableProjs.reduce((s, p) => s + (p.hoursPerWeek || 0) * ((pdw[p.id] || DEFAULT_W)[i] || 0), 0)
+  );
+
+  const todaySoll = planPerDay[todayDowIdx];
+  const todayIst  = realityPerDay[todayDowIdx];
+  const weekSoll  = planPerDay.slice(0, todayDowIdx + 1).reduce((s, v) => s + v, 0);
+  const weekIst   = realityPerDay.slice(0, todayDowIdx + 1).reduce((s, v) => s + v, 0);
+  const debtSoFar = weekSoll - weekIst;
+  const debtOk    = debtSoFar <= 0.05;
+
+  // Ring geometry (compact: 100px)
+  const SZ = 100, cx = 50, cy = 50, RW = 8, GAP = 3;
+  const baseR = cx - RW / 2 - 2;
+  const topProg = ringProjs.length > 0
+    ? Math.min(1, ringProjs[0].todaySecs / (((ringProjs[0].hoursPerWeek || 0) * ((pdw[ringProjs[0].id] || DEFAULT_W)[todayDowIdx] || 0.2)) * 3600 || 1))
+    : 0;
+  const ringCol = (p, prog) => prog >= 0.7 ? p.color : prog >= 0.4 ? "#f59e0b" : prog > 0 ? "#d6324a" : p.color;
+
+  // Chart geometry
+  const maxChart = Math.max(4, ...planPerDay, ...realityPerDay) * 1.15;
+  const CW = 360, CH = 90, pL = 24, pR = 4, pT = 8, pB = 18;
+  const iW = CW - pL - pR, iH = CH - pT - pB;
+  const bGap = 4, bw = (iW - bGap * 6) / 7;
+
+  return (
+    <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 0 }}>
+
+      {/* ── Header ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+        <Icon name="activity" size={10} color="var(--text-faint)" />
+        <span style={{ fontSize: 9, letterSpacing: "0.18em", fontWeight: 700, color: "var(--text-faint)" }}>WAR ROOM</span>
+      </div>
+
+      {/* ── Ring + Stats row ── */}
+      <div style={{ display: "flex", gap: 20, alignItems: "flex-start", marginBottom: 14 }}>
+
+        {/* Ring SVG — compact 100px */}
+        <svg width={SZ} height={SZ} viewBox={"0 0 " + SZ + " " + SZ} style={{ flexShrink: 0 }}>
+          <defs>
+            <filter id="v2-shadow" x="-80%" y="-80%" width="260%" height="260%">
+              <feDropShadow dx="0" dy="0" stdDeviation="2.5" floodColor="rgba(0,0,0,0.9)" />
+            </filter>
+          </defs>
+          {ringProjs.length === 0 ? (
+            <circle cx={cx} cy={cy} r={baseR} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={RW} />
+          ) : ringProjs.map((proj, i) => {
+            const r = baseR - i * (RW + GAP);
+            if (r < RW / 2) return null;
+            const dailySecs = (proj.hoursPerWeek || 0) * ((pdw[proj.id] || DEFAULT_W)[todayDowIdx] || 0.2) * 3600;
+            const prog = Math.min(1, dailySecs > 60 ? proj.todaySecs / dailySecs : 0);
+            const col = ringCol(proj, prog);
+            const circ = 2 * Math.PI * r;
+            const tipA = -Math.PI / 2 + prog * 2 * Math.PI;
+            return (
+              <g key={proj.id}>
+                <circle cx={cx} cy={cy} r={r} fill="none" stroke={col} strokeWidth={RW} opacity={0.1} />
+                {prog > 0.005 && (
+                  <circle cx={cx} cy={cy} r={r} fill="none" stroke={col} strokeWidth={RW}
+                    strokeLinecap="butt" strokeDasharray={circ} strokeDashoffset={circ * (1 - prog)}
+                    transform={"rotate(-90 " + cx + " " + cy + ")"} />
+                )}
+                {prog > 0.005 && <circle cx={cx} cy={cy - r} r={RW / 2} fill={col} />}
+                {prog > 0.02 && prog < 0.999 && (
+                  <circle cx={cx + r * Math.cos(tipA)} cy={cy + r * Math.sin(tipA)} r={RW / 2} fill={col} filter="url(#v2-shadow)" />
+                )}
+              </g>
+            );
+          })}
+          <text x={cx} y={cy - 3} textAnchor="middle"
+            fill={topProg >= 0.7 ? "#10b981" : topProg >= 0.4 ? "#f59e0b" : topProg > 0 ? "#d6324a" : "var(--text)"}
+            fontSize={11} fontWeight={700} fontFamily="'JetBrains Mono',monospace">
+            {Math.round(topProg * 100)}%
+          </text>
+          <text x={cx} y={cy + 9} textAnchor="middle" fill="var(--text-faint)" fontSize={7} fontFamily="'Inter',sans-serif" letterSpacing="1.5">HEUTE</text>
+        </svg>
+
+        {/* Stats: compact table */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {tableProjs.length === 0 ? (
+            <div style={{ fontSize: 11, color: "var(--text-faint)", fontStyle: "italic", paddingTop: 8 }}>Noch keine Projekte mit Wochenstunden.</div>
+          ) : (
+            <>
+              {/* Column headers */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 40px 40px", gap: "0 8px", paddingBottom: 5, borderBottom: "1px solid var(--line-soft)", marginBottom: 4 }}>
+                <div />
+                {[["SOLL","IST"]].map(([a,b]) => (
+                  <React.Fragment key={a}>
+                    <div style={{ fontSize: 7, letterSpacing: "0.1em", fontWeight: 700, color: "var(--text-faint)", textAlign: "right", lineHeight: 1.4 }}>HEUTE<br/>SOLL</div>
+                    <div style={{ fontSize: 7, letterSpacing: "0.1em", fontWeight: 700, color: "var(--text-faint)", textAlign: "right", lineHeight: 1.4 }}>HEUTE<br/>IST</div>
+                  </React.Fragment>
+                ))}
+              </div>
+              {tableProjs.map((proj, i, arr) => {
+                const dailyT = (proj.hoursPerWeek || 0) * ((pdw[proj.id] || DEFAULT_W)[todayDowIdx] || 0.2);
+                const ist = proj.todaySecs / 3600;
+                const ok = ist >= dailyT - 0.05;
+                return (
+                  <div key={proj.id} style={{
+                    display: "grid", gridTemplateColumns: "1fr 40px 40px", gap: "0 8px",
+                    alignItems: "center", padding: "5px 0",
+                    borderBottom: i < arr.length - 1 ? "1px solid var(--line-soft)" : "none",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
+                      <div style={{ width: 5, height: 5, borderRadius: "50%", background: proj.color, flexShrink: 0 }} />
+                      <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.title}</span>
+                    </div>
+                    <div className="mono" style={{ fontSize: 10, color: "var(--text-faint)", textAlign: "right" }}>{dailyT.toFixed(1)}h</div>
+                    <div className="mono" style={{ fontSize: 10, fontWeight: 700, color: ok ? proj.color : "var(--text)", textAlign: "right" }}>{ist.toFixed(1)}h</div>
+                  </div>
+                );
+              })}
+            </>
+          )}
+
+          {/* IGNORANCE DEBT — compact status row */}
+          <div style={{
+            marginTop: 12, padding: "8px 12px",
+            background: debtOk ? "rgba(16,185,129,0.08)" : "rgba(214,50,74,0.08)",
+            borderLeft: "3px solid " + (debtOk ? "#10b981" : "#d6324a"),
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+          }}>
+            <span style={{ fontSize: 8.5, letterSpacing: "0.14em", fontWeight: 700, color: "var(--text-faint)" }}>IGNORANCE DEBT</span>
+            <span className="mono" style={{ fontSize: 15, fontWeight: 800, color: debtOk ? "#10b981" : "#d6324a" }}>
+              {debtOk ? "+" : "−"}{Math.abs(debtSoFar).toFixed(1)}h
+            </span>
+            <span style={{ fontSize: 8.5, fontWeight: 700, color: debtOk ? "#10b981" : "#d6324a", letterSpacing: "0.1em" }}>
+              {debtOk ? "AUF KURS" : "HINTER PLAN"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Truth Loop Chart — full width, fixed height ── */}
+      <div style={{ borderTop: "1px solid var(--line-soft)", paddingTop: 14 }}>
+        <div style={{ fontSize: 8, letterSpacing: "0.14em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 8, display: "flex", gap: 12, alignItems: "center" }}>
+          <span>TRUTH LOOP · Plan vs. Realität</span>
+          <span style={{ display: "flex", gap: 8 }}>
+            {[["var(--text-dim)", "Plan"], ["rgba(214,50,74,0.85)", "Ist"]].map(([c, l]) => (
+              <span key={l} style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                <span style={{ display: "inline-block", width: 8, height: 2, background: c }} />
+                <span style={{ fontSize: 7.5, color: "var(--text-faint)" }}>{l}</span>
+              </span>
+            ))}
+          </span>
+        </div>
+        <svg viewBox={"0 0 " + CW + " " + CH} style={{ width: "100%", height: CH, display: "block" }}>
+          {[0, 2, 4].map(v => {
+            if (v > maxChart) return null;
+            const y = pT + iH - (v / maxChart) * iH;
+            return (
+              <g key={v}>
+                <text x={2} y={y + 3} fontSize="6.5" fill="var(--text-faint)" fontFamily="JetBrains Mono,monospace">{v}h</text>
+                <line x1={pL} x2={CW - pR} y1={y} y2={y} stroke="var(--line-soft)" strokeWidth="0.5" />
+              </g>
+            );
+          })}
+          {DAYS_LABEL.map((day, i) => {
+            const x = pL + i * (bw + bGap);
+            const ph = (planPerDay[i] / maxChart) * iH;
+            const rh = (realityPerDay[i] / maxChart) * iH;
+            const isToday = i === todayDowIdx;
+            const isFuture = i > todayDowIdx;
+            return (
+              <g key={i}>
+                {planPerDay[i] > realityPerDay[i] && !isFuture && (
+                  <rect x={x} y={pT + iH - ph} width={bw} height={Math.max(0, ph - rh)} fill="rgba(214,50,74,0.1)" />
+                )}
+                {realityPerDay[i] > 0 && (
+                  <rect x={x} y={pT + iH - rh} width={bw} height={rh} fill="rgba(214,50,74,0.5)" />
+                )}
+                <rect x={x} y={pT + iH - Math.max(ph, 0.5)} width={bw} height={Math.max(ph, 0.5)}
+                  fill="transparent"
+                  stroke={isToday ? "var(--accent)" : isFuture ? "rgba(255,255,255,0.12)" : "var(--text-dim)"}
+                  strokeWidth={isToday ? 1.5 : 0.8}
+                  strokeDasharray={isFuture ? "3 2" : "none"} />
+                <text x={x + bw / 2} y={CH - 3} fontSize="6.5" textAnchor="middle"
+                  fill={isToday ? "var(--accent)" : "var(--text-faint)"}
+                  fontFamily="JetBrains Mono,monospace" fontWeight={isToday ? 700 : 400}>{day}</text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
 function DashboardV2({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTimes, tickActive, setRoute,
                       krProgress, setKrProgress, taskNotes, setTaskNotes, truthPlan, setTruthPlan,
                       inbox, setInbox, onOpenTask }) {
@@ -1108,7 +1352,7 @@ function DashboardV2({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
         <div style={{ flex: "0 0 40%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
           <BehaviorStrip />
           <div style={{ flex: 1, overflowY: "auto", borderTop: "1px solid var(--line)" }}>
-            <StatsPanel taskTimes={taskTimes} pov={pov} />
+            <V2StatsPanel taskTimes={taskTimes} pov={pov} />
           </div>
         </div>{/* end right column */}
         </div>{/* end two-column row */}
