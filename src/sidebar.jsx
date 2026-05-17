@@ -746,6 +746,29 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
             {/* ── SYSTEM ── */}
             {activeTab === "system" && renderSection("System",
               <div>
+                {renderRow("Erscheinungsbild", "Dark, Light oder Systemeinstellung folgen.",
+                  <div style={{ display:"flex", gap:0, background:"var(--bg)", border:"1px solid var(--line)", borderRadius:6, padding:3 }}>
+                    {[["dark","Dunkel"],["light","Hell"],["system","System"]].map(function(pair) {
+                      var id = pair[0], label = pair[1];
+                      var cur = localStorage.getItem("lifeos_theme") || "dark";
+                      var active = cur === id;
+                      return (
+                        <button key={id} onClick={function() {
+                          window.__applyTheme && window.__applyTheme(id);
+                          // force re-render via a harmless state update trick
+                          setActiveTab(function(t) { return t; });
+                        }} style={{
+                          flex:1, padding:"7px 0", borderRadius:4, border:"none", cursor:"pointer",
+                          background: active ? "var(--panel)" : "transparent",
+                          color: active ? "var(--text)" : "var(--text-faint)",
+                          fontSize:11, fontWeight: active ? 700 : 500, letterSpacing:"0.08em",
+                          fontFamily:"inherit", transition:"all .15s",
+                          boxShadow: active ? "0 1px 4px rgba(0,0,0,0.15)" : "none",
+                        }}>{label}</button>
+                      );
+                    })}
+                  </div>
+                )}
                 {renderRow("Tutorial", "Setzt den Onboarding-Fortschritt zurück und startet das Tutorial neu.",
                   <button onClick={() => { LS.removeItem("lifeos_tutorial_done"); window.location.reload(); }} style={{
                     width: "100%", padding: "9px 0", background: "transparent",

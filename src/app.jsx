@@ -491,6 +491,18 @@ function App() {
   React.useEffect(() => { LS.setItem("lifeos_task_notes", JSON.stringify(taskNotes)); }, [taskNotes]);
   React.useEffect(() => { LS.setItem("lifeos_truth_plan", JSON.stringify(truthPlan)); }, [truthPlan]);
 
+  // Listen for OS-level dark/light changes when user chose "system"
+  React.useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: light)");
+    const handler = () => {
+      if ((localStorage.getItem("lifeos_theme") || "dark") === "system") {
+        window.__applyTheme && window.__applyTheme("system");
+      }
+    };
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   // Apply the per-POV theme on mount and whenever POV / accent tweak changes.
   React.useEffect(() => {
     let override = null;

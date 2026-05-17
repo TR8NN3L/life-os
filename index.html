@@ -71,6 +71,32 @@
     color: var(--text-faint);
     font-weight: 600;
   }
+  /* ── Light mode overrides ──────────────────────────────────────────────── */
+  [data-theme="light"] {
+    --bg: #f2f2f5;
+    --panel: #ffffff;
+    --panel-2: #ebebef;
+    --line: #d8d8e2;
+    --line-soft: #e4e4ec;
+    --text: #111116;
+    --text-dim: #4a4a58;
+    --text-faint: #8f8fa0;
+    --accent-soft: rgba(16, 185, 129, 0.10);
+    --accent-line: rgba(16, 185, 129, 0.30);
+    --personal-soft: rgba(16, 185, 129, 0.10);
+    --personal-line: rgba(16, 185, 129, 0.30);
+    --founder-soft: rgba(47, 139, 255, 0.10);
+    --founder-line: rgba(47, 139, 255, 0.30);
+    --student-soft: rgba(214, 50, 74, 0.10);
+    --student-line: rgba(214, 50, 74, 0.30);
+    --athlete-soft: rgba(6, 148, 101, 0.10);
+    --athlete-line: rgba(6, 148, 101, 0.30);
+    --danger-soft: rgba(214, 50, 74, 0.10);
+    --warn-soft: rgba(212, 162, 60, 0.10);
+    --good-soft: rgba(58, 171, 91, 0.10);
+  }
+  [data-theme="light"] ::-webkit-scrollbar-thumb { background: #c8c8d4; }
+  [data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #b0b0c0; }
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: #2a2a32; border-radius: 5px; border: 2px solid var(--bg); }
@@ -92,6 +118,26 @@
 </head>
 <body>
   <div id="root"></div>
+
+  <!-- Theme init — runs synchronously before React to prevent flash of wrong theme -->
+  <script>
+    (function() {
+      var stored = localStorage.getItem("lifeos_theme") || "dark";
+      var effective = stored;
+      if (stored === "system") {
+        effective = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+      }
+      if (effective === "light") document.documentElement.setAttribute("data-theme", "light");
+      // expose helper for React components
+      window.__applyTheme = function(mode) {
+        localStorage.setItem("lifeos_theme", mode);
+        var eff = mode;
+        if (mode === "system") eff = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        if (eff === "light") document.documentElement.setAttribute("data-theme", "light");
+        else document.documentElement.removeAttribute("data-theme");
+      };
+    })();
+  </script>
 
   <!-- PostHog Analytics — GDPR: init always (stub methods available), opt-out by default -->
   <script>
@@ -128,20 +174,20 @@
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
-  <script type="text/babel" src="tweaks-panel.jsx?v=20260517j"></script>
-  <script type="text/babel" src="src/data.jsx?v=20260517j"></script>
-  <script type="text/babel" src="src/primitives.jsx?v=20260517j"></script>
-  <script type="text/babel" src="src/sidebar.jsx?v=20260517j"></script>
-  <script type="text/babel" src="src/dashboard-v2.jsx?v=20260517j"></script>
-  <script type="text/babel" src="src/focus.jsx?v=20260517j"></script>
-  <script type="text/babel" src="src/okr-wizard.jsx?v=20260517j"></script>
-  <script type="text/babel" src="src/mission-control.jsx?v=20260517j"></script>
-  <script type="text/babel" src="src/planner.jsx?v=20260517j"></script>
-  <script type="text/babel" src="src/insights.jsx?v=20260517j"></script>
-  <script type="text/babel" src="src/onboarding.jsx?v=20260517j"></script>
-  <script type="text/babel" src="src/paywall.jsx?v=20260517j"></script>
-  <script type="text/babel" src="src/tutorial.jsx?v=20260517j"></script>
-  <script type="text/babel" src="src/inbox.jsx?v=20260517j"></script>
-  <script type="text/babel" src="src/app.jsx?v=20260517j"></script>
+  <script type="text/babel" src="tweaks-panel.jsx?v=20260517k"></script>
+  <script type="text/babel" src="src/data.jsx?v=20260517k"></script>
+  <script type="text/babel" src="src/primitives.jsx?v=20260517k"></script>
+  <script type="text/babel" src="src/sidebar.jsx?v=20260517k"></script>
+  <script type="text/babel" src="src/dashboard-v2.jsx?v=20260517k"></script>
+  <script type="text/babel" src="src/focus.jsx?v=20260517k"></script>
+  <script type="text/babel" src="src/okr-wizard.jsx?v=20260517k"></script>
+  <script type="text/babel" src="src/mission-control.jsx?v=20260517k"></script>
+  <script type="text/babel" src="src/planner.jsx?v=20260517k"></script>
+  <script type="text/babel" src="src/insights.jsx?v=20260517k"></script>
+  <script type="text/babel" src="src/onboarding.jsx?v=20260517k"></script>
+  <script type="text/babel" src="src/paywall.jsx?v=20260517k"></script>
+  <script type="text/babel" src="src/tutorial.jsx?v=20260517k"></script>
+  <script type="text/babel" src="src/inbox.jsx?v=20260517k"></script>
+  <script type="text/babel" src="src/app.jsx?v=20260517k"></script>
 </body>
 </html>
