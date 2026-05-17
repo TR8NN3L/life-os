@@ -51,8 +51,8 @@ function applyPovTheme(pov, accentOverride) {
   root.setProperty("--accent", accent);
   root.setProperty("--" + pov, accent);
   const { r, g, b } = hexToRgb(accent);
-  const alphaHigh = getEffectiveTheme() === "light" ? "0.10" : "0.12";
-  const alphaLow  = getEffectiveTheme() === "light" ? "0.28" : "0.35";
+  const alphaHigh = getEffectiveTheme() === "light" ? "0.18" : "0.12";
+  const alphaLow  = getEffectiveTheme() === "light" ? "0.42" : "0.35";
   root.setProperty("--accent-soft", `rgba(${r},${g},${b},${alphaHigh})`);
   root.setProperty("--accent-line", `rgba(${r},${g},${b},${alphaLow})`);
 }

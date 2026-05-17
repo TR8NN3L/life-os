@@ -84,7 +84,7 @@ function ActivityRings({ pov, taskTimes }) {
             return (
               <g key={proj.id}>
                 {/* Track: color-tinted dark background */}
-                <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color} strokeWidth={RING_W} opacity={0.12} />
+                <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color} strokeWidth={RING_W} opacity={0.22} />
                 {/* Progress arc (butt caps — manual rounded caps below) */}
                 {clampProg > 0.005 && (
                   <circle cx={cx} cy={cy} r={r} fill="none" stroke={proj.color}
@@ -404,7 +404,7 @@ function V2StatsPanel({ taskTimes, pov }) {
             const tipA = -Math.PI / 2 + prog * 2 * Math.PI;
             return (
               <g key={proj.id}>
-                <circle cx={cx} cy={cy} r={r} fill="none" stroke={col} strokeWidth={RW} opacity={0.1} />
+                <circle cx={cx} cy={cy} r={r} fill="none" stroke={col} strokeWidth={RW} opacity={0.22} />
                 {prog > 0.005 && (
                   <circle cx={cx} cy={cy} r={r} fill="none" stroke={col} strokeWidth={RW}
                     strokeLinecap="butt" strokeDasharray={circ} strokeDashoffset={circ * (1 - prog)}
@@ -466,7 +466,7 @@ function V2StatsPanel({ taskTimes, pov }) {
           {/* IGNORANCE DEBT — compact status row */}
           <div style={{
             marginTop: 12, padding: "8px 12px",
-            background: debtOk ? "rgba(16,185,129,0.08)" : "rgba(214,50,74,0.08)",
+            background: debtOk ? "var(--good-soft)" : "var(--danger-soft)",
             borderLeft: "3px solid " + (debtOk ? "#10b981" : "#d6324a"),
             display: "flex", alignItems: "center", justifyContent: "space-between",
           }}>
@@ -514,7 +514,7 @@ function V2StatsPanel({ taskTimes, pov }) {
             return (
               <g key={i}>
                 {planPerDay[i] > realityPerDay[i] && !isFuture && (
-                  <rect x={x} y={pT + iH - ph} width={bw} height={Math.max(0, ph - rh)} fill="rgba(214,50,74,0.1)" />
+                  <rect x={x} y={pT + iH - ph} width={bw} height={Math.max(0, ph - rh)} fill="rgba(214,50,74,0.22)" />
                 )}
                 {realityPerDay[i] > 0 && (
                   <rect x={x} y={pT + iH - rh} width={bw} height={rh} fill="rgba(214,50,74,0.5)" />
@@ -2115,7 +2115,7 @@ function StatsPanel({ taskTimes, pov }) {
 
         {/* ── Ignorance Debt ── */}
         <div style={{
-          background: debtOk ? "var(--good-soft)" : "rgba(214,50,74,0.12)",
+          background: debtOk ? "var(--good-soft)" : "var(--danger-soft)",
           border: `1px solid ${debtOk ? "var(--good)" : "var(--danger)"}`,
           color: debtOk ? "var(--good)" : "var(--danger)",
           padding: "12px 14px", textAlign: "center",
@@ -2168,7 +2168,7 @@ function StatsPanel({ taskTimes, pov }) {
             return (
               <g key={i}>
                 {planPerDay[i] > realityPerDay[i] && !isFuture && (
-                  <rect x={x} y={py} width={bw} height={Math.max(0, ph - rh)} fill="rgba(214,50,74,0.12)" />
+                  <rect x={x} y={py} width={bw} height={Math.max(0, ph - rh)} fill="rgba(214,50,74,0.22)" />
                 )}
                 {realityPerDay[i] > 0 && (
                   <rect x={x} y={ry} width={bw} height={rh} fill="rgba(214,50,74,0.55)" stroke="rgba(214,50,74,0.75)" strokeWidth={0.8} />
