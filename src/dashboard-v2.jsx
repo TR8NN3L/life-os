@@ -243,37 +243,48 @@ function HeroBar({ taskTimes, pov, setRoute }) {
   }
 
   const statBox = (label, value, color, sub) => (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "0 24px", borderRight: "1px solid var(--line)" }}>
-      <div style={{ fontSize: 8.5, letterSpacing: "0.18em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 2 }}>{label}</div>
-      <div className="mono" style={{ fontSize: 22, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
-      {sub && <div style={{ fontSize: 8, letterSpacing: "0.12em", color, marginTop: 2 }}>{sub}</div>}
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "0 36px", borderRight: "1px solid var(--line)" }}>
+      <div style={{ fontSize: 9, letterSpacing: "0.18em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 4 }}>{label}</div>
+      <div className="mono" style={{ fontSize: 32, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
+      {sub && <div style={{ fontSize: 9, letterSpacing: "0.14em", color, marginTop: 4, fontWeight: 700 }}>{sub}</div>}
     </div>
   );
 
+  // Today's date label
+  const todayLabel = (() => {
+    const n = new Date();
+    const DAYS = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+    const MONTHS = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+    return `${DAYS[n.getDay()]}, ${n.getDate()}. ${MONTHS[n.getMonth()]}`;
+  })();
+
   return (
     <div style={{
-      display: "flex", alignItems: "center", gap: 0,
-      background: "var(--panel)", borderBottom: "2px solid var(--line)",
-      padding: "10px 0", flexShrink: 0,
+      display: "flex", alignItems: "stretch", gap: 0,
+      background: "var(--panel)", borderBottom: "2px solid var(--accent)",
+      padding: "0", flexShrink: 0, minHeight: 80,
     }}>
-      <div style={{ paddingLeft: 20, paddingRight: 24, borderRight: "1px solid var(--line)" }}>
-        <div style={{ fontSize: 8, letterSpacing: "0.2em", fontWeight: 700, color: "var(--accent)", marginBottom: 1 }}>FLOW OS V2</div>
-        <div style={{ fontSize: 9.5, color: "var(--text-faint)", letterSpacing: "0.1em" }}>WEEKLY DASHBOARD</div>
+      {/* Brand block */}
+      <div style={{
+        display: "flex", flexDirection: "column", justifyContent: "center",
+        paddingLeft: 28, paddingRight: 36, borderRight: "1px solid var(--line)",
+        minWidth: 160,
+      }}>
+        <div style={{ fontSize: 9, letterSpacing: "0.22em", fontWeight: 700, color: "var(--accent)", marginBottom: 3 }}>FLOW OS V2</div>
+        <div style={{ fontSize: 11, color: "var(--text)", fontWeight: 600, letterSpacing: "0.06em" }}>{todayLabel}</div>
       </div>
+      {/* SAY-DO */}
       {statBox("SAY-DO SCORE", sayDoScore !== null ? `${sayDoScore}%` : "–", sayDoColor, sayDoLabel)}
+      {/* STREAK */}
       {statBox("STREAK", `${streak}d`, streak >= 7 ? "#f59e0b" : streak >= 3 ? "#10b981" : "var(--text-faint)", streak >= 7 ? "FIRE" : streak >= 1 ? "GOING" : "START")}
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "0 24px", borderRight: "1px solid var(--line)" }}>
-        <div style={{ fontSize: 8.5, letterSpacing: "0.18em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 2 }}>IGNORANCE DEBT</div>
-        <div className="mono" style={{ fontSize: 22, fontWeight: 800, color: debtOk ? "#10b981" : "#d6324a", lineHeight: 1 }}>
-          {debtOk ? "0.0h" : `${"-"}${debtSoFar.toFixed(1)}h`}
-        </div>
-        <div style={{ fontSize: 8, letterSpacing: "0.12em", color: debtOk ? "#10b981" : "#d6324a", marginTop: 2 }}>{debtOk ? "CLEAN" : "BEHIND"}</div>
-      </div>
+      {/* Spacer + FOCUS button */}
       <div style={{ flex: 1 }} />
-      <button onClick={() => setRoute("focus")} style={{
-        marginRight: 20, padding: "8px 20px", background: "var(--accent)", color: "#0a0a0c",
-        border: "none", fontWeight: 800, fontSize: 11, letterSpacing: "0.18em", cursor: "pointer",
-      }}>FOCUS {"→"}</button>
+      <div style={{ display: "flex", alignItems: "center", paddingRight: 28 }}>
+        <button onClick={() => setRoute("focus")} style={{
+          padding: "12px 28px", background: "var(--accent)", color: "#0a0a0c",
+          border: "none", fontWeight: 800, fontSize: 12, letterSpacing: "0.2em", cursor: "pointer",
+        }}>FOCUS {"→"}</button>
+      </div>
     </div>
   );
 }
@@ -762,12 +773,13 @@ function DashboardV2({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--bg)" }}>
       {trialBanner}
+
+      {/* V2: Hero Bar — full width, above everything */}
+      <HeroBar taskTimes={taskTimes} pov={pov} setRoute={setRoute} />
+
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
       {renderAnchor()}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-
-        {/* V2: Hero Bar */}
-        <HeroBar taskTimes={taskTimes} pov={pov} setRoute={setRoute} />
 
         {/* V2: Two-column layout */}
         <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
@@ -807,27 +819,12 @@ function DashboardV2({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
                   {active ? active.sub : "Tippe START bei einer Aufgabe unten."}
                 </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 {debt > 0.05 && (
-                  <div style={{ background: "var(--danger-soft)", border: "1px solid var(--danger)", padding: "8px 14px", textAlign: "center" }}>
-                    <div style={{ fontSize: 8.5, letterSpacing: "0.16em", fontWeight: 700, color: "var(--danger)", marginBottom: 2 }}>IGNORANCE DEBT</div>
-                    <div className="mono" style={{ fontSize: 20, fontWeight: 700, color: "var(--danger)" }}>{"−"}{debt.toFixed(1)}h</div>
+                  <div style={{ fontSize: 11, color: "var(--danger)", fontWeight: 700, letterSpacing: "0.08em" }}>
+                    {"−"}{debt.toFixed(1)}h hinter Plan
                   </div>
                 )}
-                {debt <= 0.05 && (
-                  <div style={{ background: "var(--good-soft)", border: "1px solid var(--good)", padding: "8px 14px", textAlign: "center" }}>
-                    <div style={{ fontSize: 8.5, letterSpacing: "0.16em", fontWeight: 700, color: "var(--good)", marginBottom: 2 }}>IGNORANCE DEBT</div>
-                    <div className="mono" style={{ fontSize: 20, fontWeight: 700, color: "var(--good)" }}>0.0h {"✓"}</div>
-                  </div>
-                )}
-                <button
-                  onClick={() => setRoute("focus")}
-                  style={{
-                    padding: "12px 22px", background: "var(--accent)", color: "#0a0a0c",
-                    border: "none", fontWeight: 700, fontSize: 12, letterSpacing: "0.18em",
-                    cursor: "pointer",
-                  }}
-                >FOCUS {"→"}</button>
               </div>
             </div>
           );
