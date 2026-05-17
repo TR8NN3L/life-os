@@ -862,6 +862,37 @@ function DashboardV2({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
   const elapsedFor = (t) => taskTimes[t.id] ?? t.elapsed;
   const krOverrides = (() => { try { return JSON.parse(LS.getItem("lifeos_task_kr_overrides") || "{}"); } catch { return {}; } })();
 
+  // ── Space-to-Start: Leertaste startet/pausiert den ersten offenen Task ───
+  React.useEffect(() => {
+    const handler = (e) => {
+      // ignore wenn Eingabefeld fokussiert
+      const tag = document.activeElement?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.code !== "Space") return;
+      e.preventDefault();
+      if (activeTaskId) {
+        // Timer läuft → pausieren
+        setActiveTaskId(null);
+      } else {
+        // Ersten offenen Task starten
+        const first = filteredTasks[0];
+        if (first) { setActiveTaskId(first.id); setRoute("focus"); }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [activeTaskId, filteredTasks]);
+
+  // ── Live-Elapsed für den aktiven Task (1s Tick) ──────────────────────────
+  const [liveSecs, setLiveSecs] = React.useState(0);
+  React.useEffect(() => {
+    if (!activeTaskId) { setLiveSecs(0); return; }
+    const base = taskTimes[activeTaskId] ?? active?.elapsed ?? 0;
+    setLiveSecs(base);
+    const iv = setInterval(() => setLiveSecs(s => s + 1), 1000);
+    return () => clearInterval(iv);
+  }, [activeTaskId]);
+
   // Projects → Objectives → KRs — three-level accordion
   const renderAnchor = () => {
     const projects = loadProjectsGrouped(pov);
@@ -1078,7 +1109,54 @@ function DashboardV2({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
         })()}
 
         {/* Tasks — scrollable middle section */}
-        <div data-tutorial="task-list" style={{ flex: 1, overflowY: "auto" }}>
+        <div data-tutorial="task-list" style={{ flex: 1, overflowY: "auto", position: "relative" }}>
+
+        {/* ── Sticky Active Task Banner ── */}
+        {active && (
+          <div style={{
+            position: "sticky", top: 0, zIndex: 50,
+            background: "var(--bg)", borderBottom: "2px solid var(--accent)",
+            borderLeft: "4px solid var(--accent)",
+            padding: "14px 28px",
+            display: "flex", alignItems: "center", gap: 16,
+            boxShadow: "0 4px 24px rgba(0,0,0,0.55)",
+          }}>
+            {/* Pulsing dot */}
+            <span style={{
+              width: 8, height: 8, borderRadius: "50%", background: "var(--accent)", flexShrink: 0,
+              boxShadow: "0 0 10px var(--accent)", animation: "lifeosPulse 1.5s ease-in-out infinite",
+            }} />
+            {/* Task info */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 9, letterSpacing: "0.16em", fontWeight: 700, color: "var(--accent)", marginBottom: 2 }}>
+                JETZT AKTIV — {["LEERTASTE", "SPACE"].includes("SPACE") ? "LEERTASTE zum Pausieren" : ""}
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {active.title}
+              </div>
+            </div>
+            {/* Live timer */}
+            <div className="mono" style={{ fontSize: 22, fontWeight: 800, color: "var(--accent)", letterSpacing: "0.04em", flexShrink: 0 }}>
+              {(() => {
+                const s = liveSecs;
+                const h = Math.floor(s / 3600);
+                const m = Math.floor((s % 3600) / 60);
+                const sec = s % 60;
+                return (h > 0 ? String(h).padStart(2,"0") + ":" : "") +
+                  String(m).padStart(2,"0") + ":" + String(sec).padStart(2,"0");
+              })()}
+            </div>
+            {/* Pause button */}
+            <button
+              onClick={() => setActiveTaskId(null)}
+              style={{
+                padding: "8px 18px", background: "var(--accent)", color: "#0a0a0c",
+                border: "none", fontWeight: 800, fontSize: 10, letterSpacing: "0.18em",
+                cursor: "pointer", flexShrink: 0,
+              }}
+            >PAUSE ▌▌</button>
+          </div>
+        )}
 
         {/* Tasks today */}
         <div style={{ padding: "20px 28px 8px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
