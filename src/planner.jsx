@@ -1053,10 +1053,6 @@ function Planner() {
             <Icon name="sliders" size={13} strokeWidth={2} />
             TAGE VERTEILEN
           </button>
-          <button onClick={()=>{ if(window.checkFreeLimit && !window.checkFreeLimit("mission_gen")){ window.triggerUpgrade?.("mission_gen"); return; } setShowMissionGen(true); }} style={{ padding:"9px 16px", background:"transparent", color:"var(--accent)", border:"1px solid var(--accent-line)", fontSize:10.5, fontWeight:700, letterSpacing:"0.16em", cursor:"pointer", display:"flex", alignItems:"center", gap:7 }}>
-            <Icon name="wand" size={13} color="var(--accent)" strokeWidth={2} />
-            MISSIONS-GENERATOR
-          </button>
           <button onClick={()=>openAdd()} style={{ padding:"9px 16px", background:"var(--accent)", color:"#0a0a0c", border:"none", fontSize:10.5, fontWeight:700, letterSpacing:"0.16em", cursor:"pointer", display:"flex", alignItems:"center", gap:7 }}>
             <Icon name="plus" size={13} color="#0a0a0c" strokeWidth={2.5} />
             BLOCK
@@ -1105,7 +1101,7 @@ function Planner() {
       <div style={{ flex:1, display:"grid", gridTemplateColumns:"360px 1fr", overflow:"hidden" }}>
 
         {/* ── Left: Time grid ─────────────────────────────────────────────── */}
-        <div data-grid-scroll="" style={{ borderRight:"1px solid var(--line)", overflowY:"auto", overflowX:"hidden", position:"relative" }}>
+        <div data-grid-scroll="" onClick={()=>setSelBlockId(null)} style={{ borderRight:"1px solid var(--line)", overflowY:"auto", overflowX:"hidden", position:"relative" }}>
 
           {/* Sticky header */}
           <div style={{ position:"sticky", top:0, zIndex:20, background:"var(--panel)", borderBottom:"1px solid var(--line-soft)", padding:"10px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
@@ -1317,6 +1313,49 @@ function Planner() {
 
                   <div style={{ marginTop:4, padding:"10px 14px", background:"var(--panel)", border:"1px solid var(--line-soft)", fontSize:11, color:"var(--text-faint)", textAlign:"center" }}>
                     Block auswählen → Tasks zuteilen
+                  </div>
+                </div>
+              )}
+
+              {/* ── Tagesbudget Strip ── */}
+              {distProjs.length > 0 && (
+                <div style={{ marginTop:24 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+                    <div className="uppercase-label">Tagesbudget</div>
+                    <span style={{ fontSize:9, color:"var(--text-faint)", fontFamily:"'JetBrains Mono',monospace" }}>
+                      {DAY_KEYS[selDay]} {dispWeek.days[selDay] && dispWeek.days[selDay].n}. {dispWeek.days[selDay] && dispWeek.days[selDay].monthShort}
+                    </span>
+                  </div>
+                  <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                    {distProjs.map(function(proj) {
+                      var w = getProjWeights(proj.id)[selDay];
+                      var hrs = proj.hoursPerWeek * w;
+                      if (hrs < 0.05) return null;
+                      var hrsLabel = hrs % 1 === 0 ? hrs.toFixed(0) + "h" : hrs.toFixed(1) + "h";
+                      return (
+                        <div key={proj.id} style={{ minWidth:0 }}>
+                          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                            <span style={{ fontSize:11, fontWeight:600, color:"var(--text)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{proj.title}</span>
+                            <span className="mono" style={{ fontSize:11, fontWeight:700, color:"var(--accent)", flexShrink:0, marginLeft:8 }}>{hrsLabel}</span>
+                          </div>
+                          <div style={{ height:3, background:"var(--line-soft)", overflow:"hidden" }}>
+                            <div style={{ height:"100%", width:(w*100)+"%", background:"var(--accent)", opacity:0.6, transition:"width .3s ease" }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div style={{ paddingTop:8, borderTop:"1px solid var(--line-soft)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <span style={{ fontSize:9.5, letterSpacing:"0.12em", fontWeight:700, color:"var(--text-faint)" }}>GESAMT</span>
+                      <span className="mono" style={{ fontSize:12, fontWeight:700, color:"var(--text)" }}>
+                        {planHoursPerDay[selDay] % 1 === 0 ? planHoursPerDay[selDay].toFixed(0) + "h" : planHoursPerDay[selDay].toFixed(1) + "h"}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ marginTop:10, display:"flex", justifyContent:"flex-end" }}>
+                    <button onClick={function(){setShowDistModal(true);}} style={{ background:"transparent", border:"1px solid var(--line)", color:"var(--text-faint)", fontSize:9, letterSpacing:"0.14em", fontWeight:700, cursor:"pointer", padding:"4px 10px", display:"flex", alignItems:"center", gap:5 }}>
+                      <Icon name="sliders" size={10} strokeWidth={2} />
+                      VERTEILEN
+                    </button>
                   </div>
                 </div>
               )}
