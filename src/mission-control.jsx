@@ -145,7 +145,7 @@ function GanttTimeline({ projects, allPovs, archivedIds, onBack }) {
                     var isOverdue = proj.deadline && proj.deadline < todayIso;
                     var barColor = isOverdue ? "var(--danger)" : povColor;
                     return (
-                      <div style={{ position:"absolute", left: barLeft + "%", width: barWidth + "%", top:"50%", transform:"translateY(-50%)", height:14, background:"rgba(255,255,255,0.06)", borderRadius:2, overflow:"hidden", border:"1px solid " + barColor + "55" }}>
+                      <div style={{ position:"absolute", left: barLeft + "%", width: barWidth + "%", top:"50%", transform:"translateY(-50%)", height:14, background:"var(--ring-track)", borderRadius:2, overflow:"hidden", border:"1px solid " + barColor + "55" }}>
                         <div style={{ width: (progress * 100) + "%", height:"100%", background:barColor, opacity:0.75, borderRadius:2, transition:"width .4s" }} />
                       </div>
                     );
@@ -178,7 +178,7 @@ function GanttTimeline({ projects, allPovs, archivedIds, onBack }) {
               <span style={{ fontSize:9, color:"var(--text-faint)", letterSpacing:"0.1em" }}>{"DEADLINE"}</span>
             </div>
             <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-              <div style={{ width:16, height:8, background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:2, overflow:"hidden" }}>
+              <div style={{ width:16, height:8, background:"var(--ring-track)", border:"1px solid var(--line)", borderRadius:2, overflow:"hidden" }}>
                 <div style={{ width:"60%", height:"100%", background:"var(--accent)", opacity:0.75 }} />
               </div>
               <span style={{ fontSize:9, color:"var(--text-faint)", letterSpacing:"0.1em" }}>{"FORTSCHRITT"}</span>
@@ -713,7 +713,7 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
                             gap: 16, padding: "13px 16px",
                             borderTop: freeDragOverIdx === _fi && freeDragIdx !== _fi ? "2px solid var(--accent)" : "none",
                             borderBottom: "1px solid var(--line-soft)",
-                            background: isActive ? "rgba(255,255,255,0.03)" : "transparent",
+                            background: isActive ? "var(--subtle-bg)" : "transparent",
                             opacity: isDone ? 0.4 : freeDragIdx === _fi ? 0.4 : 1,
                             cursor: "grab",
                           }}>
@@ -733,7 +733,7 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
                           <div>
                             {!t.kr
                               ? <span style={{ padding: "3px 10px", fontSize: 9.5, fontWeight: 700, color: "var(--warn)", border: "1px solid rgba(212,162,60,.4)", background: "var(--warn-soft)" }}>{"⚠ SIDE QUEST"}</span>
-                              : <span style={{ padding: "3px 10px", color: povColor, border: "1px solid rgba(255,255,255,0.15)", fontSize: 9.5, fontWeight: 700 }}>{"-> " + t.kr}</span>
+                              : <span style={{ padding: "3px 10px", color: povColor, border: "1px solid var(--line)", fontSize: 9.5, fontWeight: 700 }}>{"-> " + t.kr}</span>
                             }
                           </div>
                           <span className="mono" style={{ fontSize: 18, fontWeight: 500, color: isActive ? "var(--accent)" : "var(--text-faint)" }}>{fmtTime(elapsed)}</span>
@@ -760,7 +760,7 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
 
                     {/* Uebersprungen heute */}
                     {skippedFT.length > 0 && (
-                      <div style={{ borderTop: "1px solid var(--line-soft)", padding: "10px 16px", background: "rgba(255,255,255,0.01)" }}>
+                      <div style={{ borderTop: "1px solid var(--line-soft)", padding: "10px 16px", background: "var(--panel)" }}>
                         <div style={{ fontSize: 8.5, letterSpacing: "0.18em", fontWeight: 700, color: "var(--text-faint)", marginBottom: 8, opacity: 0.6 }}>{"UEBERSPRUNGEN HEUTE"}</div>
                         {skippedFT.map(function(t) {
                           return (
@@ -979,7 +979,7 @@ function MissionControl({ pov, setPov, taskTimes, setTaskTimes, activeTaskId, se
                     {/* + Projekt für diesen Main Quest */}
                     <div style={{
                       border: "1px solid var(--line-soft)", borderTop: "none",
-                      padding: "12px 24px", background: "rgba(255,255,255,0.01)",
+                      padding: "12px 24px", background: "var(--panel)",
                     }}>
                       <button
                         onClick={() => { setNewModalPov(povId); setShowNewModal(true); }}
@@ -1207,7 +1207,7 @@ function ProjectDetail({ proj, onBack, onOpenKR, taskTimes, setTaskTimes, active
 
               {/* Edit Modal */}
               {showEdit && (
-                <div onClick={() => setShowEdit(false)} style={{ position: "fixed", inset: 0, zIndex: 800, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div onClick={() => setShowEdit(false)} style={{ position: "fixed", inset: 0, zIndex: 800, background: "var(--modal-overlay)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <div onClick={e => e.stopPropagation()} style={{ width: 440, background: "var(--panel)", border: "1px solid var(--line)", padding: "28px 28px 24px" }}>
                     <div style={{ fontWeight: 700, fontSize: 11, letterSpacing: "0.18em", marginBottom: 24 }}>⚙ PROJEKT BEARBEITEN</div>
                     <div style={{ marginBottom: 18 }}>
@@ -1325,7 +1325,7 @@ function ProjectDetail({ proj, onBack, onOpenKR, taskTimes, setTaskTimes, active
                   <div key={t.id} style={{
                     display: "grid", gridTemplateColumns: "110px 18px 1fr auto auto auto",
                     alignItems: "center", gap: 14, padding: "12px 8px 12px 0",
-                    background: "rgba(255,255,255,0.012)", borderTop: "1px solid var(--line-soft)",
+                    background: "var(--subtle-bg)", borderTop: "1px solid var(--line-soft)",
                     opacity: isDone ? 0.4 : 1,
                   }}>
                     <span />
@@ -1362,7 +1362,7 @@ function ProjectDetail({ proj, onBack, onOpenKR, taskTimes, setTaskTimes, active
 
               {isOpen && !locked && (
                 addingToKR === kr.id ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 8px", borderTop: "1px solid var(--line-soft)", background: "rgba(255,255,255,0.012)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 8px", borderTop: "1px solid var(--line-soft)", background: "var(--subtle-bg)" }}>
                     <span style={{ width: 28 }} /><span style={{ width: 60 }} />
                     <input autoFocus value={newTaskTitle} onChange={e => setNewTaskTitle(e.target.value)}
                       onKeyDown={e => { if (e.key === "Enter") addTaskToKR(kr.id); if (e.key === "Escape") setAddingToKR(null); }}
@@ -1563,7 +1563,7 @@ function NewProjectModal({ onClose, onSave, defaultPov, defaultKRs }) {
   const canSave = name.trim() && objectives.some(o => o.title.trim());
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center" }}
+    <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "var(--modal-overlay)", display: "flex", alignItems: "center", justifyContent: "center" }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: "var(--panel)", border: "1px solid var(--line)", padding: "32px", width: 560, maxHeight: "88vh", overflowY: "auto", boxShadow: "0 0 60px rgba(0,0,0,0.6)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>

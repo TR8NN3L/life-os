@@ -37,7 +37,7 @@ function WeeklyBarChart({ days }) {
         var y = PAD.top + cH * (1 - v / scale);
         return (
           <g key={v}>
-            <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
+            <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="var(--chart-line)" strokeWidth={1} />
             <text x={PAD.left - 5} y={y + 3.5} textAnchor="end" fill="var(--text-faint)" fontSize={8.5} fontFamily="'JetBrains Mono',monospace">{v + "h"}</text>
           </g>
         );
@@ -47,7 +47,7 @@ function WeeklyBarChart({ days }) {
         var barH = Math.max(cH * (day.totalH / scale), day.totalH > 0 ? 2 : 0);
         var barX = x - barW / 2;
         var barY = PAD.top + cH - barH;
-        var col = day.isToday ? "var(--accent)" : day.isFuture ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.22)";
+        var col = day.isToday ? "var(--accent)" : day.isFuture ? "var(--chart-future)" : "var(--chart-past)";
         return (
           <g key={day.dateStr}>
             {day.totalH > 0 && (
@@ -106,7 +106,7 @@ function TruthLoopChart({ days, plan, reality }) {
       {yTicks.map(v => (
         <g key={v}>
           <line x1={PAD.left} y1={toY(v)} x2={W - PAD.right} y2={toY(v)}
-            stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
+            stroke="var(--chart-line)" strokeWidth={1} />
           <text x={PAD.left - 5} y={toY(v) + 3.5} textAnchor="end"
             fill="var(--text-faint)" fontSize={8.5} fontFamily="'JetBrains Mono',monospace">
             {v}h
@@ -310,7 +310,7 @@ function WeeklyReportModal({ onClose }) {
   }, [sayDo.pct]);
 
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:200, background:"rgba(0,0,0,0.82)", display:"flex", alignItems:"center", justifyContent:"center" }}
+    <div style={{ position:"fixed", inset:0, zIndex:200, background:"var(--modal-overlay)", display:"flex", alignItems:"center", justifyContent:"center" }}
       onClick={function(e) { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background:"var(--panel)", border:"1px solid var(--line)", width:"min(96vw,680px)", maxHeight:"90vh", overflowY:"auto", boxShadow:"0 0 80px rgba(0,0,0,0.6)" }}>
 
@@ -1122,7 +1122,7 @@ function BehaviorTracker() {
                       data-tutorial={h.id === "tutorial_habit_1" && isToday ? "tutorial-habit-checkbox" : undefined}
                       style={{
                       width: 24, height: 24, borderRadius: isToday ? 4 : "50%",
-                      border: `2px solid ${done ? getHabitColor(h) : isToday ? "var(--line)" : "rgba(255,255,255,0.08)"}`,
+                      border: `2px solid ${done ? getHabitColor(h) : isToday ? "var(--line)" : "var(--ring-track)"}`,
                       background: done ? getHabitColor(h) : "transparent",
                       cursor: "pointer", margin: "0 auto", display: "flex",
                       alignItems: "center", justifyContent: "center",

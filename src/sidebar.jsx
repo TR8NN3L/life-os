@@ -13,7 +13,7 @@ function PovModal({ initial, onSave, onDelete, onClose }) {
   return (
     <div onClick={onClose} style={{
       position: "fixed", inset: 0, zIndex: 500,
-      background: "rgba(0,0,0,0.6)",
+      background: "var(--modal-overlay)",
       display: "flex", alignItems: "center", justifyContent: "center",
     }}>
       <div onClick={e => e.stopPropagation()} style={{
@@ -223,7 +223,7 @@ function SettingsModal({ onClose, userName, setUserName, apiKey, setApiKey, push
   return (
     <div onClick={onClose} data-tutorial="settings-modal-container" style={{
       position: "fixed", inset: 0, zIndex: 600,
-      background: "rgba(0,0,0,0.7)",
+      background: "var(--modal-overlay)",
       display: "flex", alignItems: "center", justifyContent: "center",
     }}>
       <div onClick={e => e.stopPropagation()} data-tutorial="settings-modal" style={{
