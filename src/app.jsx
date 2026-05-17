@@ -24,24 +24,37 @@ function hexToRgb(hex) {
   };
 }
 
+function getEffectiveTheme() {
+  const stored = localStorage.getItem("lifeos_theme") || "dark";
+  if (stored === "system") return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  return stored;
+}
+
+const THEME_BASES = {
+  dark:  { bg:"#0a0a0c", panel:"#141418", panel2:"#1a1a20", line:"#26262d", lineSoft:"#1f1f25", text:"#e8e8ec", textDim:"#8a8a95", textFaint:"#54545d" },
+  light: { bg:"#f2f2f5", panel:"#ffffff",  panel2:"#ebebef", line:"#d8d8e2", lineSoft:"#e4e4ec", text:"#111116", textDim:"#4a4a58", textFaint:"#8f8fa0" },
+};
+
 function applyPovTheme(pov, accentOverride) {
   const t = POV_THEMES[pov] || POV_THEMES.personal;
   const accent = accentOverride || t.accent;
   const root = document.documentElement.style;
-  // Reset background/text to neutral defaults — only the accent moves with POV.
-  root.setProperty("--bg",         "#0a0a0c");
-  root.setProperty("--panel",      "#141418");
-  root.setProperty("--panel-2",    "#1a1a20");
-  root.setProperty("--line",       "#26262d");
-  root.setProperty("--line-soft",  "#1f1f25");
-  root.setProperty("--text",       "#e8e8ec");
-  root.setProperty("--text-dim",   "#8a8a95");
-  root.setProperty("--text-faint", "#54545d");
+  const base = THEME_BASES[getEffectiveTheme()];
+  root.setProperty("--bg",         base.bg);
+  root.setProperty("--panel",      base.panel);
+  root.setProperty("--panel-2",    base.panel2);
+  root.setProperty("--line",       base.line);
+  root.setProperty("--line-soft",  base.lineSoft);
+  root.setProperty("--text",       base.text);
+  root.setProperty("--text-dim",   base.textDim);
+  root.setProperty("--text-faint", base.textFaint);
   root.setProperty("--accent", accent);
   root.setProperty("--" + pov, accent);
   const { r, g, b } = hexToRgb(accent);
-  root.setProperty("--accent-soft", `rgba(${r},${g},${b},0.12)`);
-  root.setProperty("--accent-line", `rgba(${r},${g},${b},0.35)`);
+  const alphaHigh = getEffectiveTheme() === "light" ? "0.10" : "0.12";
+  const alphaLow  = getEffectiveTheme() === "light" ? "0.28" : "0.35";
+  root.setProperty("--accent-soft", `rgba(${r},${g},${b},${alphaHigh})`);
+  root.setProperty("--accent-line", `rgba(${r},${g},${b},${alphaLow})`);
 }
 
 function applyTweaks(t) {
@@ -502,6 +515,21 @@ function App() {
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, []);
+
+  // Re-apply POV theme (inline styles) whenever theme switches
+  React.useEffect(() => {
+    const handler = () => {
+      let override = null;
+      if (pov === "personal") override = tweaks.accent;
+      else {
+        const customPov = userPovs.find(p => p.id === pov);
+        if (customPov) override = customPov.color;
+      }
+      applyPovTheme(pov, override);
+    };
+    window.addEventListener("lifeos-theme-change", handler);
+    return () => window.removeEventListener("lifeos-theme-change", handler);
+  }, [pov, tweaks.accent, userPovs]);
 
   // Apply the per-POV theme on mount and whenever POV / accent tweak changes.
   React.useEffect(() => {
