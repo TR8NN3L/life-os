@@ -589,15 +589,7 @@ function DashboardV2({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
   const loadProjectsGrouped = (povId) => {
     const projects = [];
     const archivedIds = getArchivedIds();
-    const d2 = POV_DATA[povId] || POV_DATA.founder;
-    if (d2.objective && d2.objective.title) {
-      projects.push({
-        id: "povdata_default",
-        title: d2.objective.title,
-        isDefault: true,
-        objectives: [{ id: "povdata_obj", title: d2.objective.title, period: d2.objective.period, krs: d2.objective.keyResults || [] }],
-      });
-    }
+    // V2: Main Quest wird NICHT angezeigt (ist bereits in der Sidebar)
     try {
       const projs = JSON.parse(LS.getItem("lifeos_custom_projects") || "[]");
       projs.filter(p => p.pov === povId && !archivedIds.has(p.id)).forEach(proj => {
