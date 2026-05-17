@@ -1327,46 +1327,69 @@ function Planner() {
                       {DAY_KEYS[selDay]} {dispWeek.days[selDay] && dispWeek.days[selDay].n}. {dispWeek.days[selDay] && dispWeek.days[selDay].monthShort}
                     </span>
                   </div>
-                  <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                    {distProjs.map(function(proj) {
-                      var w = getProjWeights(proj.id)[selDay];
-                      var hrs = proj.hoursPerWeek * w;
-                      if (hrs < 0.05) return null;
-                      var hrsLabel = hrs % 1 === 0 ? hrs.toFixed(0) + "h" : hrs.toFixed(1) + "h";
-                      return (
-                        <div key={proj.id} style={{ minWidth:0 }}>
-                          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
-                            <span style={{ fontSize:11, fontWeight:600, color:"var(--text)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{proj.title}</span>
-                            <span className="mono" style={{ fontSize:11, fontWeight:700, color:"var(--accent)", flexShrink:0, marginLeft:8 }}>{hrsLabel}</span>
-                          </div>
-                          <div style={{ height:3, background:"var(--line-soft)", overflow:"hidden" }}>
-                            <div style={{ height:"100%", width:(w*100)+"%", background:"var(--accent)", opacity:0.6, transition:"width .3s ease" }} />
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
                     {(function() {
-                      var plannedHrs = planHoursPerDay[selDay];
-                      var blockedMins = dayBlocks.reduce(function(s,b){ return s + minsFromStr(b.end) - minsFromStr(b.start); }, 0);
-                      var blockedHrs = blockedMins / 60;
-                      var pct = plannedHrs > 0 ? Math.min(1, blockedHrs / plannedHrs) : 0;
-                      var over = blockedHrs > plannedHrs;
-                      var fmtH = function(h){ return h % 1 === 0 ? h.toFixed(0) + "h" : h.toFixed(1) + "h"; };
+                      var fmtH = function(h){ return h < 0.05 ? "0h" : h % 1 === 0 ? h.toFixed(0) + "h" : h.toFixed(1) + "h"; };
+                      // Projects active today (have planned hours)
+                      var activeProjs = distProjs.filter(function(p){ return getProjWeights(p.id)[selDay] * p.hoursPerWeek >= 0.05; });
+                      var activeCount = activeProjs.length || 1;
+                      // "Alle"-block minutes split equally among active projects
+                      var alleMinsTotal = dayBlocks.reduce(function(s,b){
+                        return b.bucket === "alle" ? s + minsFromStr(b.end) - minsFromStr(b.start) : s;
+                      }, 0);
+                      var alleMinsPerProj = alleMinsTotal / activeCount;
+
+                      var totalPlanned = 0, totalBlocked = 0;
+                      var rows = distProjs.map(function(proj) {
+                        var w = getProjWeights(proj.id)[selDay];
+                        var plannedHrs = proj.hoursPerWeek * w;
+                        if (plannedHrs < 0.05) return null;
+                        // Direct blocks for this project's POV
+                        var directMins = dayBlocks.reduce(function(s,b){
+                          return b.bucket === proj.pov ? s + minsFromStr(b.end) - minsFromStr(b.start) : s;
+                        }, 0);
+                        var blockedHrs = (directMins + alleMinsPerProj) / 60;
+                        var pct = Math.min(1, blockedHrs / plannedHrs);
+                        var over = blockedHrs > plannedHrs + 0.05;
+                        totalPlanned += plannedHrs;
+                        totalBlocked += blockedHrs;
+                        var barColor = over ? "var(--warn)" : pct >= 0.8 ? "var(--good)" : "var(--accent)";
+                        var valColor = over ? "var(--warn)" : pct >= 1 ? "var(--good)" : "var(--text)";
+                        return (
+                          <div key={proj.id} style={{ minWidth:0 }}>
+                            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:3 }}>
+                              <span style={{ fontSize:10.5, fontWeight:600, color:"var(--text)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1, minWidth:0 }}>{proj.title}</span>
+                              <span className="mono" style={{ fontSize:10.5, fontWeight:700, color:valColor, flexShrink:0, marginLeft:8 }}>
+                                {fmtH(blockedHrs)}<span style={{ fontWeight:400, color:"var(--text-faint)" }}> / {fmtH(plannedHrs)}</span>
+                              </span>
+                            </div>
+                            <div style={{ height:4, background:"var(--line-soft)", overflow:"hidden" }}>
+                              <div style={{ height:"100%", width:(pct*100)+"%", background:barColor, transition:"width .3s ease" }} />
+                            </div>
+                          </div>
+                        );
+                      });
+
+                      var totalPct = totalPlanned > 0 ? Math.min(1, totalBlocked / totalPlanned) : 0;
+                      var totalOver = totalBlocked > totalPlanned + 0.05;
                       return (
-                        <div style={{ paddingTop:10, borderTop:"1px solid var(--line-soft)" }}>
-                          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:5 }}>
-                            <span style={{ fontSize:9.5, letterSpacing:"0.12em", fontWeight:700, color:"var(--text-faint)" }}>GEBLOCKT</span>
-                            <span className="mono" style={{ fontSize:12, fontWeight:700, color: over ? "var(--warn)" : pct >= 1 ? "var(--good)" : "var(--text)" }}>
-                              {fmtH(blockedHrs)}<span style={{ fontSize:9, fontWeight:400, color:"var(--text-faint)" }}> / {fmtH(plannedHrs)}</span>
-                            </span>
+                        <React.Fragment>
+                          {rows}
+                          <div style={{ paddingTop:8, borderTop:"1px solid var(--line-soft)" }}>
+                            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:4 }}>
+                              <span style={{ fontSize:9.5, letterSpacing:"0.12em", fontWeight:700, color:"var(--text-faint)" }}>GESAMT</span>
+                              <span className="mono" style={{ fontSize:11.5, fontWeight:700, color: totalOver ? "var(--warn)" : totalPct >= 1 ? "var(--good)" : "var(--text)" }}>
+                                {fmtH(totalBlocked)}<span style={{ fontSize:9, fontWeight:400, color:"var(--text-faint)" }}> / {fmtH(totalPlanned)}</span>
+                              </span>
+                            </div>
+                            <div style={{ height:5, background:"var(--line-soft)", overflow:"hidden" }}>
+                              <div style={{ height:"100%", width:(totalPct*100)+"%", background: totalOver ? "var(--warn)" : totalPct >= 0.8 ? "var(--good)" : "var(--accent)", transition:"width .3s ease" }} />
+                            </div>
+                            <div style={{ marginTop:4, fontSize:9, color: totalOver ? "var(--warn)" : totalPct >= 1 ? "var(--good)" : "var(--text-faint)", textAlign:"right" }}>
+                              {totalOver ? "+" + fmtH(totalBlocked - totalPlanned) + " überbucht" : totalPct >= 1 ? "Pensum voll verplant" : fmtH(totalPlanned - totalBlocked) + " noch offen"}
+                            </div>
                           </div>
-                          <div style={{ height:5, background:"var(--line-soft)", overflow:"hidden" }}>
-                            <div style={{ height:"100%", width:(pct*100)+"%", background: over ? "var(--warn)" : pct >= 0.8 ? "var(--good)" : "var(--accent)", transition:"width .3s ease" }} />
-                          </div>
-                          <div style={{ marginTop:4, fontSize:9, color: over ? "var(--warn)" : pct >= 1 ? "var(--good)" : "var(--text-faint)", textAlign:"right" }}>
-                            {over ? "+" + fmtH(blockedHrs - plannedHrs) + " überbucht" : pct >= 1 ? "Pensum voll verplant" : fmtH(plannedHrs - blockedHrs) + " noch offen"}
-                          </div>
-                        </div>
+                        </React.Fragment>
                       );
                     })()}
                   </div>
