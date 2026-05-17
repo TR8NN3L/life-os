@@ -746,15 +746,39 @@ function DashboardV2({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
     doneToastTimer.current = setTimeout(() => setDoneToast(null), 2200);
   };
 
+  const [justDone, setJustDone] = React.useState(null);
   const toggleDone = (id) => setDoneTasks(prev => {
     const next = new Set(prev);
     next.has(id) ? next.delete(id) : next.add(id);
     if (next.has(id)) {
       window.TUTORIAL?.onAction?.('task-checked-' + id);
       showDoneToast();
+      // Done-Animation: grüner Flash für 700ms
+      setJustDone(id);
+      setTimeout(() => setJustDone(j => j === id ? null : j), 700);
     }
     return next;
   });
+
+  // ── Wöchentliche Zeit pro Task aus localStorage ──────────────────────────
+  const weeklyTaskSecs = React.useMemo(() => {
+    const result = {};
+    const now = new Date();
+    const dow = now.getDay();
+    const diff = dow === 0 ? -6 : 1 - dow;
+    const mon = new Date(now); mon.setDate(now.getDate() + diff); mon.setHours(0,0,0,0);
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(mon); d.setDate(mon.getDate() + i);
+      const key = "lifeos_daily_" + d.toISOString().slice(0, 10);
+      try {
+        const log = JSON.parse(LS.getItem(key) || "{}");
+        Object.entries(log).forEach(([tid, secs]) => {
+          result[tid] = (result[tid] || 0) + secs;
+        });
+      } catch {}
+    }
+    return result;
+  }, [taskTimes]);
 
   // KR filter: null = alle, "kr1" etc = nur Tasks dieses KR
   const [activeKR, setActiveKR] = React.useState(null);
@@ -1190,12 +1214,14 @@ function DashboardV2({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
                     : i === 0 ? "1px solid var(--line-soft)" : "none",
                   borderBottom: "1px solid var(--line-soft)",
                   opacity: isDone ? 0.35 : isSideQuest ? 0.6 : dragIdx === i ? 0.4 : 1,
-                  transition: "opacity .15s",
+                  transition: "opacity .15s, background .1s",
                   cursor: "grab",
+                  background: justDone === t.id ? "rgba(16,185,129,0.12)" : "transparent",
+                  animation: justDone === t.id ? "lifeosDoneFlash 0.7s ease-out forwards" : "none",
                 }}>
               <div style={{
                 display: "grid",
-                gridTemplateColumns: "32px 1fr auto auto auto auto",
+                gridTemplateColumns: "32px 1fr auto auto auto auto auto",
                 alignItems: "center",
                 gap: 18, padding: "16px 0",
               }}>
@@ -1262,6 +1288,17 @@ function DashboardV2({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
                     </div>
                   )}
                 </div>
+                {/* Wöchentliche Zeit-Badge */}
+                {(() => {
+                  const secs = (weeklyTaskSecs[t.id] || 0) + (weeklyTaskSecs["free_" + t.id] || 0);
+                  if (secs < 60) return <span />;
+                  const h = secs / 3600;
+                  return (
+                    <span className="mono" style={{ fontSize: 10.5, color: "var(--text-faint)", whiteSpace: "nowrap", letterSpacing: "0.04em" }}>
+                      {h >= 1 ? h.toFixed(1) + "h" : Math.round(secs / 60) + "min"} KW
+                    </span>
+                  );
+                })()}
                 {editingTimeId === t.id ? (
                   <input
                     autoFocus
@@ -1416,6 +1453,29 @@ function DashboardV2({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
 
         {/* Inbox — quick capture items */}
         </div>{/* end scrollable tasks */}
+
+        {/* Keyboard Shortcuts Hint */}
+        <div style={{
+          flexShrink: 0, borderTop: "1px solid var(--line-soft)",
+          padding: "7px 28px", display: "flex", gap: 20, alignItems: "center",
+          background: "var(--bg)",
+        }}>
+          {[
+            ["SPACE", activeTaskId ? "Pause" : "Start"],
+            ["ESC", "Focus verlassen"],
+            ["↕", "Task verschieben"],
+          ].map(([key, label]) => (
+            <span key={key} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <kbd style={{
+                fontSize: 9, fontFamily: "'JetBrains Mono',monospace", fontWeight: 700,
+                background: "var(--panel)", border: "1px solid var(--line)",
+                color: "var(--text-faint)", padding: "2px 6px", borderRadius: 3,
+                letterSpacing: "0.04em",
+              }}>{key}</kbd>
+              <span style={{ fontSize: 9.5, color: "var(--text-faint)", letterSpacing: "0.06em" }}>{label}</span>
+            </span>
+          ))}
+        </div>
         </div>{/* end left column */}
 
         {/* Right 40%: Rings + BehaviorStrip */}
