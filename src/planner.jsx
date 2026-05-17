@@ -1345,12 +1345,30 @@ function Planner() {
                         </div>
                       );
                     })}
-                    <div style={{ paddingTop:8, borderTop:"1px solid var(--line-soft)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                      <span style={{ fontSize:9.5, letterSpacing:"0.12em", fontWeight:700, color:"var(--text-faint)" }}>GESAMT</span>
-                      <span className="mono" style={{ fontSize:12, fontWeight:700, color:"var(--text)" }}>
-                        {planHoursPerDay[selDay] % 1 === 0 ? planHoursPerDay[selDay].toFixed(0) + "h" : planHoursPerDay[selDay].toFixed(1) + "h"}
-                      </span>
-                    </div>
+                    {(function() {
+                      var plannedHrs = planHoursPerDay[selDay];
+                      var blockedMins = dayBlocks.reduce(function(s,b){ return s + minsFromStr(b.end) - minsFromStr(b.start); }, 0);
+                      var blockedHrs = blockedMins / 60;
+                      var pct = plannedHrs > 0 ? Math.min(1, blockedHrs / plannedHrs) : 0;
+                      var over = blockedHrs > plannedHrs;
+                      var fmtH = function(h){ return h % 1 === 0 ? h.toFixed(0) + "h" : h.toFixed(1) + "h"; };
+                      return (
+                        <div style={{ paddingTop:10, borderTop:"1px solid var(--line-soft)" }}>
+                          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:5 }}>
+                            <span style={{ fontSize:9.5, letterSpacing:"0.12em", fontWeight:700, color:"var(--text-faint)" }}>GEBLOCKT</span>
+                            <span className="mono" style={{ fontSize:12, fontWeight:700, color: over ? "var(--warn)" : pct >= 1 ? "var(--good)" : "var(--text)" }}>
+                              {fmtH(blockedHrs)}<span style={{ fontSize:9, fontWeight:400, color:"var(--text-faint)" }}> / {fmtH(plannedHrs)}</span>
+                            </span>
+                          </div>
+                          <div style={{ height:5, background:"var(--line-soft)", overflow:"hidden" }}>
+                            <div style={{ height:"100%", width:(pct*100)+"%", background: over ? "var(--warn)" : pct >= 0.8 ? "var(--good)" : "var(--accent)", transition:"width .3s ease" }} />
+                          </div>
+                          <div style={{ marginTop:4, fontSize:9, color: over ? "var(--warn)" : pct >= 1 ? "var(--good)" : "var(--text-faint)", textAlign:"right" }}>
+                            {over ? "+" + fmtH(blockedHrs - plannedHrs) + " überbucht" : pct >= 1 ? "Pensum voll verplant" : fmtH(plannedHrs - blockedHrs) + " noch offen"}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div style={{ marginTop:10, display:"flex", justifyContent:"flex-end" }}>
                     <button onClick={function(){setShowDistModal(true);}} style={{ background:"transparent", border:"1px solid var(--line)", color:"var(--text-faint)", fontSize:9, letterSpacing:"0.14em", fontWeight:700, cursor:"pointer", padding:"4px 10px", display:"flex", alignItems:"center", gap:5 }}>
