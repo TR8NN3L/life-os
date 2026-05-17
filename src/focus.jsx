@@ -245,13 +245,13 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
       {/* ── Free Flow Canvas ── */}
       {freeMode && (
         <div style={{
-          flex: 1, margin: "0 28px 28px", background: "#000",
+          flex: 1, margin: "0 28px 28px", background: "var(--focus-bg)",
           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
           position: "relative", border: "1px solid var(--line)",
         }}>
           {freeRunning && (
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none",
-              background: "radial-gradient(ellipse 60% 55% at 50% 52%, transparent 0%, rgba(0,0,0,0.72) 100%)" }} />
+              background: "radial-gradient(ellipse 60% 55% at 50% 52%, transparent 0%, var(--focus-vignette) 100%)" }} />
           )}
 
           {/* Note modal (post-session) */}
@@ -397,7 +397,7 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
 
       {/* ── Task Canvas ── */}
       {!freeMode && <div data-tutorial="focus-canvas" style={{
-        flex: 1, margin: "0 28px 28px", background: "#000",
+        flex: 1, margin: "0 28px 28px", background: "var(--focus-bg)",
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
         position: "relative", border: "1px solid var(--line)",
       }}>
@@ -405,7 +405,7 @@ function FocusScreen({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
         {isRunning && (
           <div style={{
             position: "absolute", inset: 0, pointerEvents: "none",
-            background: "radial-gradient(ellipse 60% 55% at 50% 52%, transparent 0%, rgba(0,0,0,0.72) 100%)",
+            background: "radial-gradient(ellipse 60% 55% at 50% 52%, transparent 0%, var(--focus-vignette) 100%)",
           }} />
         )}
 

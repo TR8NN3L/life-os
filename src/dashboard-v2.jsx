@@ -58,13 +58,13 @@ function ActivityRings({ pov, taskTimes }) {
   const todayLabel = new Date().toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "short" });
 
   return (
-    <div style={{ padding: "14px 28px", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "center", gap: 24, background: "rgba(255,255,255,0.01)" }}>
+    <div style={{ padding: "14px 28px", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "center", gap: 24, background: "var(--panel)" }}>
       {/* SVG concentric rings — Apple Watch style */}
       <div style={{ flexShrink: 0, position: "relative" }}>
         <svg width={SVG_SIZE} height={SVG_SIZE} viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}>
           <defs>
             <filter id="aw-tip-shadow-lg" x="-80%" y="-80%" width="260%" height="260%">
-              <feDropShadow dx="0" dy="0" stdDeviation="3.5" floodColor="rgba(0,0,0,0.9)" />
+              <feDropShadow dx="0" dy="0" stdDeviation="3.5" floodColor="var(--drop-shadow)" />
             </filter>
             <filter id="aw-glow-lg" x="-60%" y="-60%" width="220%" height="220%">
               <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur"/>
@@ -143,7 +143,7 @@ function ActivityRings({ pov, taskTimes }) {
                     {done ? "✓ DONE" : `${hrs}h / ${target}h`}
                   </span>
                 </div>
-                <div style={{ height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+                <div style={{ height: 3, background: "var(--ring-track)", borderRadius: 2, overflow: "hidden" }}>
                   <div style={{ height: "100%", background: proj.color, width: `${pct}%`, borderRadius: 2, transition: "width 0.5s ease", boxShadow: done ? `0 0 8px ${proj.color}` : "none" }} />
                 </div>
               </div>
@@ -389,11 +389,11 @@ function V2StatsPanel({ taskTimes, pov }) {
         <svg width={SZ} height={SZ} viewBox={"0 0 " + SZ + " " + SZ} style={{ flexShrink: 0 }}>
           <defs>
             <filter id="v2-shadow" x="-80%" y="-80%" width="260%" height="260%">
-              <feDropShadow dx="0" dy="0" stdDeviation="2.5" floodColor="rgba(0,0,0,0.9)" />
+              <feDropShadow dx="0" dy="0" stdDeviation="2.5" floodColor="var(--drop-shadow)" />
             </filter>
           </defs>
           {ringProjs.length === 0 ? (
-            <circle cx={cx} cy={cy} r={baseR} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={RW} />
+            <circle cx={cx} cy={cy} r={baseR} fill="none" stroke="var(--ring-track)" strokeWidth={RW} />
           ) : ringProjs.map((proj, i) => {
             const r = baseR - i * (RW + GAP);
             if (r < RW / 2) return null;
@@ -521,7 +521,7 @@ function V2StatsPanel({ taskTimes, pov }) {
                 )}
                 <rect x={x} y={pT + iH - Math.max(ph, 0.5)} width={bw} height={Math.max(ph, 0.5)}
                   fill="transparent"
-                  stroke={isToday ? "var(--accent)" : isFuture ? "rgba(255,255,255,0.12)" : "var(--text-dim)"}
+                  stroke={isToday ? "var(--accent)" : isFuture ? "var(--chart-future)" : "var(--text-dim)"}
                   strokeWidth={isToday ? 1.5 : 0.8}
                   strokeDasharray={isFuture ? "3 2" : "none"} />
                 <text x={x + bw / 2} y={CH - 3} fontSize="6.5" textAnchor="middle"
@@ -950,7 +950,7 @@ function DashboardV2({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
               <button onClick={() => setOpenProjects(prev => { const n = new Set(prev); n.has(proj.id) ? n.delete(proj.id) : n.add(proj.id); return n; })}
                 style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
                   padding: "9px 12px",
-                  background: projHasActiveKR ? "var(--accent-soft)" : isProjOpen ? "rgba(255,255,255,0.04)" : "transparent",
+                  background: projHasActiveKR ? "var(--accent-soft)" : isProjOpen ? "var(--subtle-bg)" : "transparent",
                   border: "1px solid " + (projHasActiveKR ? "var(--accent-line)" : isProjOpen ? "var(--line)" : "var(--line-soft)"),
                   cursor: "pointer", fontFamily: "inherit", textAlign: "left", transition: "all .15s",
                 }}>
@@ -967,7 +967,7 @@ function DashboardV2({ pov, activeTaskId, setActiveTaskId, taskTimes, setTaskTim
                       <div key={obj.id} style={{ borderBottom: "1px solid var(--line-soft)" }}>
                         <button onClick={() => setOpenObjectives(prev => { const n = new Set(prev); n.has(obj.id) ? n.delete(obj.id) : n.add(obj.id); return n; })}
                           style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-                            padding: "8px 12px", background: objHasActiveKR ? "var(--accent-soft)" : isObjOpen ? "rgba(255,255,255,0.03)" : "transparent",
+                            padding: "8px 12px", background: objHasActiveKR ? "var(--accent-soft)" : isObjOpen ? "var(--subtle-bg)" : "transparent",
                             border: "none", cursor: "pointer", fontFamily: "inherit", textAlign: "left",
                           }}>
                           <div style={{ flex: 1, marginRight: 6 }}>
@@ -1997,7 +1997,7 @@ function StatsPanel({ taskTimes, pov }) {
         <svg width={SVG_SIZE} height={SVG_SIZE} viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`} style={{ flexShrink: 0 }}>
           <defs>
             <filter id="aw-tip-shadow-sm" x="-80%" y="-80%" width="260%" height="260%">
-              <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="rgba(0,0,0,0.92)" />
+              <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="var(--drop-shadow)" />
             </filter>
             <filter id="aw-glow-sm" x="-60%" y="-60%" width="220%" height="220%">
               <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
@@ -2006,7 +2006,7 @@ function StatsPanel({ taskTimes, pov }) {
           </defs>
           {ringProjects.length === 0 ? (
             <>
-              <circle cx={cx} cy={cy} r={baseRadius} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={RING_W} />
+              <circle cx={cx} cy={cy} r={baseRadius} fill="none" stroke="var(--ring-track)" strokeWidth={RING_W} />
               <text x={cx} y={cy + 4} textAnchor="middle" fill="var(--text-faint)" fontSize={9} fontFamily="'Inter',sans-serif">–</text>
             </>
           ) : ringProjects.map((proj, i) => {
@@ -2175,7 +2175,7 @@ function StatsPanel({ taskTimes, pov }) {
                 )}
                 <rect x={x} y={padT + innerH - Math.max(ph, 0.5)} width={bw} height={Math.max(ph, 0.5)}
                   fill="transparent"
-                  stroke={isToday ? "var(--accent)" : isFuture ? "rgba(255,255,255,0.15)" : "var(--text-dim)"}
+                  stroke={isToday ? "var(--accent)" : isFuture ? "var(--chart-future)" : "var(--text-dim)"}
                   strokeWidth={isToday ? 1.5 : 0.8}
                   strokeDasharray={isFuture ? "3 2" : "none"} />
                 {planPerDay[i] > 0 && (
@@ -2199,7 +2199,7 @@ function StatsPanel({ taskTimes, pov }) {
         {editMode && tableProjs.filter(p => p.hoursPerWeek > 0).length > 0 && (
           <div
             onClick={() => setEditMode(false)}
-            style={{ position: "fixed", inset: 0, zIndex: 900, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center" }}
+            style={{ position: "fixed", inset: 0, zIndex: 900, background: "var(--modal-overlay)", display: "flex", alignItems: "center", justifyContent: "center" }}
           >
             <div
               onClick={e => e.stopPropagation()}
@@ -2363,7 +2363,7 @@ function TruthLoop({ truthPlan, setTruthPlan }) {
                 onMouseEnter={() => setHl(id)}
                 onMouseLeave={() => setHl("both")}
                 style={{
-                  padding: "4px 12px", background: active ? "rgba(255,255,255,0.06)" : "transparent",
+                  padding: "4px 12px", background: active ? "var(--hover-bg)" : "transparent",
                   cursor: "pointer",
                   border: `1px solid ${active ? "var(--text-dim)" : "var(--line)"}`,
                   color: active ? "var(--text)" : "var(--text-faint)",
